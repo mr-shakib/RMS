@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { tableService } from '../services';
 import { authenticate, requireRole } from '../middleware/auth';
 import { ValidationError, NotFoundError } from '../errors/AppError';
+import { emitTableUpdated } from '../websocket';
 
 const router = Router();
 
@@ -62,6 +63,9 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 
     const table = await tableService.createTable({ name: name.trim() });
 
+    // Broadcast table:updated event via WebSocket
+    emitTableUpdated(table);
+
     res.status(201).json({
       status: 'success',
       data: {
@@ -103,7 +107,8 @@ router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res:
 
     const table = await tableService.updateTable(tableId, updateData);
 
-    // TODO: Broadcast table:updated event via WebSocket
+    // Broadcast table:updated event via WebSocket
+    emitTableUpdated(table);
 
     res.status(200).json({
       status: 'success',

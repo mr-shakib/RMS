@@ -1,3 +1,3 @@
 // Shared types and utilities
 export * from './types';
-export * from './types/enums';
+export * from './enums';

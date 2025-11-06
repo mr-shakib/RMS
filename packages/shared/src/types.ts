@@ -129,4 +129,6 @@ export interface ClientEvents {
   'subscribe:tables': () => void;
   'subscribe:kds': () => void;
   'unsubscribe:orders': () => void;
+  'unsubscribe:tables': () => void;
+  'unsubscribe:kds': () => void;
 }

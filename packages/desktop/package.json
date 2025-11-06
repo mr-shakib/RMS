@@ -18,6 +18,7 @@
     "clean": "rimraf .next dist out"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@rms/shared": "*",
     "@tanstack/react-query": "^5.17.9",
     "next": "^14.0.4",
@@ -54,11 +55,15 @@
       "package.json"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "public/icon.ico"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "public/icon.icns",
       "category": "public.app-category.business"
     }
