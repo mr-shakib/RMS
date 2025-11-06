@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Can be switched to "postgresql" by changing this value
+  url      = env("DATABASE_URL")
+}
+
+// Models
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // bcrypt hashed
+  role      String   @default("WAITER") // ADMIN, WAITER, CHEF
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Table {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  qrCodeUrl String
+  status    String   @default("FREE") // FREE, OCCUPIED, RESERVED
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  category    String
+  price       Float       // Stored as Float for SQLite compatibility
+  description String?
+  imageUrl    String?
+  available   Boolean     @default(true)
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([category])
+  @@index([available])
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  tableId       Int
+  table         Table       @relation(fields: [tableId], references: [id])
+  status        String      @default("PENDING") // PENDING, PREPARING, READY, SERVED, PAID, CANCELLED
+  subtotal      Float
+  tax           Float
+  discount      Float       @default(0)
+  serviceCharge Float       @default(0)
+  tip           Float       @default(0)
+  total         Float
+  items         OrderItem[]
+  payment       Payment?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tableId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Float
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+  amount    Float
+  method    String   // CASH, CARD, WALLET
+  reference String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Test Client</title>
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 20px; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      min-height: 100vh;
+    }
+    .container { 
+      max-width: 900px; 
+      margin: 0 auto; 
+      background: white; 
+      padding: 30px; 
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 { 
+      color: #333; 
+      margin-top: 0;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    input, button { 
+      padding: 12px; 
+      margin: 5px; 
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    input { 
+      width: calc(100% - 200px); 
+      font-family: monospace;
+    }
+    button { 
+      background: #667eea; 
+      color: white; 
+      border: none; 
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    button:hover { 
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    .button-group {
+      margin: 15px 0;
+    }
+    .button-group button {
+      margin: 5px;
+    }
+    .events { 
+      margin-top: 20px; 
+      padding: 15px; 
+      background: #f8f9fa; 
+      border-radius: 8px; 
+      max-height: 500px; 
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+    }
+    .event { 
+      padding: 12px; 
+      margin: 8px 0; 
+      background: white; 
+      border-left: 4px solid #667eea; 
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .event strong {
+      color: #667eea;
+    }
+    .event-order { border-left-color: #28a745; }
+    .event-table { border-left-color: #ffc107; }
+    .event-menu { border-left-color: #17a2b8; }
+    .event-payment { border-left-color: #28a745; }
+    .event-system { border-left-color: #6c757d; }
+    .event-error { border-left-color: #dc3545; }
+    .status { 
+      padding: 15px; 
+      margin: 15px 0; 
+      border-radius: 8px;
+      font-weight: 600;
+      text-align: center;
+      font-size: 16px;
+    }
+    .connected { 
+      background: #d4edda; 
+      color: #155724;
+      border: 2px solid #28a745;
+    }
+    .disconnected { 
+      background: #f8d7da; 
+      color: #721c24;
+      border: 2px solid #dc3545;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .section h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    .badge-success { background: #28a745; color: white; }
+    .badge-warning { background: #ffc107; color: #333; }
+    .badge-info { background: #17a2b8; color: white; }
+    .badge-danger { background: #dc3545; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔌 WebSocket Test Client</h1>
+    
+    <div class="section">
+      <label><strong>JWT Token:</strong></label><br>
+      <input type="text" id="token" placeholder="Paste your JWT token here (get it from Postman or run: .\test-websocket.ps1)">
+      <button onclick="connect()">🔗 Connect</button>
+      <button onclick="disconnect()" style="background: #dc3545;">❌ Disconnect</button>
+    </div>
+
+    <div id="status" class="status disconnected">
+      ❌ Disconnected - Enter token and click Connect
+    </div>
+
+    <div class="section">
+      <h3>📡 Subscribe to Rooms:</h3>
+      <div class="button-group">
+        <button onclick="subscribe('orders')">📦 Orders Room</button>
+        <button onclick="subscribe('tables')">🪑 Tables Room</button>
+        <button onclick="subscribe('kds')">👨‍🍳 KDS Room</button>
+        <button onclick="subscribeTable()">🪑 Specific Table</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>📊 Events Log:</h3>
+      <button onclick="clearEvents()" style="background: #6c757d;">🗑️ Clear Log</button>
+      <button onclick="exportEvents()" style="background: #17a2b8;">💾 Export</button>
+      <div id="events" class="events">
+        <p style="text-align: center; color: #999;">
+          No events yet. Connect and subscribe to rooms to see real-time events.<br><br>
+          <strong>How to trigger events:</strong><br>
+          1. Use Postman to create orders, update tables, etc.<br>
+          2. Or run: <code>node test-websocket-trigger.js YOUR_TOKEN</code>
+        </p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>ℹ️ Instructions:</h3>
+      <ol>
+        <li>Get a JWT token:
+          <ul>
+            <li>Run PowerShell: <code>.\test-websocket.ps1</code></li>
+            <li>Or use Postman: POST to <code>http://localhost:5000/api/auth/login</code></li>
+          </ul>
+        </li>
+        <li>Paste the token above and click <strong>Connect</strong></li>
+        <li>Subscribe to rooms you want to monitor</li>
+        <li>Trigger events using Postman or the trigger script</li>
+        <li>Watch real-time events appear below!</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    let eventLog = [];
+
+    function connect() {
+      const token = document.getElementById('token').value.trim();
+      if (!token) {
+        alert('⚠️ Please enter a JWT token first!\n\nGet one by:\n1. Running: .\\test-websocket.ps1\n2. Or using Postman to login');
+        return;
+      }
+
+      if (socket && socket.connected) {
+        alert('Already connected! Disconnect first if you want to reconnect.');
+        return;
+      }
+
+      updateStatus('🔄 Connecting...', 'disconnected');
+
+      socket = io('http://localhost:5000', {
+        auth: { token }
+      });
+
+      socket.on('connect', () => {
+        updateStatus('✅ Connected to WebSocket Server', 'connected');
+        addEvent('system', 'System', 'Connected to WebSocket server', { 
+          socketId: socket.id,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      socket.on('connect_error', (error) => {
+        updateStatus('❌ Connection Error: ' + error.message, 'disconnected');
+        addEvent('error', 'Connection Error', error.message, { 
+          error: error.message,
+          hint: error.message.includes('Authentication') ? 'Check if your token is valid and not expired' : 'Make sure the server is running'
+        });
+      });
+
+      socket.on('disconnect', (reason) => {
+        updateStatus('❌ Disconnected: ' + reason, 'disconnected');
+        addEvent('system', 'System', 'Disconnected from server', { reason });
+      });
+
+      // Order events
+      socket.on('order:created', (order) => {
+        addEvent('order', 'Order Created', 
+          `Order ${order.id.substring(0, 8)}... created for Table ${order.tableId} - Status: ${order.status} - Total: $${order.total.toFixed(2)}`, 
+          order);
+      });
+
+      socket.on('order:updated', (order) => {
+        addEvent('order', 'Order Updated', 
+          `Order ${order.id.substring(0, 8)}... updated - Status: ${order.status} - Total: $${order.total.toFixed(2)}`, 
+          order);
+      });
+
+      socket.on('order:cancelled', (data) => {
+        addEvent('order', 'Order Cancelled', 
+          `Order ${data.orderId.substring(0, 8)}... cancelled for Table ${data.tableId}`, 
+          data);
+      });
+
+      // Table events
+      socket.on('table:updated', (table) => {
+        addEvent('table', 'Table Updated', 
+          `${table.name} - Status: ${table.status}`, 
+          table);
+      });
+
+      // Menu events
+      socket.on('menu:updated', (menuItem) => {
+        addEvent('menu', 'Menu Updated', 
+          `${menuItem.name} - ${menuItem.category} - $${menuItem.price.toFixed(2)} - Available: ${menuItem.available ? 'Yes' : 'No'}`, 
+          menuItem);
+      });
+
+      // Payment events
+      socket.on('payment:completed', (payment) => {
+        addEvent('payment', 'Payment Completed', 
+          `Payment ${payment.id.substring(0, 8)}... - Amount: $${payment.amount.toFixed(2)} - Method: ${payment.method}`, 
+          payment);
+      });
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        updateStatus('❌ Disconnected', 'disconnected');
+      } else {
+        alert('Not connected');
+      }
+    }
+
+    function subscribe(room) {
+      if (!socket || !socket.connected) {
+        alert('⚠️ Please connect first!');
+        return;
+      }
+      socket.emit(`subscribe:${room}`);
+      addEvent('system', 'Subscription', `Subscribed to ${room} room`, { room });
+    }
+
+    function subscribeTable() {
+      if (!socket || !socket.connected) {
+        alert('⚠️ Please connect first!');
+        return;
+      }
+      const tableId = prompt('Enter table ID (1-5):', '1');
+      if (tableId) {
+        socket.emit('subscribe:table', parseInt(tableId));
+        addEvent('system', 'Subscription', `Subscribed to table:${tableId} room`, { tableId });
+      }
+    }
+
+    function updateStatus(message, className) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + className;
+    }
+
+    function addEvent(type, title, message, data) {
+      const events = document.getElementById('events');
+      const event = document.createElement('div');
+      event.className = 'event event-' + type;
+      
+      const time = new Date().toLocaleTimeString();
+      const badge = getBadge(type);
+      
+      event.innerHTML = `
+        <div>
+          <strong>[${time}] ${title}</strong>${badge}<br>
+          <span style="color: #555;">${message}</span><br>
+          <details style="margin-top: 8px;">
+            <summary style="cursor: pointer; color: #667eea; font-size: 12px;">View Details</summary>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </details>
+        </div>
+      `;
+      
+      // Remove placeholder if exists
+      const placeholder = events.querySelector('p');
+      if (placeholder) {
+        placeholder.remove();
+      }
+      
+      events.insertBefore(event, events.firstChild);
+      
+      // Store in log
+      eventLog.push({
+        timestamp: new Date().toISOString(),
+        type,
+        title,
+        message,
+        data
+      });
+    }
+
+    function getBadge(type) {
+      const badges = {
+        'order': '<span class="badge badge-success">ORDER</span>',
+        'table': '<span class="badge badge-warning">TABLE</span>',
+        'menu': '<span class="badge badge-info">MENU</span>',
+        'payment': '<span class="badge badge-success">PAYMENT</span>',
+        'system': '<span class="badge badge-info">SYSTEM</span>',
+        'error': '<span class="badge badge-danger">ERROR</span>'
+      };
+      return badges[type] || '';
+    }
+
+    function clearEvents() {
+      if (confirm('Clear all events from the log?')) {
+        document.getElementById('events').innerHTML = '<p style="text-align: center; color: #999;">Events cleared. Waiting for new events...</p>';
+        eventLog = [];
+      }
+    }
+
+    function exportEvents() {
+      if (eventLog.length === 0) {
+        alert('No events to export');
+        return;
+      }
+      
+      const dataStr = JSON.stringify(eventLog, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `websocket-events-${Date.now()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Auto-fill token from URL parameter if present
+    window.addEventListener('load', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      if (token) {
+        document.getElementById('token').value = token;
+      }
+    });
+  </script>
+</body>
+</html>

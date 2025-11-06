@@ -1,0 +1,29 @@
+{
+  "name": "restaurant-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Restaurant Management System with Electron, Next.js, and Express",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:desktop\"",
+    "dev:server": "npm run dev --workspace=packages/server",
+    "dev:desktop": "npm run dev --workspace=packages/desktop",
+    "build": "npm run build --workspaces",
+    "build:server": "npm run build --workspace=packages/server",
+    "build:desktop": "npm run build --workspace=packages/desktop",
+    "build:electron": "npm run build:electron --workspace=packages/desktop",
+    "package:win": "npm run package:win --workspace=packages/desktop",
+    "package:mac": "npm run package:mac --workspace=packages/desktop",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
