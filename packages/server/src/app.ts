@@ -9,6 +9,7 @@ import authRouter from './routes/auth';
 import ordersRouter from './routes/orders';
 import tablesRouter from './routes/tables';
 import menuRouter from './routes/menu';
+import categoriesRouter from './routes/categories';
 import paymentsRouter from './routes/payments';
 import reportsRouter from './routes/reports';
 import settingsRouter from './routes/settings';
@@ -63,6 +64,9 @@ export const createApp = (): Application => {
 
   // Menu management routes
   app.use('/api/menu', menuRouter);
+
+  // Category management routes
+  app.use('/api/categories', categoriesRouter);
 
   // Payment routes
   app.use('/api/payments', paymentsRouter);

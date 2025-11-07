@@ -4,7 +4,7 @@ import { emitMenuUpdated } from '../websocket';
 
 interface CreateMenuItemInput {
   name: string;
-  category: string;
+  categoryId: string;
   price: number;
   description?: string;
   imageUrl?: string;
@@ -13,7 +13,7 @@ interface CreateMenuItemInput {
 
 interface UpdateMenuItemInput {
   name?: string;
-  category?: string;
+  categoryId?: string;
   price?: number;
   description?: string;
   imageUrl?: string;
@@ -34,7 +34,7 @@ class MenuService {
     const where: any = {};
 
     if (filters?.category) {
-      where.category = filters.category;
+      where.categoryId = filters.category;
     }
 
     if (filters?.available !== undefined) {
@@ -50,7 +50,10 @@ class MenuService {
 
     const menuItems = await prisma.menuItem.findMany({
       where,
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      include: {
+        category: true,
+      },
+      orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
 
     return menuItems;
@@ -59,16 +62,19 @@ class MenuService {
   /**
    * Get only available menu items
    */
-  async getAvailableMenuItems(category?: string): Promise<MenuItem[]> {
+  async getAvailableMenuItems(categoryId?: string): Promise<MenuItem[]> {
     const where: any = { available: true };
 
-    if (category) {
-      where.category = category;
+    if (categoryId) {
+      where.categoryId = categoryId;
     }
 
     const menuItems = await prisma.menuItem.findMany({
       where,
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      include: {
+        category: true,
+      },
+      orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
 
     return menuItems;
@@ -80,6 +86,9 @@ class MenuService {
   async getMenuItemById(id: string): Promise<MenuItem | null> {
     const menuItem = await prisma.menuItem.findUnique({
       where: { id },
+      include: {
+        category: true,
+      },
     });
 
     return menuItem;
@@ -89,21 +98,30 @@ class MenuService {
    * Create a new menu item
    */
   async createMenuItem(input: CreateMenuItemInput): Promise<MenuItem> {
-    const { name, category, price, description, imageUrl, available = true } = input;
+    const { name, categoryId, price, description, imageUrl, available = true } = input;
 
     // Validate price
     if (price <= 0) {
       throw new Error('Price must be greater than 0');
     }
 
+    // Validate category exists
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      throw new Error(`Category with id ${categoryId} not found`);
+    }
+
     const menuItem = await prisma.menuItem.create({
       data: {
         name,
-        category,
+        categoryId,
         price,
         description,
         imageUrl,
         available,
+      },
+      include: {
+        category: true,
       },
     });
 
@@ -132,9 +150,20 @@ class MenuService {
       throw new Error('Price must be greater than 0');
     }
 
+    // Validate category if provided
+    if (input.categoryId) {
+      const category = await prisma.category.findUnique({ where: { id: input.categoryId } });
+      if (!category) {
+        throw new Error(`Category with id ${input.categoryId} not found`);
+      }
+    }
+
     const updatedMenuItem = await prisma.menuItem.update({
       where: { id },
       data: input,
+      include: {
+        category: true,
+      },
     });
 
     // Emit WebSocket event for menu update
@@ -192,6 +221,9 @@ class MenuService {
     const updatedMenuItem = await prisma.menuItem.update({
       where: { id },
       data: { available: !menuItem.available },
+      include: {
+        category: true,
+      },
     });
 
     // Emit WebSocket event for menu update
@@ -205,16 +237,14 @@ class MenuService {
   }
 
   /**
-   * Get all unique categories
+   * Get all unique categories (deprecated - use /api/categories instead)
    */
   async getCategories(): Promise<string[]> {
-    const menuItems = await prisma.menuItem.findMany({
-      select: { category: true },
-      distinct: ['category'],
-      orderBy: { category: 'asc' },
+    const categories = await prisma.category.findMany({
+      orderBy: { sortOrder: 'asc' },
     });
 
-    return menuItems.map((item) => item.category);
+    return categories.map((cat) => cat.name);
   }
 }
 

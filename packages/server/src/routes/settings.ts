@@ -90,14 +90,17 @@ router.post('/backup', async (req: Request, res: Response, next: NextFunction) =
     if (fs.existsSync(dbPath)) {
       fs.copyFileSync(dbPath, backupPath);
 
-      res.status(200).json({
-        status: 'success',
-        data: {
-          backupFile: backupFileName,
-          backupPath: backupPath,
-          timestamp: new Date().toISOString(),
-        },
-        message: 'Database backup created successfully',
+      // Send file as download
+      res.download(backupPath, backupFileName, (err) => {
+        if (err) {
+          console.error('Error downloading backup:', err);
+          if (!res.headersSent) {
+            res.status(500).json({
+              status: 'error',
+              message: 'Failed to download backup file',
+            });
+          }
+        }
       });
     } else {
       throw new Error('Database file not found');

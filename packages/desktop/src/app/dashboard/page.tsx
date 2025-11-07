@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useOrders } from '@/hooks/useOrders';
 import { useTables } from '@/hooks/useTables';
+import { useCurrency } from '@/hooks/useCurrency';
 import { apiClient } from '@/lib/apiClient';
 import { OrderStatus, TableStatus } from '@rms/shared';
 import type { MenuItem } from '@rms/shared';
@@ -61,6 +62,7 @@ interface TopItemsResponse {
 export default function DashboardPage() {
   const { orders } = useOrders();
   const { tables } = useTables();
+  const { formatCurrency } = useCurrency();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Fetch sales data
@@ -151,19 +153,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
           title="Daily Revenue"
-          value={`$${salesData?.daily.toFixed(2) || '0.00'}`}
+          value={formatCurrency(salesData?.daily || 0)}
           icon="📊"
           color="blue"
         />
         <MetricCard
           title="Weekly Revenue"
-          value={`$${salesData?.weekly.toFixed(2) || '0.00'}`}
+          value={formatCurrency(salesData?.weekly || 0)}
           icon="📈"
           color="green"
         />
         <MetricCard
           title="Monthly Revenue"
-          value={`$${salesData?.monthly.toFixed(2) || '0.00'}`}
+          value={formatCurrency(salesData?.monthly || 0)}
           icon="💰"
           color="purple"
         />
@@ -244,7 +246,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900 dark:text-white">
-                    ${item.revenue.toFixed(2)}
+                    {formatCurrency(item.revenue)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     revenue

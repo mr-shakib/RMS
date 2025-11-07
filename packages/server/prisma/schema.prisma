@@ -30,10 +30,23 @@ model Table {
   updatedAt DateTime @updatedAt
 }
 
+model Category {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  isBuffet  Boolean    @default(false) // Special flag for buffet categories
+  sortOrder Int        @default(0) // For custom ordering
+  menuItems MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([sortOrder])
+}
+
 model MenuItem {
   id          String      @id @default(uuid())
   name        String
-  category    String
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
   price       Float       // Stored as Float for SQLite compatibility
   description String?
   imageUrl    String?
@@ -42,7 +55,7 @@ model MenuItem {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  @@index([category])
+  @@index([categoryId])
   @@index([available])
 }
 

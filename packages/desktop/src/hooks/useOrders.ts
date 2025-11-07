@@ -11,7 +11,10 @@ export function useOrders() {
   // Fetch orders
   const { data: orders, isLoading, error, refetch } = useQuery<Order[]>({
     queryKey: ['orders'],
-    queryFn: () => apiClient.get<Order[]>('/orders'),
+    queryFn: async () => {
+      const response = await apiClient.get<{ status: string; data: { orders: Order[]; count: number } }>('/orders');
+      return response.data.orders;
+    },
   });
 
   // Subscribe to order updates via WebSocket
@@ -24,7 +27,7 @@ export function useOrders() {
     // Handle order created
     const handleOrderCreated = (order: Order) => {
       queryClient.setQueryData<Order[]>(['orders'], (old) => {
-        if (!old) return [order];
+        if (!old || !Array.isArray(old)) return [order];
         return [order, ...old];
       });
     };
@@ -32,7 +35,7 @@ export function useOrders() {
     // Handle order updated
     const handleOrderUpdated = (updatedOrder: Order) => {
       queryClient.setQueryData<Order[]>(['orders'], (old) => {
-        if (!old) return [updatedOrder];
+        if (!old || !Array.isArray(old)) return [updatedOrder];
         return old.map((order) => (order.id === updatedOrder.id ? updatedOrder : order));
       });
     };
@@ -40,7 +43,7 @@ export function useOrders() {
     // Handle order cancelled
     const handleOrderCancelled = (orderId: string) => {
       queryClient.setQueryData<Order[]>(['orders'], (old) => {
-        if (!old) return [];
+        if (!old || !Array.isArray(old)) return [];
         return old.filter((order) => order.id !== orderId);
       });
     };

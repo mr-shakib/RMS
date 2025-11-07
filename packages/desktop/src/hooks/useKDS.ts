@@ -11,7 +11,14 @@ export function useKDS() {
   // Fetch active kitchen orders (PENDING, PREPARING, READY)
   const { data: orders, isLoading, error, refetch } = useQuery<Order[]>({
     queryKey: ['kds-orders'],
-    queryFn: () => apiClient.get<Order[]>('/orders?status=PENDING,PREPARING,READY'),
+    queryFn: async () => {
+      const response = await apiClient.get<{ status: string; data: { orders: Order[]; count: number } }>('/orders');
+      // Filter for kitchen-relevant statuses on the client side
+      const allOrders = response.data.orders;
+      return allOrders.filter(order => 
+        ['PENDING', 'PREPARING', 'READY'].includes(order.status)
+      );
+    },
   });
 
   // Subscribe to KDS updates via WebSocket

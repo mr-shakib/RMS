@@ -19,11 +19,22 @@ export interface Table {
   updatedAt: Date;
 }
 
+// Category types
+export interface Category {
+  id: string;
+  name: string;
+  isBuffet: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Menu Item types
 export interface MenuItem {
   id: string;
   name: string;
-  category: string;
+  categoryId: string;
+  category?: Category;
   price: number;
   description?: string;
   imageUrl?: string;
@@ -88,9 +99,15 @@ export interface UpdateOrderStatusDTO {
   status: OrderStatus;
 }
 
+export interface CreateCategoryDTO {
+  name: string;
+  isBuffet?: boolean;
+  sortOrder?: number;
+}
+
 export interface CreateMenuItemDTO {
   name: string;
-  category: string;
+  categoryId: string;
   price: number;
   description?: string;
   imageUrl?: string;

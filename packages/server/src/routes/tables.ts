@@ -177,4 +177,18 @@ router.get('/:id/qr', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
+// POST /api/tables/qr/regenerate-all - Regenerate QR codes for all tables
+router.post('/qr/regenerate-all', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await tableService.regenerateAllQRCodes();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'QR codes regenerated for all tables',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
