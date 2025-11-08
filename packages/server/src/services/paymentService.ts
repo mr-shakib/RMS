@@ -1,6 +1,7 @@
 import prisma from '../db/client';
 import { Payment } from '@prisma/client';
 import { emitPaymentCompleted } from '../websocket';
+import printerService from './printerService';
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'WALLET';
 
@@ -115,6 +116,14 @@ class PaymentService {
       emitPaymentCompleted(payment);
     } catch (error) {
       console.error('Failed to emit payment:completed event:', error);
+    }
+
+    // Print customer receipt automatically when payment is processed
+    try {
+      await printerService.printCustomerReceipt(orderId, payment.id);
+    } catch (error) {
+      console.error('Failed to print customer receipt:', error);
+      // Don't throw error - payment was processed successfully, just printing failed
     }
 
     return payment;
@@ -312,7 +321,11 @@ class PaymentService {
     const orderItems = await prisma.orderItem.findMany({
       where: whereClause,
       include: {
-        menuItem: true,
+        menuItem: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
 
@@ -325,7 +338,7 @@ class PaymentService {
     orderItems.forEach((item) => {
       const existing = itemMap.get(item.menuItemId) || {
         name: item.menuItem.name,
-        category: item.menuItem.category,
+        category: item.menuItem.category?.name || 'Uncategorized',
         quantity: 0,
         revenue: 0,
       };

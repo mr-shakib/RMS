@@ -36,10 +36,27 @@ router.get('/menu', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// GET /categories - Get all categories including buffet info
+router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await menuService.getAllCategories();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        categories,
+        count: categories.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /order - Place order from PWA (no authentication required)
 router.post('/order', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { tableId, items, notes } = req.body;
+    const { tableId, items, notes, isBuffet, buffetCategoryId } = req.body;
 
     // Validate input
     if (!tableId || !items || !Array.isArray(items) || items.length === 0) {
@@ -53,6 +70,11 @@ router.post('/order', async (req: Request, res: Response, next: NextFunction) =>
       }
     }
 
+    // Validate buffet order
+    if (isBuffet && !buffetCategoryId) {
+      throw new ValidationError('Buffet category ID is required for buffet orders');
+    }
+
     // Add notes to items if provided
     const itemsWithNotes = items.map((item) => ({
       ...item,
@@ -63,6 +85,8 @@ router.post('/order', async (req: Request, res: Response, next: NextFunction) =>
     const order = await orderService.createOrder({
       tableId,
       items: itemsWithNotes,
+      isBuffet: isBuffet || false,
+      buffetCategoryId,
       discount: 0,
       serviceCharge: 0,
       tip: 0,

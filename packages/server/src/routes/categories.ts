@@ -35,12 +35,20 @@ router.get('/', async (req, res) => {
 // POST /api/categories - Create a new category (Admin only)
 router.post('/', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
   try {
-    const { name, isBuffet, sortOrder }: CreateCategoryDTO = req.body;
+    const { name, isBuffet, buffetPrice, sortOrder }: CreateCategoryDTO = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
         status: 'error',
         message: 'Category name is required',
+      });
+    }
+
+    // Validate buffet price if buffet category
+    if (isBuffet && buffetPrice !== undefined && buffetPrice < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Buffet price must be a positive number',
       });
     }
 
@@ -69,6 +77,7 @@ router.post('/', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
       data: {
         name: name.trim(),
         isBuffet: isBuffet ?? false,
+        buffetPrice: isBuffet ? buffetPrice : null,
         sortOrder: finalSortOrder,
       },
     });
@@ -90,7 +99,7 @@ router.post('/', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
 router.patch('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, isBuffet, sortOrder } = req.body;
+    const { name, isBuffet, buffetPrice, sortOrder } = req.body;
 
     // Check if category exists
     const existing = await prisma.category.findUnique({
@@ -101,6 +110,14 @@ router.patch('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) =
       return res.status(404).json({
         status: 'error',
         message: 'Category not found',
+      });
+    }
+
+    // Validate buffet price if provided
+    if (buffetPrice !== undefined && buffetPrice < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Buffet price must be a positive number',
       });
     }
 
@@ -123,6 +140,7 @@ router.patch('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) =
       data: {
         ...(name && { name: name.trim() }),
         ...(isBuffet !== undefined && { isBuffet }),
+        ...(buffetPrice !== undefined && { buffetPrice: isBuffet !== false ? buffetPrice : null }),
         ...(sortOrder !== undefined && { sortOrder }),
       },
     });

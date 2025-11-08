@@ -10,7 +10,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@rms/shared": "*"
+    "@rms/shared": "*",
+    "socket.io-client": "^4.7.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

@@ -48,6 +48,22 @@ Thumbs.db
 # Electron
 packages/desktop/dist/
 packages/desktop/out/
+packages/desktop/release/
+
+# Build artifacts
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+*.tar.gz
+
+# Code signing
+*.p12
+*.pfx
+*.cer
 
 # Misc
 .turbo

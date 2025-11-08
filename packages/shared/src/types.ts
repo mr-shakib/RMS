@@ -24,6 +24,7 @@ export interface Category {
   id: string;
   name: string;
   isBuffet: boolean;
+  buffetPrice?: number;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,8 @@ export interface Order {
   id: string;
   tableId: number;
   status: OrderStatus;
+  isBuffet: boolean;
+  buffetCategoryId?: string;
   subtotal: number;
   tax: number;
   discount: number;
@@ -88,6 +91,8 @@ export interface Setting {
 // DTOs
 export interface CreateOrderDTO {
   tableId: number;
+  isBuffet?: boolean;
+  buffetCategoryId?: string;
   items: {
     menuItemId: string;
     quantity: number;
@@ -102,6 +107,7 @@ export interface UpdateOrderStatusDTO {
 export interface CreateCategoryDTO {
   name: string;
   isBuffet?: boolean;
+  buffetPrice?: number;
   sortOrder?: number;
 }
 

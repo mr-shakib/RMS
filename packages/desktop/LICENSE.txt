@@ -1,0 +1,32 @@
+Restaurant Management System License Agreement
+
+Copyright (c) 2024 Restaurant Management System
+
+This software is provided for use in restaurant management operations.
+
+TERMS AND CONDITIONS
+
+1. Grant of License
+   This license grants you the right to install and use the Restaurant Management System
+   software on your restaurant's computers.
+
+2. Restrictions
+   You may not:
+   - Modify, reverse engineer, or decompile the software
+   - Distribute or resell the software
+   - Remove any copyright or proprietary notices
+
+3. Warranty Disclaimer
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+4. Limitation of Liability
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+5. Support and Updates
+   Support and updates are provided as per your service agreement.
+
+For questions or support, please contact: support@rms-system.com

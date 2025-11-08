@@ -3,6 +3,7 @@ import http from 'http';
 import { createApp } from './app';
 import { config } from './config';
 import { initializeWebSocket } from './websocket';
+import { printerService, initializationService } from './services';
 
 dotenv.config();
 
@@ -15,23 +16,58 @@ const httpServer = http.createServer(app);
 initializeWebSocket(httpServer);
 
 // Start server
-const server = httpServer.listen(config.port, () => {
+const server = httpServer.listen(config.port, async () => {
   console.log(`🚀 Server running on http://localhost:${config.port}`);
   console.log(`📊 Health check: http://localhost:${config.port}/api/health`);
   console.log(`🌍 Environment: ${config.nodeEnv}`);
+
+  // Check and initialize database if needed
+  try {
+    await initializationService.initializeDatabase();
+  } catch (error) {
+    console.error('⚠️  Failed to initialize database:', error);
+  }
+
+  // Initialize printer connection from saved configuration
+  try {
+    const initialized = await printerService.initialize();
+    if (initialized) {
+      console.log('🖨️  Printer initialized successfully');
+    } else {
+      console.log('ℹ️  No printer configured');
+    }
+  } catch (error) {
+    console.error('⚠️  Failed to initialize printer:', error);
+  }
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  
+  // Disconnect printer
+  try {
+    await printerService.disconnect();
+  } catch (error) {
+    console.error('Error disconnecting printer:', error);
+  }
+  
   server.close(() => {
     console.log('HTTP server closed');
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
+  
+  // Disconnect printer
+  try {
+    await printerService.disconnect();
+  } catch (error) {
+    console.error('Error disconnecting printer:', error);
+  }
+  
   server.close(() => {
     console.log('HTTP server closed');
     process.exit(0);

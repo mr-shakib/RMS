@@ -140,7 +140,7 @@ export default function TablesPage() {
     }
   };
 
-  // Download QR code
+  // Download QR code as image
   const downloadQRCode = () => {
     if (!selectedTable) return;
     
@@ -150,6 +150,89 @@ export default function TablesPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Download QR code as PDF
+  const downloadQRCodePDF = async () => {
+    if (!selectedTable) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/tables/${selectedTable.id}/qr/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download QR code PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `table-${selectedTable.name}-qr.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading QR code PDF:', err);
+      setError('Failed to download QR code PDF');
+    }
+  };
+
+  // Download all QR codes as PDF
+  const downloadAllQRCodes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/tables/qr/download-all', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download all QR codes');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'all-tables-qr.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading all QR codes:', err);
+      setError('Failed to download all QR codes');
+    }
+  };
+
+  // Regenerate all QR codes
+  const regenerateAllQRCodes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/tables/qr/regenerate-all', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate QR codes');
+      }
+
+      // Refresh tables to get updated QR codes
+      window.location.reload();
+    } catch (err) {
+      console.error('Error regenerating QR codes:', err);
+      setError('Failed to regenerate QR codes');
+    }
   };
 
   return (
@@ -162,18 +245,29 @@ export default function TablesPage() {
             Manage restaurant tables and QR codes
           </p>
         </div>
-        <button
-          onClick={() => {
-            setNewTableName('');
-            setError(null);
-            setShowAddModal(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 
-                   text-white rounded-lg transition-colors"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add Table
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={downloadAllQRCodes}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 
+                     text-white rounded-lg transition-colors"
+            title="Download all QR codes as PDF"
+          >
+            <QrCodeIcon className="w-5 h-5" />
+            Download All QR Codes
+          </button>
+          <button
+            onClick={() => {
+              setNewTableName('');
+              setError(null);
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 
+                     text-white rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add Table
+          </button>
+        </div>
       </div>
 
       {/* Status Filter Tabs */}
@@ -362,10 +456,17 @@ export default function TablesPage() {
               </button>
               <button
                 onClick={downloadQRCode}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg 
+                         transition-colors"
+              >
+                Download PNG
+              </button>
+              <button
+                onClick={downloadQRCodePDF}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg 
                          transition-colors"
               >
-                Download QR Code
+                Download PDF
               </button>
             </div>
           </div>

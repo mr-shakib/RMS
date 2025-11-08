@@ -124,9 +124,11 @@ export class ServerLauncher {
         cwd = path.join(__dirname, '../../../server');
       } else {
         // In production, run the built server directly
-        const serverPath = path.join(process.resourcesPath, 'server', 'dist', 'index.js');
+        const serverDir = path.join(process.resourcesPath, 'server');
+        const serverPath = path.join(serverDir, 'dist', 'index.js');
         serverCommand = 'node';
         serverArgs = [serverPath];
+        cwd = serverDir; // Set working directory to server folder
       }
       
       console.log(`Running: ${serverCommand} ${serverArgs.join(' ')}`);

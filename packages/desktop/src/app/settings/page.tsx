@@ -661,68 +661,29 @@ function ServerSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   const handleDownloadQRCodes = async () => {
     setIsDownloading(true);
     try {
-      // Fetch all tables with QR codes
-      const response = await apiClient.get<{ status: string; data: { tables: any[] } }>('/tables');
-      const tables = response.data.tables;
-      
-      if (tables.length === 0) {
-        onError('No tables found to download QR codes');
-        return;
+      // Download all QR codes as PDF using the new endpoint
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/tables/qr/download-all', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download QR codes PDF');
       }
 
-      // Create an HTML page with all QR codes for printing
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Table QR Codes</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .qr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
-            .qr-item { text-align: center; page-break-inside: avoid; border: 2px solid #ddd; padding: 20px; border-radius: 8px; }
-            .qr-item h2 { margin: 0 0 15px 0; font-size: 24px; }
-            .qr-item img { width: 250px; height: 250px; }
-            @media print {
-              .qr-grid { grid-template-columns: repeat(2, 1fr); }
-            }
-          </style>
-        </head>
-        <body>
-          <h1 style="text-align: center; margin-bottom: 30px;">Restaurant Table QR Codes</h1>
-          <div class="qr-grid">
-            ${tables.map(table => `
-              <div class="qr-item">
-                <h2>${table.name}</h2>
-                <img src="${table.qrCodeUrl}" alt="${table.name} QR Code" />
-                <p style="margin-top: 10px; color: #666;">Scan to view menu and place order</p>
-              </div>
-            `).join('')}
-          </div>
-          <script>
-            // Auto-print when page loads
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 500);
-            };
-          </script>
-        </body>
-        </html>
-      `;
-
-      // Create a blob and open in new window for printing
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const printWindow = window.open(url, '_blank');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'all-tables-qr.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
-      if (printWindow) {
-        printWindow.onload = () => {
-          URL.revokeObjectURL(url);
-        };
-        onSuccess();
-      } else {
-        onError('Please allow pop-ups to download QR codes');
-      }
+      onSuccess();
     } catch (error: any) {
       onError(error.message || 'Failed to download QR codes');
     } finally {

@@ -246,6 +246,17 @@ class MenuService {
 
     return categories.map((cat) => cat.name);
   }
+
+  /**
+   * Get all categories with full details including buffet info
+   */
+  async getAllCategories() {
+    const categories = await prisma.category.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    return categories;
+  }
 }
 
 export default new MenuService();

@@ -1,6 +1,7 @@
 import prisma from '../db/client';
 import { Order, OrderItem } from '@prisma/client';
 import { emitOrderCreated, emitOrderUpdated, emitOrderCancelled } from '../websocket';
+import printerService from './printerService';
 
 export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID' | 'CANCELLED';
 
@@ -13,6 +14,8 @@ interface CreateOrderItemInput {
 interface CreateOrderInput {
   tableId: number;
   items: CreateOrderItemInput[];
+  isBuffet?: boolean;
+  buffetCategoryId?: string;
   discount?: number;
   serviceCharge?: number;
   tip?: number;
@@ -28,7 +31,7 @@ class OrderService {
    * Formula: total = subtotal + tax - discount + serviceCharge + tip
    */
   async createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
-    const { tableId, items, discount = 0, serviceCharge = 0, tip = 0 } = input;
+    const { tableId, items, isBuffet = false, buffetCategoryId, discount = 0, serviceCharge = 0, tip = 0 } = input;
 
     // Validate table exists
     const table = await prisma.table.findUnique({ where: { id: tableId } });
@@ -40,28 +43,69 @@ class OrderService {
     let subtotal = 0;
     const orderItemsData: Array<{ menuItemId: string; quantity: number; price: number; notes?: string }> = [];
 
-    for (const item of items) {
-      const menuItem = await prisma.menuItem.findUnique({
-        where: { id: item.menuItemId },
+    if (isBuffet && buffetCategoryId) {
+      // For buffet orders, get the buffet price from the category
+      const category = await prisma.category.findUnique({
+        where: { id: buffetCategoryId },
       });
 
-      if (!menuItem) {
-        throw new Error(`Menu item with id ${item.menuItemId} not found`);
+      if (!category) {
+        throw new Error(`Category with id ${buffetCategoryId} not found`);
       }
 
-      if (!menuItem.available) {
-        throw new Error(`Menu item ${menuItem.name} is not available`);
+      if (!category.isBuffet) {
+        throw new Error(`Category ${category.name} is not a buffet category`);
       }
 
-      const itemTotal = menuItem.price * item.quantity;
-      subtotal += itemTotal;
+      // Use buffet price as subtotal
+      subtotal = category.buffetPrice || 0;
 
-      orderItemsData.push({
-        menuItemId: item.menuItemId,
-        quantity: item.quantity,
-        price: menuItem.price,
-        notes: item.notes,
-      });
+      // Still add items to order for tracking, but with 0 price
+      for (const item of items) {
+        const menuItem = await prisma.menuItem.findUnique({
+          where: { id: item.menuItemId },
+        });
+
+        if (!menuItem) {
+          throw new Error(`Menu item with id ${item.menuItemId} not found`);
+        }
+
+        if (!menuItem.available) {
+          throw new Error(`Menu item ${menuItem.name} is not available`);
+        }
+
+        orderItemsData.push({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          price: 0, // Buffet items don't have individual prices
+          notes: item.notes,
+        });
+      }
+    } else {
+      // Regular order - calculate from individual items
+      for (const item of items) {
+        const menuItem = await prisma.menuItem.findUnique({
+          where: { id: item.menuItemId },
+        });
+
+        if (!menuItem) {
+          throw new Error(`Menu item with id ${item.menuItemId} not found`);
+        }
+
+        if (!menuItem.available) {
+          throw new Error(`Menu item ${menuItem.name} is not available`);
+        }
+
+        const itemTotal = menuItem.price * item.quantity;
+        subtotal += itemTotal;
+
+        orderItemsData.push({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          price: menuItem.price,
+          notes: item.notes,
+        });
+      }
     }
 
     // Get tax percentage from settings (default 10%)
@@ -78,6 +122,8 @@ class OrderService {
         data: {
           tableId,
           status: 'PENDING',
+          isBuffet,
+          buffetCategoryId,
           subtotal,
           tax,
           discount,
@@ -112,6 +158,14 @@ class OrderService {
       emitOrderCreated(order);
     } catch (error) {
       console.error('Failed to emit order:created event:', error);
+    }
+
+    // Print kitchen ticket automatically when order is created (PENDING status)
+    try {
+      await printerService.printKitchenTicket(order.id);
+    } catch (error) {
+      console.error('Failed to print kitchen ticket:', error);
+      // Don't throw error - order was created successfully, just printing failed
     }
 
     return order;

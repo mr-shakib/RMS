@@ -8,19 +8,30 @@
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:electron\"",
     "dev:next": "next dev -p 3000",
     "dev:electron": "wait-on http://localhost:3000 && electron .",
-    "build": "npm run build:next && npm run build:electron",
+    "build": "node scripts/build.js production",
+    "build:dev": "node scripts/build.js development",
+    "build:staging": "node scripts/build.js staging",
     "build:next": "next build",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "build:electron:full": "npm run build && electron-builder",
-    "package:win": "npm run build && electron-builder --win",
-    "package:mac": "npm run build && electron-builder --mac",
+    "package": "node scripts/package.js all production",
+    "package:win": "node scripts/package.js win production",
+    "package:mac": "node scripts/package.js mac production",
+    "package:linux": "node scripts/package.js linux production",
+    "package:win:staging": "node scripts/package.js win staging",
+    "package:mac:staging": "node scripts/package.js mac staging",
+    "version:major": "node scripts/version.js major",
+    "version:minor": "node scripts/version.js minor",
+    "version:patch": "node scripts/version.js patch",
+    "icons:placeholder": "node scripts/create-placeholder-icons.js",
+    "icons:create": "node scripts/create-basic-icons.js",
     "start": "electron .",
-    "clean": "rimraf .next dist out"
+    "clean": "rimraf .next dist out release"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@rms/shared": "*",
     "@tanstack/react-query": "^5.17.9",
+    "lucide-react": "^0.553.0",
     "next": "^14.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -28,6 +39,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.2.1",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.46",
     "@types/react-dom": "^18.2.18",
@@ -41,31 +53,12 @@
     "typescript": "^5.3.3",
     "wait-on": "^7.2.0"
   },
-  "build": {
-    "appId": "com.rms.desktop",
-    "productName": "Restaurant Management System",
-    "directories": {
-      "output": "out"
-    },
-    "files": [
-      "dist/**/*",
-      ".next/**/*",
-      "public/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "public/icon.ico"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "icon": "public/icon.icns",
-      "category": "public.app-category.business"
-    }
+  "author": {
+    "name": "Restaurant Management System",
+    "email": "support@rms-system.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/restaurant-management-system.git"
   }
 }

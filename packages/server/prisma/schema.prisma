@@ -31,13 +31,15 @@ model Table {
 }
 
 model Category {
-  id        String     @id @default(uuid())
-  name      String     @unique
-  isBuffet  Boolean    @default(false) // Special flag for buffet categories
-  sortOrder Int        @default(0) // For custom ordering
-  menuItems MenuItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  name        String     @unique
+  isBuffet    Boolean    @default(false) // Special flag for buffet categories
+  buffetPrice Float?     // Price for buffet (if isBuffet is true)
+  sortOrder   Int        @default(0) // For custom ordering
+  menuItems   MenuItem[]
+  orders      Order[]    // Orders that selected this buffet category
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([sortOrder])
 }
@@ -60,24 +62,28 @@ model MenuItem {
 }
 
 model Order {
-  id            String      @id @default(uuid())
-  tableId       Int
-  table         Table       @relation(fields: [tableId], references: [id])
-  status        String      @default("PENDING") // PENDING, PREPARING, READY, SERVED, PAID, CANCELLED
-  subtotal      Float
-  tax           Float
-  discount      Float       @default(0)
-  serviceCharge Float       @default(0)
-  tip           Float       @default(0)
-  total         Float
-  items         OrderItem[]
-  payment       Payment?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id               String      @id @default(uuid())
+  tableId          Int
+  table            Table       @relation(fields: [tableId], references: [id])
+  status           String      @default("PENDING") // PENDING, PREPARING, READY, SERVED, PAID, CANCELLED
+  isBuffet         Boolean     @default(false) // Flag for buffet orders
+  buffetCategoryId String?     // Reference to buffet category if isBuffet is true
+  buffetCategory   Category?   @relation(fields: [buffetCategoryId], references: [id])
+  subtotal         Float
+  tax              Float
+  discount         Float       @default(0)
+  serviceCharge    Float       @default(0)
+  tip              Float       @default(0)
+  total            Float
+  items            OrderItem[]
+  payment          Payment?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([tableId])
   @@index([status])
   @@index([createdAt])
+  @@index([buffetCategoryId])
 }
 
 model OrderItem {

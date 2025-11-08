@@ -3,11 +3,66 @@ import { tableService } from '../services';
 import { authenticate, requireRole } from '../middleware/auth';
 import { ValidationError, NotFoundError } from '../errors/AppError';
 import { emitTableUpdated } from '../websocket';
+import { generateTableQRCodePDF, generateBulkQRCodesPDF } from '../utils/qrCodeGenerator';
+import prisma from '../db/client';
 
 const router = Router();
 
 // All table routes require authentication
 router.use(authenticate);
+
+// GET /api/tables/qr/download-all - Download all QR codes as a single PDF (must be before /:id routes)
+router.get('/qr/download-all', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Get all tables
+    const tables = await tableService.getAllTables();
+
+    if (tables.length === 0) {
+      throw new ValidationError('No tables found to generate QR codes');
+    }
+
+    // Get server URL from settings
+    const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
+    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+
+    // Prepare table data for PDF generation
+    const tableData = tables.map(table => ({
+      id: table.id,
+      name: table.name,
+    }));
+
+    // Generate bulk PDF with all QR codes
+    const pdfBuffer = await generateBulkQRCodesPDF(tableData, serverUrl);
+
+    // Get business name for filename
+    const businessNameSetting = await prisma.setting.findUnique({ where: { key: 'business_name' } });
+    const businessName = businessNameSetting?.value || 'restaurant';
+    const sanitizedName = businessName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizedName}-all-tables-qr.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/tables/qr/regenerate-all - Regenerate QR codes for all tables (must be before /:id routes)
+router.post('/qr/regenerate-all', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await tableService.regenerateAllQRCodes();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'QR codes regenerated for all tables',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/tables - Get all tables with current status
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -177,15 +232,34 @@ router.get('/:id/qr', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-// POST /api/tables/qr/regenerate-all - Regenerate QR codes for all tables
-router.post('/qr/regenerate-all', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
+// GET /api/tables/:id/qr/download - Download QR code as PDF for a single table
+router.get('/:id/qr/download', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await tableService.regenerateAllQRCodes();
+    const { id } = req.params;
+    const tableId = parseInt(id, 10);
 
-    res.status(200).json({
-      status: 'success',
-      message: 'QR codes regenerated for all tables',
-    });
+    if (isNaN(tableId)) {
+      throw new ValidationError('Invalid table ID');
+    }
+
+    const table = await tableService.getTableById(tableId);
+    if (!table) {
+      throw new NotFoundError('Table');
+    }
+
+    // Get server URL from settings
+    const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
+    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+
+    // Generate PDF with QR code
+    const pdfBuffer = await generateTableQRCodePDF(tableId, table.name, serverUrl);
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="table-${table.name}-qr.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

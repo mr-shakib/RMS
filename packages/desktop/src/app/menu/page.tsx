@@ -13,6 +13,7 @@ export default function MenuPage() {
   const { menuItems, isLoading, toggleAvailability } = useMenu();
   const { categories, isLoading: categoriesLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
   
+  const [mainCategoryFilter, setMainCategoryFilter] = useState<'BUFFET' | 'ALL_ITEMS'>('ALL_ITEMS');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,19 +25,41 @@ export default function MenuPage() {
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false });
+  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false, buffetPrice: 0 });
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
-  // Get categories with "All" option
-  const displayCategories = useMemo(() => {
-    return ['All', ...categories.map((cat) => cat.name)];
+  // Get buffet and regular categories
+  const buffetCategories = useMemo(() => {
+    return categories.filter((cat) => cat.isBuffet);
   }, [categories]);
+
+  const regularCategories = useMemo(() => {
+    return categories.filter((cat) => !cat.isBuffet);
+  }, [categories]);
+
+  // Get categories to display based on main filter
+  const displayCategories = useMemo(() => {
+    if (mainCategoryFilter === 'BUFFET') {
+      return ['All', ...buffetCategories.map((cat) => cat.name)];
+    } else {
+      return ['All', ...regularCategories.map((cat) => cat.name)];
+    }
+  }, [mainCategoryFilter, buffetCategories, regularCategories]);
 
   // Filter menu items
   const filteredMenuItems = useMemo(() => {
     let filtered = menuItems;
 
-    // Apply category filter
+    // Apply main category filter (Buffet vs All Items)
+    if (mainCategoryFilter === 'BUFFET') {
+      const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
+      filtered = filtered.filter((item) => buffetCategoryIds.includes(item.categoryId));
+    } else {
+      const regularCategoryIds = regularCategories.map((cat) => cat.id);
+      filtered = filtered.filter((item) => regularCategoryIds.includes(item.categoryId));
+    }
+
+    // Apply subcategory filter
     if (categoryFilter !== 'All') {
       const selectedCat = categories.find((cat) => cat.name === categoryFilter);
       if (selectedCat) {
@@ -60,7 +83,7 @@ export default function MenuPage() {
     }
 
     return filtered;
-  }, [menuItems, categories, categoryFilter, availabilityFilter, searchQuery]);
+  }, [menuItems, categories, mainCategoryFilter, buffetCategories, regularCategories, categoryFilter, availabilityFilter, searchQuery]);
 
   // Handle availability toggle
   const handleToggleAvailability = async (itemId: string) => {
@@ -72,6 +95,12 @@ export default function MenuPage() {
     } finally {
       setTogglingItemId(null);
     }
+  };
+
+  // Handle main category change
+  const handleMainCategoryChange = (newMainCategory: 'BUFFET' | 'ALL_ITEMS') => {
+    setMainCategoryFilter(newMainCategory);
+    setCategoryFilter('All'); // Reset subcategory filter
   };
 
   // Category management handlers
@@ -86,8 +115,9 @@ export default function MenuPage() {
       await createCategory({
         name: categoryFormData.name.trim(),
         isBuffet: categoryFormData.isBuffet,
+        buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
       });
-      setCategoryFormData({ name: '', isBuffet: false });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
       setShowAddCategoryModal(false);
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to create category');
@@ -109,11 +139,12 @@ export default function MenuPage() {
         data: {
           name: categoryFormData.name.trim(),
           isBuffet: categoryFormData.isBuffet,
+          buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
         },
       });
       setShowEditCategoryModal(false);
       setSelectedCategory(null);
-      setCategoryFormData({ name: '', isBuffet: false });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to update category');
     }
@@ -134,7 +165,11 @@ export default function MenuPage() {
 
   const openEditCategoryModal = (category: any) => {
     setSelectedCategory(category);
-    setCategoryFormData({ name: category.name, isBuffet: category.isBuffet });
+    setCategoryFormData({ 
+      name: category.name, 
+      isBuffet: category.isBuffet,
+      buffetPrice: category.buffetPrice || 0
+    });
     setCategoryError(null);
     setShowEditCategoryModal(true);
   };
@@ -194,20 +229,72 @@ export default function MenuPage() {
 
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-4">
-        {/* Category Filter */}
+        {/* Main Category Filter */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Category
+            Main Category
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleMainCategoryChange('BUFFET')}
+              className={`px-6 py-3 rounded-lg text-sm font-semibold transition-colors
+                ${
+                  mainCategoryFilter === 'BUFFET'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+            >
+              🍽️ Buffet
+              <span className="ml-2 text-xs opacity-75">
+                ({buffetCategories.length} categories)
+              </span>
+            </button>
+            <button
+              onClick={() => handleMainCategoryChange('ALL_ITEMS')}
+              className={`px-6 py-3 rounded-lg text-sm font-semibold transition-colors
+                ${
+                  mainCategoryFilter === 'ALL_ITEMS'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+            >
+              📋 All Items
+              <span className="ml-2 text-xs opacity-75">
+                ({regularCategories.length} categories)
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Subcategory Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {mainCategoryFilter === 'BUFFET' ? 'Buffet Type' : 'Category'}
           </label>
           {categoriesLoading ? (
             <div className="text-sm text-gray-500 dark:text-gray-400">Loading categories...</div>
+          ) : displayCategories.length === 1 ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No {mainCategoryFilter === 'BUFFET' ? 'buffet' : 'regular'} categories available
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {displayCategories.map((categoryName) => {
                 const category = categories.find((cat) => cat.name === categoryName);
-                const count = category
-                  ? menuItems.filter((item) => item.categoryId === category.id).length
-                  : menuItems.length;
+                let count = 0;
+                
+                if (categoryName === 'All') {
+                  // Count all items in current main category
+                  if (mainCategoryFilter === 'BUFFET') {
+                    const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
+                    count = menuItems.filter((item) => buffetCategoryIds.includes(item.categoryId)).length;
+                  } else {
+                    const regularCategoryIds = regularCategories.map((cat) => cat.id);
+                    count = menuItems.filter((item) => regularCategoryIds.includes(item.categoryId)).length;
+                  }
+                } else {
+                  count = category ? menuItems.filter((item) => item.categoryId === category.id).length : 0;
+                }
 
                 return (
                   <button
@@ -221,6 +308,9 @@ export default function MenuPage() {
                       }`}
                   >
                     {categoryName}
+                    {category?.isBuffet && category.buffetPrice && (
+                      <span className="ml-1 text-xs font-bold">${category.buffetPrice.toFixed(2)}</span>
+                    )}
                     <span className="ml-2 text-xs opacity-75">({count})</span>
                   </button>
                 );
@@ -315,7 +405,7 @@ export default function MenuPage() {
           onClose={() => setShowCategoryModal(false)}
           onAdd={() => {
             setShowCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
             setCategoryError(null);
             setShowAddCategoryModal(true);
           }}
@@ -335,7 +425,7 @@ export default function MenuPage() {
           onSubmit={handleAddCategory}
           onClose={() => {
             setShowAddCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
             setCategoryError(null);
           }}
         />
@@ -353,7 +443,7 @@ export default function MenuPage() {
           onClose={() => {
             setShowEditCategoryModal(false);
             setSelectedCategory(null);
-            setCategoryFormData({ name: '', isBuffet: false });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
             setCategoryError(null);
           }}
         />
@@ -561,10 +651,10 @@ function CategoryManagementModal({ categories, onClose, onAdd, onEdit, onDelete 
 // Category Form Modal Component
 interface CategoryFormModalProps {
   title: string;
-  formData: { name: string; isBuffet: boolean };
+  formData: { name: string; isBuffet: boolean; buffetPrice: number };
   error: string | null;
   isSubmitting: boolean;
-  onChange: (data: { name: string; isBuffet: boolean }) => void;
+  onChange: (data: { name: string; isBuffet: boolean; buffetPrice: number }) => void;
   onSubmit: () => void;
   onClose: () => void;
 }
@@ -624,6 +714,33 @@ function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onS
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Buffet categories charge customers a flat rate instead of per-item pricing
           </p>
+
+          {formData.isBuffet && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Buffet Price
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                  $
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.buffetPrice}
+                  onChange={(e) => onChange({ ...formData, buffetPrice: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                The flat rate customers will pay for this buffet
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

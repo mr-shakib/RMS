@@ -56,53 +56,77 @@ export const initializeWebSocket = (httpServer: HTTPServer): Server => {
   io.on('connection', (socket: AuthenticatedSocket) => {
     console.log(`✅ Client connected: ${socket.id} (User: ${socket.user?.username})`);
 
+    // Send connection confirmation
+    socket.emit('connected', { 
+      socketId: socket.id, 
+      timestamp: new Date().toISOString() 
+    });
+
     // Handle room subscriptions
     socket.on('subscribe:orders', () => {
       socket.join('orders');
       console.log(`📦 ${socket.user?.username} subscribed to orders room`);
+      socket.emit('subscribed', { room: 'orders' });
     });
 
     socket.on('subscribe:tables', () => {
       socket.join('tables');
       console.log(`🪑 ${socket.user?.username} subscribed to tables room`);
+      socket.emit('subscribed', { room: 'tables' });
     });
 
     socket.on('subscribe:kds', () => {
       socket.join('kds');
       console.log(`👨‍🍳 ${socket.user?.username} subscribed to KDS room`);
+      socket.emit('subscribed', { room: 'kds' });
     });
 
     socket.on('subscribe:table', (tableId: number) => {
       const roomName = `table:${tableId}`;
       socket.join(roomName);
       console.log(`🪑 ${socket.user?.username} subscribed to ${roomName}`);
+      socket.emit('subscribed', { room: roomName });
     });
 
     // Handle unsubscribe events
     socket.on('unsubscribe:orders', () => {
       socket.leave('orders');
       console.log(`📦 ${socket.user?.username} unsubscribed from orders room`);
+      socket.emit('unsubscribed', { room: 'orders' });
     });
 
     socket.on('unsubscribe:tables', () => {
       socket.leave('tables');
       console.log(`🪑 ${socket.user?.username} unsubscribed from tables room`);
+      socket.emit('unsubscribed', { room: 'tables' });
     });
 
     socket.on('unsubscribe:kds', () => {
       socket.leave('kds');
       console.log(`👨‍🍳 ${socket.user?.username} unsubscribed from KDS room`);
+      socket.emit('unsubscribed', { room: 'kds' });
     });
 
     socket.on('unsubscribe:table', (tableId: number) => {
       const roomName = `table:${tableId}`;
       socket.leave(roomName);
       console.log(`🪑 ${socket.user?.username} unsubscribed from ${roomName}`);
+      socket.emit('unsubscribed', { room: roomName });
+    });
+
+    // Handle ping for connection health check
+    socket.on('ping', () => {
+      socket.emit('pong', { timestamp: new Date().toISOString() });
     });
 
     // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log(`❌ Client disconnected: ${socket.id} (User: ${socket.user?.username})`);
+    socket.on('disconnect', (reason) => {
+      console.log(`❌ Client disconnected: ${socket.id} (User: ${socket.user?.username}) - Reason: ${reason}`);
+    });
+
+    // Handle errors
+    socket.on('error', (error) => {
+      console.error(`🔴 Socket error for ${socket.id}:`, error);
     });
   });
 
@@ -182,4 +206,13 @@ export const emitPaymentCompleted = (payment: any): void => {
     io.to(`table:${payment.order.tableId}`).emit('payment:completed', payment);
   }
   console.log(`📤 Emitted payment:completed for payment ${payment.id}`);
+};
+
+/**
+ * Emit printer error notification
+ */
+export const emitPrinterError = (error: { message: string; type: string; orderId?: string }): void => {
+  const io = getIO();
+  io.emit('printer:error', error); // Broadcast to all clients
+  console.log(`📤 Emitted printer:error - ${error.message}`);
 };

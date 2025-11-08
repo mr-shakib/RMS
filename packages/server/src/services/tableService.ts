@@ -1,7 +1,7 @@
 import prisma from '../db/client';
 import { Table } from '@prisma/client';
-import QRCode from 'qrcode';
 import { emitTableUpdated } from '../websocket';
+import { generateTableQRCode } from '../utils/qrCodeGenerator';
 
 export type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED';
 
@@ -184,18 +184,11 @@ class TableService {
     const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
     const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
 
-    // Generate table-specific URL
-    const tableUrl = `${serverUrl}/table/${tableId}`;
-
     try {
-      // Generate QR code as data URL
-      const qrCodeDataUrl = await QRCode.toDataURL(tableUrl, {
+      // Use the utility function to generate QR code
+      const qrCodeDataUrl = await generateTableQRCode(tableId, serverUrl, {
         width: 300,
         margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
       });
 
       return qrCodeDataUrl;

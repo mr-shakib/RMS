@@ -1,0 +1,183 @@
+import { Category } from '@rms/shared';
+import { apiClient } from './api';
+
+export class SelectionPage {
+  private container: HTMLElement;
+  private buffetCategories: Category[] = [];
+
+  constructor(container: HTMLElement) {
+    this.container = container;
+    this.init();
+  }
+
+  private async init(): Promise<void> {
+    try {
+      await this.loadBuffetCategories();
+      this.render();
+    } catch (error) {
+      console.error('[SelectionPage] Failed to initialize:', error);
+      this.showError('Failed to load menu options');
+    }
+  }
+
+  private async loadBuffetCategories(): Promise<void> {
+    const categories = await apiClient.getCategories();
+    this.buffetCategories = categories.filter(cat => cat.isBuffet);
+  }
+
+  private render(): void {
+    this.container.innerHTML = `
+      <div class="selection-page">
+        <div class="selection-hero">
+          <div class="selection-hero-content">
+            <h1 class="selection-title">Welcome</h1>
+            <p class="selection-subtitle">How would you like to dine today?</p>
+          </div>
+        </div>
+
+        <div class="selection-container">
+          <div class="selection-cards">
+            <!-- Buffet Option -->
+            <div class="selection-card" data-type="buffet">
+              <div class="selection-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M7 2v20M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
+                </svg>
+              </div>
+              <h2 class="selection-card-title">Buffet</h2>
+              <p class="selection-card-description">All-you-can-eat experience with unlimited servings</p>
+              <div class="selection-card-badge">Fixed Price</div>
+            </div>
+
+            <!-- Regular Menu Option -->
+            <div class="selection-card" data-type="regular">
+              <div class="selection-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <h2 class="selection-card-title">À la Carte</h2>
+              <p class="selection-card-description">Choose individual dishes from our curated menu</p>
+              <div class="selection-card-badge">Per Item</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buffet Category Modal -->
+        <div class="modal" id="buffet-modal" style="display: none;">
+          <div class="modal-overlay"></div>
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title">Select Buffet</h2>
+              <button class="modal-close" id="close-buffet-modal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="buffet-categories" id="buffet-categories">
+                ${this.renderBuffetCategories()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.setupEventListeners();
+  }
+
+  private renderBuffetCategories(): string {
+    if (this.buffetCategories.length === 0) {
+      return '<p class="empty-state">No buffet options available at the moment</p>';
+    }
+
+    return this.buffetCategories.map(category => {
+      const price = (category.buffetPrice || 0).toFixed(2);
+      const dollarSign = '$';
+      return `
+        <div class="buffet-category-card" data-category-id="${category.id}">
+          <div class="buffet-category-info">
+            <h3 class="buffet-category-name">${category.name}</h3>
+          </div>
+          <div class="buffet-category-price">${dollarSign}${price}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  private setupEventListeners(): void {
+    // Regular menu selection
+    const regularCard = this.container.querySelector('[data-type="regular"]');
+    regularCard?.addEventListener('click', () => {
+      sessionStorage.setItem('menuMode', 'regular');
+      sessionStorage.removeItem('buffetCategoryId');
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'menu' }));
+    });
+
+    // Buffet selection
+    const buffetCard = this.container.querySelector('[data-type="buffet"]');
+    buffetCard?.addEventListener('click', () => {
+      if (this.buffetCategories.length === 0) {
+        alert('No buffet options available at the moment');
+        return;
+      }
+      this.showBuffetModal();
+    });
+
+    // Close modal
+    const closeBtn = this.container.querySelector('#close-buffet-modal');
+    closeBtn?.addEventListener('click', () => this.hideBuffetModal());
+
+    const overlay = this.container.querySelector('.modal-overlay');
+    overlay?.addEventListener('click', () => this.hideBuffetModal());
+
+    // Buffet category selection
+    const categoryCards = this.container.querySelectorAll('.buffet-category-card');
+    categoryCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const categoryId = card.getAttribute('data-category-id');
+        const category = this.buffetCategories.find(c => c.id === categoryId);
+        if (category) {
+          sessionStorage.setItem('menuMode', 'buffet');
+          sessionStorage.setItem('buffetCategoryId', category.id);
+          sessionStorage.setItem('buffetCategoryName', category.name);
+          sessionStorage.setItem('buffetPrice', String(category.buffetPrice || 0));
+          window.dispatchEvent(new CustomEvent('navigate', { detail: 'menu' }));
+        }
+      });
+    });
+  }
+
+  private showBuffetModal(): void {
+    const modal = this.container.querySelector('#buffet-modal') as HTMLElement;
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  private hideBuffetModal(): void {
+    const modal = this.container.querySelector('#buffet-modal') as HTMLElement;
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+
+  private showError(message: string): void {
+    this.container.innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <h2>Oops!</h2>
+        <p>${message}</p>
+        <button onclick="window.location.reload()" class="btn btn-primary">Retry</button>
+      </div>
+    `;
+  }
+
+  destroy(): void {
+    document.body.style.overflow = '';
+  }
+}

@@ -17,6 +17,7 @@ import {
   ChevronRightIcon,
   SunIcon,
   MoonIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -55,6 +56,12 @@ const navItems: NavItem[] = [
     name: 'Billing',
     href: '/billing',
     icon: CreditCardIcon,
+    roles: [Role.ADMIN, Role.WAITER],
+  },
+  {
+    name: 'Reports',
+    href: '/reports',
+    icon: ChartBarIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
