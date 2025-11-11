@@ -47,7 +47,7 @@ export class MenuPage {
       });
 
       cart.subscribe(() => {
-        this.updateCartBadge();
+        this.updateCartDisplay();
         this.updateQuantityDisplays();
       });
     } catch (error) {
@@ -126,13 +126,6 @@ export class MenuPage {
                 <div class="header-subtitle">${this.isBuffetMode ? this.buffetCategoryName : 'À la Carte'}</div>
               </div>
             </div>
-            <button class="cart-button" id="cart-button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-              </svg>
-              <span class="cart-badge" id="cart-badge" style="display: none;">0</span>
-            </button>
           </div>
         </div>
 
@@ -162,10 +155,26 @@ export class MenuPage {
             <p>Loading menu...</p>
           </div>
         </div>
+
+        <!-- Bottom Cart Bar -->
+        <div class="bottom-cart-bar" id="bottom-cart-bar" style="display: none;">
+          <div class="bottom-cart-content">
+            <div class="bottom-cart-info">
+              <div class="bottom-cart-items-count" id="bottom-cart-items-count">0 items</div>
+              <div class="bottom-cart-total" id="bottom-cart-total">$0.00</div>
+            </div>
+            <button class="bottom-cart-button" id="bottom-cart-button">
+              <span>View Cart</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
-    this.updateCartBadge();
+    this.updateCartDisplay();
   }
 
   private renderMenu(): void {
@@ -328,8 +337,8 @@ export class MenuPage {
       }
     });
 
-    const cartButton = document.getElementById('cart-button');
-    cartButton?.addEventListener('click', () => {
+    const bottomCartButton = document.getElementById('bottom-cart-button');
+    bottomCartButton?.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('navigate', { detail: 'cart' }));
     });
 
@@ -367,12 +376,26 @@ export class MenuPage {
     }
   }
 
-  private updateCartBadge(): void {
-    const badge = document.getElementById('cart-badge');
-    if (badge) {
-      const count = cart.getItemCount();
-      badge.textContent = count.toString();
-      badge.style.display = count > 0 ? 'flex' : 'none';
+  private updateCartDisplay(): void {
+    const cartBar = document.getElementById('bottom-cart-bar');
+    const itemsCount = document.getElementById('bottom-cart-items-count');
+    const totalElement = document.getElementById('bottom-cart-total');
+    
+    const count = cart.getItemCount();
+    const total = cart.getSubtotal();
+    
+    if (cartBar) {
+      if (count > 0) {
+        cartBar.style.display = 'block';
+        if (itemsCount) {
+          itemsCount.textContent = `${count} ${count === 1 ? 'item' : 'items'}`;
+        }
+        if (totalElement) {
+          totalElement.textContent = `$${total.toFixed(2)}`;
+        }
+      } else {
+        cartBar.style.display = 'none';
+      }
     }
   }
 
