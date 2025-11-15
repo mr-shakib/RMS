@@ -125,7 +125,7 @@ export class ServerLauncher {
       } else {
         // In production, run the built server directly
         const serverDir = path.join(process.resourcesPath, 'server');
-        const serverPath = path.join(serverDir, 'dist', 'index.js');
+        const serverPath = path.join(serverDir, 'dist', 'server', 'src', 'index.js');
         
         // Set up production database path in user data directory
         const { app } = require('electron');
