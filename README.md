@@ -10,8 +10,8 @@ A comprehensive Point of Sale (POS) solution built with Electron, Next.js, Expre
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/restaurant-management-system.git
-cd restaurant-management-system
+git clone https://github.com/mr-shakib/RMS.git
+cd RMS
 
 # 2. Install dependencies (takes 2-5 min)
 npm install
