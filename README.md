@@ -150,10 +150,10 @@ Follow these steps carefully to set up the Restaurant Management System for deve
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/restaurant-management-system.git
+git clone https://github.com/mr-shakib/RMS.git
 
 # Navigate to the project directory
-cd restaurant-management-system
+cd RMS
 ```
 
 ### Step 2: Install Dependencies
