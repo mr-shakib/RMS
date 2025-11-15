@@ -157,7 +157,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
     }
 
     // 3. Create tables if specified (without QR codes)
-    const tablesToCreate: Array<{ id: string; name: string }> = [];
+    const tablesToCreate: Array<{ id: number; name: string }> = [];
     
     if (numberOfTables && numberOfTables > 0) {
       for (let i = 1; i <= numberOfTables; i++) {

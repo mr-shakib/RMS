@@ -21,7 +21,12 @@
     "node_modules/zustand/**/*",
     "node_modules/@tanstack/**/*",
     "node_modules/@heroicons/**/*",
-    "node_modules/lucide-react/**/*"
+    "node_modules/lucide-react/**/*",
+    "node_modules/@next/**/*",
+    "node_modules/@swc/**/*",
+    "node_modules/styled-jsx/**/*",
+    "node_modules/client-only/**/*",
+    "node_modules/server-only/**/*"
   ],
   "extraResources": [
     {
@@ -144,6 +149,9 @@
   "asar": true,
   "asarUnpack": [
     "node_modules/@prisma/**/*",
-    "node_modules/.prisma/**/*"
+    "node_modules/.prisma/**/*",
+    "node_modules/next/**/*",
+    "node_modules/@next/**/*",
+    "node_modules/@swc/**/*"
   ]
 }

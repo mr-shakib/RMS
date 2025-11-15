@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage } from 'electron';
 import * as path from 'path';
 import { ServerLauncher, ServerConfig } from './serverLauncher';
+import { NextServerLauncher, NextServerConfig } from './nextServer';
 
 // Extend app object to include isQuitting property
 interface AppWithQuitting extends Electron.App {
@@ -12,6 +13,8 @@ const appWithQuitting = app as AppWithQuitting;
 let mainWindow: BrowserWindow | null = null;
 let serverLauncher: ServerLauncher | null = null;
 let serverConfig: ServerConfig | null = null;
+let nextServerLauncher: NextServerLauncher | null = null;
+let nextServerConfig: NextServerConfig | null = null;
 let tray: Tray | null = null;
 
 // Check if we're in development mode
@@ -22,6 +25,9 @@ const DEFAULT_SERVER_PORT = 5000;
 
 // Auto-launch setting (can be configured from settings)
 let autoLaunchEnabled = false;
+
+// Will be setup in app.whenReady()
+let logStream: any = null;
 
 /**
  * Create the main application window
@@ -48,13 +54,13 @@ function createWindow() {
     mainWindow?.show();
   });
 
-  // In development, load from Next.js dev server
+  // Load from Next.js server (dev or production)
+  const nextUrl = nextServerConfig?.url || 'http://localhost:3000';
+  mainWindow.loadURL(nextUrl);
+  
+  // Open DevTools in development
   if (isDev) {
-    mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
-  } else {
-    // In production, load from built files
-    mainWindow.loadFile(path.join(__dirname, '../../.next/index.html'));
   }
 
   mainWindow.on('closed', () => {
@@ -371,11 +377,105 @@ function setupIpcHandlers() {
 // Application lifecycle
 app.whenReady().then(async () => {
   try {
-    // Initialize server launcher
-    serverLauncher = new ServerLauncher(isDev);
+    // Setup logging to file for production debugging  
+    if (!isDev) {
+      const fs = require('fs');
+      try {
+        const userDataPath = app.getPath('userData');
+        const logPath = path.join(userDataPath, 'startup.log');
+        logStream = fs.createWriteStream(logPath, { flags: 'a' });
+        
+        // Override console.log and console.error to also write to file
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = (...args: any[]) => {
+          const message = args.join(' ');
+          originalLog(...args);
+          if (logStream) {
+            try {
+              logStream.write(`[LOG ${new Date().toISOString()}] ${message}\n`);
+            } catch (e) {
+              // Ignore write errors
+            }
+          }
+        };
+        
+        console.error = (...args: any[]) => {
+          const message = args.join(' ');
+          originalError(...args);
+          if (logStream) {
+            try {
+              logStream.write(`[ERROR ${new Date().toISOString()}] ${message}\n`);
+            } catch (e) {
+              // Ignore write errors
+            }
+          }
+        };
+      } catch (error) {
+        // If logging setup fails, continue without it
+        console.error('Failed to setup logging:', error);
+      }
+    }
     
-    // Start the server first
-    serverConfig = await serverLauncher.start(DEFAULT_SERVER_PORT);
+    console.log('🚀 Application starting...');
+    console.log('📦 Is packaged:', app.isPackaged);
+    console.log('📁 App path:', app.getAppPath());
+    console.log('📁 Resources path:', process.resourcesPath || 'undefined');
+    console.log('📁 User data:', app.getPath('userData'));
+    console.log('🔧 Development mode:', isDev);
+    console.log('📁 __dirname:', __dirname);
+    
+    // Create user data directory if it doesn't exist
+    const fs = require('fs');
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+      console.log('✅ Created user data directory');
+    }
+    
+    // In development mode, skip server launchers (assumes dev servers are already running)
+    if (!isDev) {
+      // Initialize and start API server
+      console.log('🔧 Starting API server...');
+      try {
+        serverLauncher = new ServerLauncher(isDev);
+        serverConfig = await serverLauncher.start(DEFAULT_SERVER_PORT);
+        console.log('✅ API server started:', serverConfig.url);
+      } catch (serverError) {
+        console.error('❌ Failed to start API server:', serverError);
+        throw new Error(`API Server failed: ${serverError instanceof Error ? serverError.message : String(serverError)}`);
+      }
+      
+      // Initialize and start Next.js server
+      console.log('🔧 Starting Next.js server...');
+      try {
+        nextServerLauncher = new NextServerLauncher(isDev);
+        nextServerConfig = await nextServerLauncher.start(3000);
+        console.log('✅ Next.js server started:', nextServerConfig.url);
+      } catch (nextError) {
+        console.error('❌ Failed to start Next.js server:', nextError);
+        throw new Error(`Next.js Server failed: ${nextError instanceof Error ? nextError.message : String(nextError)}`);
+      }
+      
+      // Show success notification
+      showNotification(
+        'Server Started',
+        `Restaurant Management System is running`
+      );
+    } else {
+      console.log('Development mode: Using external dev servers on port 3000 and 5000');
+      // In dev mode, assume servers are running externally
+      serverConfig = {
+        port: DEFAULT_SERVER_PORT,
+        url: `http://localhost:${DEFAULT_SERVER_PORT}`,
+        lanIp: 'localhost'
+      };
+      nextServerConfig = {
+        port: 3000,
+        url: 'http://localhost:3000'
+      };
+    }
     
     // Set up IPC handlers
     setupIpcHandlers();
@@ -388,19 +488,40 @@ app.whenReady().then(async () => {
     
     // Set up auto-updater
     setupAutoUpdater();
-    
-    // Show success notification
-    showNotification(
-      'Server Started',
-      `Restaurant Management System is running on port ${serverConfig.port}`
-    );
   } catch (error) {
-    console.error('Failed to initialize application:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    
+    console.error('❌ Failed to initialize application:');
+    console.error('Error message:', errorMessage);
+    console.error('Error stack:', errorStack);
+    
+    // Write error to log file in production
+    if (!isDev) {
+      const fs = require('fs');
+      const logPath = path.join(app.getPath('userData'), 'error.log');
+      const logMessage = `
+[${new Date().toISOString()}] Startup Error:
+${errorMessage}
+${errorStack}
+`;
+      try {
+        fs.appendFileSync(logPath, logMessage);
+        console.log('📝 Error logged to:', logPath);
+      } catch (logError) {
+        console.error('Failed to write error log:', logError);
+      }
+    }
+    
     showNotification(
       'Startup Error',
-      'Failed to start the application. Please check the logs.'
+      `Failed to start: ${errorMessage.substring(0, 100)}`
     );
-    app.quit();
+    
+    // Keep app open for a moment so user can see the error
+    setTimeout(() => {
+      app.quit();
+    }, 5000);
   }
 
   app.on('activate', () => {
@@ -418,6 +539,11 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', async () => {
   appWithQuitting.isQuitting = true;
+  
+  // Stop both servers
+  if (nextServerLauncher) {
+    await nextServerLauncher.stop();
+  }
   if (serverLauncher) {
     await serverLauncher.stop();
   }
@@ -425,9 +551,19 @@ app.on('before-quit', async () => {
 
 // Handle app quit
 app.on('will-quit', async (event) => {
-  if (serverLauncher && serverLauncher.isRunning()) {
+  const isNextRunning = nextServerLauncher && nextServerLauncher.isRunning();
+  const isServerRunning = serverLauncher && serverLauncher.isRunning();
+  
+  if (isNextRunning || isServerRunning) {
     event.preventDefault();
-    await serverLauncher.stop();
+    
+    if (nextServerLauncher) {
+      await nextServerLauncher.stop();
+    }
+    if (serverLauncher) {
+      await serverLauncher.stop();
+    }
+    
     app.quit();
   }
 });

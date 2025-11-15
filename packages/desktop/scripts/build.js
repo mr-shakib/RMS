@@ -16,7 +16,7 @@ if (!validEnvs.includes(env)) {
 
 console.log(`\n🔨 Building for ${env} environment...\n`);
 
-// Copy environment file
+// Copy environment file for desktop
 const envFile = `.env.${env}`;
 const envPath = path.join(__dirname, '..', envFile);
 const targetPath = path.join(__dirname, '..', '.env.local');
@@ -26,6 +26,18 @@ if (fs.existsSync(envPath)) {
   console.log(`✓ Copied ${envFile} to .env.local`);
 } else {
   console.warn(`⚠ Warning: ${envFile} not found, using existing .env.local`);
+}
+
+// Copy environment file for server
+const serverEnvFile = `.env.${env}`;
+const serverEnvPath = path.join(__dirname, '../../../server', serverEnvFile);
+const serverTargetPath = path.join(__dirname, '../../../server', '.env');
+
+if (fs.existsSync(serverEnvPath)) {
+  fs.copyFileSync(serverEnvPath, serverTargetPath);
+  console.log(`✓ Copied server ${serverEnvFile} to .env`);
+} else {
+  console.warn(`⚠ Warning: server ${serverEnvFile} not found`);
 }
 
 // Build server first

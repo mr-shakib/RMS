@@ -53,7 +53,7 @@ const navItems: NavItem[] = [
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
-    name: 'Billing',
+    name: 'Take Away',
     href: '/billing',
     icon: CreditCardIcon,
     roles: [Role.ADMIN, Role.WAITER],
