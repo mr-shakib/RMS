@@ -29,21 +29,15 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: HomeIcon,
+    name: 'Tables',
+    href: '/tables',
+    icon: TableCellsIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
     name: 'Orders',
     href: '/orders',
     icon: ShoppingBagIcon,
-    roles: [Role.ADMIN, Role.WAITER],
-  },
-  {
-    name: 'Tables',
-    href: '/tables',
-    icon: TableCellsIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
@@ -58,12 +52,12 @@ const navItems: NavItem[] = [
     icon: CreditCardIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
-  {
-    name: 'Reports',
-    href: '/reports',
-    icon: ChartBarIcon,
-    roles: [Role.ADMIN, Role.WAITER],
-  },
+  // {
+  //   name: 'Reports',
+  //   href: '/reports',
+  //   icon: ChartBarIcon,
+  //   roles: [Role.ADMIN, Role.WAITER],
+  // },
   {
     name: 'Kitchen Display',
     href: '/kds',

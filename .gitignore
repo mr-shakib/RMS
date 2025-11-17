@@ -7,7 +7,7 @@ node_modules/
 coverage/
 
 # Production builds
-
+dist/
 build/
 out/
 .next/
@@ -46,7 +46,7 @@ Thumbs.db
 # prisma/migrations/
 
 # Electron
-
+packages/desktop/dist/
 packages/desktop/out/
 packages/desktop/release/
 

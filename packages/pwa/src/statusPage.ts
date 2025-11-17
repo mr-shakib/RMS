@@ -1,6 +1,16 @@
-import { Order, OrderStatus } from '@rms/shared';
+import type { Order } from '@rms/shared';
 import { apiClient } from './api';
 import { io, Socket } from 'socket.io-client';
+
+// Define OrderStatus locally to avoid module import issues
+enum OrderStatus {
+  PENDING = 'PENDING',
+  PREPARING = 'PREPARING',
+  READY = 'READY',
+  SERVED = 'SERVED',
+  PAID = 'PAID',
+  CANCELLED = 'CANCELLED'
+}
 
 export class StatusPage {
   private container: HTMLElement;
@@ -258,7 +268,18 @@ export class StatusPage {
     if (!this.tableId) return;
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      // Get API URL dynamically - same logic as api.ts
+      let API_URL: string;
+      if (import.meta.env.VITE_API_URL) {
+        API_URL = import.meta.env.VITE_API_URL;
+      } else if (typeof window !== 'undefined') {
+        const { protocol, hostname, port } = window.location;
+        const apiPort = port || '5000';
+        API_URL = `${protocol}//${hostname}:${apiPort}`;
+      } else {
+        API_URL = 'http://localhost:5000';
+      }
+
       this.socket = io(API_URL);
 
       this.socket.on('connect', () => {

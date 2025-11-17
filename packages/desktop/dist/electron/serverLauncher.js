@@ -94,19 +94,16 @@ class ServerLauncher {
     /**
      * Wait for server to be ready by polling health endpoint
      */
-    async waitForServer(url, maxAttempts = 30) {
+    async waitForServer(url, maxAttempts = 60) {
         const healthUrl = `${url}/api/health`;
         for (let i = 0; i < maxAttempts; i++) {
             try {
                 const response = await fetch(healthUrl);
-                if (response.ok) {
+                if (response.ok || response.status === 503) {
                     return;
                 }
             }
-            catch (error) {
-                // Server not ready yet, continue waiting
-            }
-            // Wait 1 second before next attempt
+            catch { }
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
         throw new Error('Server failed to start within timeout period');
@@ -138,18 +135,51 @@ class ServerLauncher {
                 // In production, run the built server directly
                 const serverDir = path.join(process.resourcesPath, 'server');
                 const serverPath = path.join(serverDir, 'dist', 'server', 'src', 'index.js');
+                const fs = require('fs');
+                if (!fs.existsSync(serverPath)) {
+                    throw new Error(`Server entry not found: ${serverPath}`);
+                }
                 // Set up production database path in user data directory
                 const { app } = require('electron');
                 const userDataPath = app.getPath('userData');
                 const dbDir = path.join(userDataPath, 'database');
                 const dbPath = path.join(dbDir, 'restaurant.db');
                 // Create database directory if it doesn't exist
-                const fs = require('fs');
                 if (!fs.existsSync(dbDir)) {
                     fs.mkdirSync(dbDir, { recursive: true });
                     console.log(`📁 Created database directory: ${dbDir}`);
                 }
-                serverCommand = 'node';
+                // Find the node executable that came with Electron
+                // CRITICAL: Do NOT use process.execPath in packaged apps - it points to the .exe file!
+                // Instead, use the node executable from Electron's resources
+                const electronPath = process.execPath;
+                const isWindows = process.platform === 'win32';
+                // Determine Node.js path based on platform and Electron structure
+                let nodePath;
+                if (isWindows) {
+                    // On Windows, Electron bundles node.exe in the same directory as the .exe
+                    const appDir = path.dirname(electronPath);
+                    nodePath = path.join(appDir, 'node.exe');
+                    // If node.exe doesn't exist, fall back to system node
+                    if (!fs.existsSync(nodePath)) {
+                        console.warn(`⚠️ Bundled node.exe not found at ${nodePath}, using system node`);
+                        nodePath = 'node';
+                    }
+                }
+                else if (process.platform === 'darwin') {
+                    // On macOS, node is in the Electron.app bundle
+                    nodePath = path.join(process.resourcesPath, 'node');
+                    if (!fs.existsSync(nodePath)) {
+                        console.warn(`⚠️ Bundled node not found at ${nodePath}, using system node`);
+                        nodePath = 'node';
+                    }
+                }
+                else {
+                    // On Linux, use system node
+                    nodePath = 'node';
+                }
+                console.log(`📟 Using Node.js: ${nodePath}`);
+                serverCommand = nodePath;
                 serverArgs = [serverPath];
                 cwd = serverDir; // Set working directory to server folder
                 // Set DATABASE_URL environment variable to user data path
@@ -163,6 +193,7 @@ class ServerLauncher {
                 env: {
                     ...process.env,
                     SERVER_PORT: port.toString(),
+                    LAN_IP: lanIp,
                     NODE_ENV: this.isDev ? 'development' : 'production',
                 },
                 stdio: 'pipe',

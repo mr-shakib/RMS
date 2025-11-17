@@ -53,6 +53,43 @@ try {
   process.exit(1);
 }
 
+// Build PWA
+console.log('\n📦 Building PWA...');
+try {
+  // Don't set VITE_API_URL - let PWA use same-origin approach
+  execSync('npm run build --workspace=packages/pwa', { 
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '../../..'),
+    env: {
+      ...process.env,
+      VITE_API_URL: '' // Empty to force same-origin approach
+    }
+  });
+  console.log('✓ PWA build complete');
+} catch (error) {
+  console.error('✗ PWA build failed');
+  process.exit(1);
+}
+
+// Copy PWA build to server public directory (in dist folder)
+console.log('\n📦 Copying PWA to server public directory...');
+try {
+  const pwaDistPath = path.join(__dirname, '../../pwa/dist');
+  const serverPublicPath = path.join(__dirname, '../../server/dist/server/public');
+  
+  // Remove existing public directory
+  if (fs.existsSync(serverPublicPath)) {
+    fs.rmSync(serverPublicPath, { recursive: true, force: true });
+  }
+  
+  // Copy PWA dist to server public
+  fs.cpSync(pwaDistPath, serverPublicPath, { recursive: true });
+  console.log('✓ PWA copied to server dist/server/public directory');
+} catch (error) {
+  console.error('✗ Failed to copy PWA:', error.message);
+  process.exit(1);
+}
+
 // Build Next.js frontend
 console.log('\n📦 Building Next.js frontend...');
 try {

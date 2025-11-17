@@ -1,7 +1,28 @@
 import { MenuItem, CreateOrderDTO, Order, Category } from '@rms/shared';
 
-// Get API URL from environment or default to localhost
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Get API URL dynamically
+// In production, the PWA is served by the API server, so we use the same origin
+// This ensures mobile devices use the correct LAN IP instead of localhost
+function getApiUrl(): string {
+  // If VITE_API_URL is set, use it (for development)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // In production, use the current origin (same server serving the PWA)
+  // This automatically uses the correct IP address
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+    // Default to port 5000 if not specified
+    const apiPort = port || '5000';
+    return `${protocol}//${hostname}:${apiPort}`;
+  }
+  
+  // Fallback (should never happen in browser)
+  return 'http://localhost:5000';
+}
+
+const API_URL = getApiUrl();
 
 export class APIError extends Error {
   constructor(

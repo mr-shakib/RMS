@@ -1,18 +1,21 @@
+"use strict";
 // Enum types for type safety across the application
 // These match the database schema values
-export var Role;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isValidPaymentMethod = exports.isValidOrderStatus = exports.isValidTableStatus = exports.isValidRole = exports.PaymentMethod = exports.OrderStatus = exports.TableStatus = exports.Role = void 0;
+var Role;
 (function (Role) {
     Role["ADMIN"] = "ADMIN";
     Role["WAITER"] = "WAITER";
     Role["CHEF"] = "CHEF";
-})(Role || (Role = {}));
-export var TableStatus;
+})(Role || (exports.Role = Role = {}));
+var TableStatus;
 (function (TableStatus) {
     TableStatus["FREE"] = "FREE";
     TableStatus["OCCUPIED"] = "OCCUPIED";
     TableStatus["RESERVED"] = "RESERVED";
-})(TableStatus || (TableStatus = {}));
-export var OrderStatus;
+})(TableStatus || (exports.TableStatus = TableStatus = {}));
+var OrderStatus;
 (function (OrderStatus) {
     OrderStatus["PENDING"] = "PENDING";
     OrderStatus["PREPARING"] = "PREPARING";
@@ -20,23 +23,27 @@ export var OrderStatus;
     OrderStatus["SERVED"] = "SERVED";
     OrderStatus["PAID"] = "PAID";
     OrderStatus["CANCELLED"] = "CANCELLED";
-})(OrderStatus || (OrderStatus = {}));
-export var PaymentMethod;
+})(OrderStatus || (exports.OrderStatus = OrderStatus = {}));
+var PaymentMethod;
 (function (PaymentMethod) {
     PaymentMethod["CASH"] = "CASH";
     PaymentMethod["CARD"] = "CARD";
     PaymentMethod["WALLET"] = "WALLET";
-})(PaymentMethod || (PaymentMethod = {}));
+})(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));
 // Type guards for runtime validation
-export const isValidRole = (value) => {
+const isValidRole = (value) => {
     return Object.values(Role).includes(value);
 };
-export const isValidTableStatus = (value) => {
+exports.isValidRole = isValidRole;
+const isValidTableStatus = (value) => {
     return Object.values(TableStatus).includes(value);
 };
-export const isValidOrderStatus = (value) => {
+exports.isValidTableStatus = isValidTableStatus;
+const isValidOrderStatus = (value) => {
     return Object.values(OrderStatus).includes(value);
 };
-export const isValidPaymentMethod = (value) => {
+exports.isValidOrderStatus = isValidOrderStatus;
+const isValidPaymentMethod = (value) => {
     return Object.values(PaymentMethod).includes(value);
 };
+exports.isValidPaymentMethod = isValidPaymentMethod;

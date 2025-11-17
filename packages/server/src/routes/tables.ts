@@ -5,8 +5,27 @@ import { ValidationError, NotFoundError } from '../errors/AppError';
 import { emitTableUpdated } from '../websocket';
 import { generateTableQRCodePDF, generateBulkQRCodesPDF } from '../utils/qrCodeGenerator';
 import prisma from '../db/client';
+import os from 'os';
 
 const router = Router();
+
+// Helper function to get default server URL with LAN IP
+function getDefaultServerUrl(): string {
+  const networkInterfaces = os.networkInterfaces();
+  
+  for (const name of Object.keys(networkInterfaces)) {
+    const iface = networkInterfaces[name];
+    if (!iface) continue;
+    
+    for (const alias of iface) {
+      if (alias.family === 'IPv4' && !alias.internal) {
+        return `http://${alias.address}:5000`;
+      }
+    }
+  }
+  
+  return 'http://localhost:5000';
+}
 
 // All table routes require authentication
 router.use(authenticate);
@@ -21,9 +40,8 @@ router.get('/qr/download-all', requireRole(['ADMIN']), async (req: Request, res:
       throw new ValidationError('No tables found to generate QR codes');
     }
 
-    // Get server URL from settings
-    const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+    // Always use actual LAN IP for QR codes
+    const serverUrl = getDefaultServerUrl();
 
     // Prepare table data for PDF generation
     const tableData = tables.map(table => ({
@@ -247,9 +265,8 @@ router.get('/:id/qr/download', requireRole(['ADMIN', 'WAITER']), async (req: Req
       throw new NotFoundError('Table');
     }
 
-    // Get server URL from settings
-    const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+    // Always use actual LAN IP for QR codes
+    const serverUrl = getDefaultServerUrl();
 
     // Generate PDF with QR code
     const pdfBuffer = await generateTableQRCodePDF(tableId, table.name, serverUrl);

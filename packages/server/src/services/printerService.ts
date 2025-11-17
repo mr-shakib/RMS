@@ -48,6 +48,12 @@ class PrinterService {
    */
   async connect(config: PrinterConfig): Promise<void> {
     try {
+      // If no printer type configured, return early
+      if (!config.type || config.type.trim() === '') {
+        console.log('ℹ️ No printer type configured, skipping connection');
+        return;
+      }
+
       // Disconnect existing connection if any
       if (this.printer) {
         await this.disconnect();

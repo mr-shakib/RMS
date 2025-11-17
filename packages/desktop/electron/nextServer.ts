@@ -56,19 +56,50 @@ export class NextServerLauncher {
    * Wait for Next.js server to be ready
    */
   private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
+    const http = require('http');
+    const urlObj = new URL(url);
+    
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        const response = await fetch(url);
-        if (response.ok || response.status === 404) {
-          // Next.js is ready (404 is fine, means server is responding)
-          return;
-        }
+        await new Promise<void>((resolve, reject) => {
+          const req = http.request(
+            {
+              hostname: urlObj.hostname,
+              port: urlObj.port,
+              path: '/',
+              method: 'GET',
+              timeout: 2000,
+            },
+            (res: any) => {
+              // Any response means server is ready
+              if (res.statusCode === 200 || res.statusCode === 404 || res.statusCode === 500) {
+                resolve();
+              } else {
+                reject(new Error(`Unexpected status: ${res.statusCode}`));
+              }
+            }
+          );
+          
+          req.on('error', (error: Error) => {
+            reject(error);
+          });
+          
+          req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+          });
+          
+          req.end();
+        });
+        
+        // Server is ready!
+        return;
       } catch (error) {
         // Server not ready yet, continue waiting
+        if (i < maxAttempts - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-      
-      // Wait 1 second before next attempt
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     throw new Error('Next.js server failed to start within timeout period');
@@ -89,6 +120,7 @@ export class NextServerLauncher {
       let nextCommand: string;
       let nextArgs: string[];
       let cwd: string;
+      let useShell = false; // Track if we need shell mode
       
       if (this.isDev) {
         // In development, use npm to run Next.js dev server
@@ -96,13 +128,64 @@ export class NextServerLauncher {
         nextCommand = isWindows ? 'npm.cmd' : 'npm';
         nextArgs = ['run', 'dev:next'];
         cwd = path.join(__dirname, '../../');
+        useShell = true;
       } else {
         // In production, run Next.js server directly with Node.js
-        const nextDir = path.join(__dirname, '../../');
-        const nextServerPath = path.join(nextDir, 'node_modules/next/dist/bin/next');
+        const { app } = require('electron');
+        const fs = require('fs');
         
-        // Use node to run the Next.js server
-        nextCommand = 'node';
+        // Get app path (no asar, all files are unpacked)
+        const nextDir = path.join(__dirname, '../../');
+        
+        const nextBuildPath = path.join(nextDir, '.next');
+        if (!fs.existsSync(nextBuildPath)) {
+          throw new Error(`Next.js build not found at: ${nextBuildPath}`);
+        }
+        
+        const nextServerPath = path.join(nextDir, 'node_modules/next/dist/bin/next');
+        if (!fs.existsSync(nextServerPath)) {
+          throw new Error(`Next binary not found: ${nextServerPath}`);
+        }
+        
+        // Get Node.js executable - NOT process.execPath which points to .exe in packaged apps
+        const isPackaged = app.isPackaged;
+        let nodeCommand: string = '';
+        
+        if (isPackaged) {
+          // In packaged app, look for node.exe in multiple locations
+          const appDir = path.dirname(app.getPath('exe'));
+          const bundledNode = path.join(appDir, 'node.exe');
+          
+          if (fs.existsSync(bundledNode)) {
+            nodeCommand = bundledNode;
+            console.log(`✓ Using bundled node: ${nodeCommand}`);
+          } else {
+            // Check common node installation locations
+            const possiblePaths = [
+              'C:\\Program Files\\nodejs\\node.exe',
+              'C:\\Program Files (x86)\\nodejs\\node.exe',
+              path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'nodejs', 'node.exe'),
+              path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe'),
+            ];
+            
+            for (const nodePath of possiblePaths) {
+              if (fs.existsSync(nodePath)) {
+                nodeCommand = nodePath;
+                console.log(`✓ Found system node at: ${nodeCommand}`);
+                break;
+              }
+            }
+            
+            if (!nodeCommand) {
+              throw new Error('Node.js not found. Please install Node.js or bundle node.exe with the app.');
+            }
+          }
+        } else {
+          // In development, use system node
+          nodeCommand = 'node';
+        }
+        
+        nextCommand = nodeCommand;
         nextArgs = [nextServerPath, 'start', '-p', port.toString()];
         cwd = nextDir;
       }
@@ -117,7 +200,7 @@ export class NextServerLauncher {
           NODE_ENV: this.isDev ? 'development' : 'production',
         },
         stdio: 'pipe',
-        shell: this.isDev, // Only use shell in dev mode for npm command
+        shell: useShell,
         cwd,
       });
       

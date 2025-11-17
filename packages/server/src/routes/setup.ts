@@ -3,9 +3,37 @@ import prisma from '../db/client';
 import { userService } from '../services';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
 import { ValidationError } from '../errors/AppError';
+import { config } from '../config';
 import os from 'os';
 
 const router = Router();
+
+// Helper function to get default server URL with LAN IP
+function getDefaultServerUrl(): string {
+  // Use LAN_IP from environment if available (set by Electron)
+  const lanIp = process.env.LAN_IP;
+  const port = config.port;
+  
+  if (lanIp && lanIp !== 'localhost') {
+    return `http://${lanIp}:${port}`;
+  }
+
+  // Try to detect LAN IP from network interfaces
+  const networkInterfaces = os.networkInterfaces();
+  
+  for (const name of Object.keys(networkInterfaces)) {
+    const iface = networkInterfaces[name];
+    if (!iface) continue;
+    
+    for (const alias of iface) {
+      if (alias.family === 'IPv4' && !alias.internal) {
+        return `http://${alias.address}:${port}`;
+      }
+    }
+  }
+  
+  return `http://localhost:${port}`;
+}
 
 /**
  * GET /api/setup/status - Check if setup has been completed
@@ -199,8 +227,15 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
 
     // Generate QR codes for newly created tables (outside transaction)
     if (tablesToCreate.length > 0) {
-      const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-      const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+      // Always use actual LAN IP for QR codes, never localhost
+      const serverUrl = getDefaultServerUrl();
+      
+      // Update server_url setting to match the LAN IP
+      await prisma.setting.upsert({
+        where: { key: 'server_url' },
+        update: { value: serverUrl },
+        create: { key: 'server_url', value: serverUrl },
+      });
 
       for (const table of tablesToCreate) {
         const qrCodeUrl = await generateTableQRCode(table.id, serverUrl, {

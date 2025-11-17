@@ -1,17 +1,20 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PaymentMethod = exports.OrderStatus = exports.TableStatus = exports.Role = void 0;
 // Enums matching Prisma schema
-export var Role;
+var Role;
 (function (Role) {
     Role["ADMIN"] = "ADMIN";
     Role["WAITER"] = "WAITER";
     Role["CHEF"] = "CHEF";
-})(Role || (Role = {}));
-export var TableStatus;
+})(Role || (exports.Role = Role = {}));
+var TableStatus;
 (function (TableStatus) {
     TableStatus["FREE"] = "FREE";
     TableStatus["OCCUPIED"] = "OCCUPIED";
     TableStatus["RESERVED"] = "RESERVED";
-})(TableStatus || (TableStatus = {}));
-export var OrderStatus;
+})(TableStatus || (exports.TableStatus = TableStatus = {}));
+var OrderStatus;
 (function (OrderStatus) {
     OrderStatus["PENDING"] = "PENDING";
     OrderStatus["PREPARING"] = "PREPARING";
@@ -19,10 +22,10 @@ export var OrderStatus;
     OrderStatus["SERVED"] = "SERVED";
     OrderStatus["PAID"] = "PAID";
     OrderStatus["CANCELLED"] = "CANCELLED";
-})(OrderStatus || (OrderStatus = {}));
-export var PaymentMethod;
+})(OrderStatus || (exports.OrderStatus = OrderStatus = {}));
+var PaymentMethod;
 (function (PaymentMethod) {
     PaymentMethod["CASH"] = "CASH";
     PaymentMethod["CARD"] = "CARD";
     PaymentMethod["WALLET"] = "WALLET";
-})(PaymentMethod || (PaymentMethod = {}));
+})(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));

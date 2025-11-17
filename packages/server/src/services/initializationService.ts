@@ -1,11 +1,45 @@
 import prisma from '../db/client';
 import bcrypt from 'bcrypt';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
+import { config } from '../config';
+import os from 'os';
 
 /**
  * Service to check and initialize database on server startup
  */
 class InitializationService {
+  /**
+   * Get default server URL with LAN IP
+   */
+  private getDefaultServerUrl(): string {
+    // Use LAN_IP from environment if available (set by Electron)
+    const lanIp = process.env.LAN_IP;
+    const port = config.port;
+    
+    if (lanIp && lanIp !== 'localhost') {
+      console.log(`🌐 Using LAN IP from environment: ${lanIp}:${port}`);
+      return `http://${lanIp}:${port}`;
+    }
+
+    // Try to detect LAN IP from network interfaces
+    const networkInterfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(networkInterfaces)) {
+      const iface = networkInterfaces[name];
+      if (!iface) continue;
+      
+      for (const alias of iface) {
+        if (alias.family === 'IPv4' && !alias.internal) {
+          console.log(`🌐 Detected LAN IP from network: ${alias.address}:${port}`);
+          return `http://${alias.address}:${port}`;
+        }
+      }
+    }
+    
+    console.warn(`⚠️  Could not detect LAN IP, falling back to localhost:${port}`);
+    return `http://localhost:${port}`;
+  }
+
   /**
    * Check if database has been initialized with seed data
    */
@@ -121,8 +155,8 @@ class InitializationService {
       { key: 'business_address', value: '123 Main Street, City, State 12345' },
       { key: 'tax_percentage', value: '10' },
       { key: 'currency', value: 'USD' },
-      { key: 'server_port', value: '5000' },
-      { key: 'server_url', value: 'http://localhost:5000' },
+      { key: 'server_port', value: config.port.toString() },
+      { key: 'server_url', value: this.getDefaultServerUrl() },
       { key: 'theme', value: 'light' },
       { key: 'printer_type', value: '' },
       { key: 'printer_address', value: '' },
@@ -145,7 +179,7 @@ class InitializationService {
   private async createDefaultTables(): Promise<void> {
     // Get server URL for QR code generation
     const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+    const serverUrl = serverUrlSetting?.value || this.getDefaultServerUrl();
 
     // Create 10 tables
     for (let i = 1; i <= 10; i++) {

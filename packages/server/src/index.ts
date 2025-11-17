@@ -38,6 +38,7 @@ const server = httpServer.listen(config.port, async () => {
     }
   } catch (error) {
     console.error('⚠️  Failed to initialize printer:', error);
+    console.log('ℹ️  Server will continue without printer support');
   }
 });
 

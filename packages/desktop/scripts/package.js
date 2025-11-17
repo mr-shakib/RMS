@@ -48,6 +48,23 @@ try {
   process.exit(1);
 }
 
+// Prepare Next.js for packaging
+console.log('\n📦 Verifying Next.js build...');
+try {
+  const nextDir = path.join(__dirname, '..');
+  const nextBuildDir = path.join(nextDir, '.next');
+  const fs = require('fs');
+  if (!fs.existsSync(nextBuildDir)) {
+    console.log('ℹ️ .next not found, running Next.js build...');
+    execSync('npm run build:next', { stdio: 'inherit', cwd: nextDir });
+  } else {
+    console.log('✓ Next.js build present');
+  }
+} catch (error) {
+  console.error('✗ Next.js verification failed');
+  process.exit(1);
+}
+
 // Package with electron-builder
 console.log('\n📦 Creating installer packages...');
 try {
@@ -68,13 +85,14 @@ try {
       break;
   }
 
-  execSync(`electron-builder ${builderArgs} --config electron-builder.json`, { 
+  const outDir = `release/build-${Date.now()}`;
+  execSync(`electron-builder ${builderArgs} --config electron-builder.json -c.directories.output=${outDir}`, { 
     stdio: 'inherit',
     cwd: path.join(__dirname, '..')
   });
   
   console.log('\n✅ Packaging complete!');
-  console.log(`\n📁 Output directory: packages/desktop/release\n`);
+  console.log(`\n📁 Output directory: packages/desktop/${outDir}\n`);
 } catch (error) {
   console.error('✗ Packaging failed');
   process.exit(1);

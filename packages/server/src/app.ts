@@ -43,9 +43,12 @@ export const createApp = (): Application => {
           return callback(null, true);
         }
 
-        // In production, check if origin is in allowed list or matches LAN pattern
+        // In production, check if origin is in allowed list or matches LAN pattern or localhost
         if (
           config.corsOrigins.includes(origin) ||
+          /^http:\/\/localhost:\d+$/.test(origin) ||
+          /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+          /^http:\/\/\[::1\]:\d+$/.test(origin) ||
           /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/.test(origin) ||
           /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/.test(origin)
         ) {
