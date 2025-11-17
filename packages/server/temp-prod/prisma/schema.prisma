@@ -31,33 +31,37 @@ model Table {
 }
 
 model Category {
-  id          String     @id @default(uuid())
-  name        String     @unique
-  isBuffet    Boolean    @default(false) // Special flag for buffet categories
-  buffetPrice Float?     // Price for buffet (if isBuffet is true)
-  sortOrder   Int        @default(0) // For custom ordering
-  menuItems   MenuItem[]
-  orders      Order[]    // Orders that selected this buffet category
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id                    String     @id @default(uuid())
+  name                  String     @unique
+  isBuffet              Boolean    @default(false) // Special flag for buffet categories
+  buffetPrice           Float?     // Price for buffet (if isBuffet is true)
+  sortOrder             Int        @default(0) // For custom ordering
+  primaryMenuItems      MenuItem[] @relation("PrimaryCategory")
+  secondaryMenuItems    MenuItem[] @relation("SecondaryCategory")
+  orders                Order[]    // Orders that selected this buffet category
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   @@index([sortOrder])
 }
 
 model MenuItem {
-  id          String      @id @default(uuid())
-  name        String
-  categoryId  String
-  category    Category    @relation(fields: [categoryId], references: [id])
-  price       Float       // Stored as Float for SQLite compatibility
-  description String?
-  imageUrl    String?
-  available   Boolean     @default(true)
-  orderItems  OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                  String      @id @default(uuid())
+  name                String
+  categoryId          String
+  category            Category    @relation("PrimaryCategory", fields: [categoryId], references: [id])
+  secondaryCategoryId String?     // For buffet items that also appear in All Items menu
+  secondaryCategory   Category?   @relation("SecondaryCategory", fields: [secondaryCategoryId], references: [id])
+  price               Float       // Stored as Float for SQLite compatibility
+  description         String?
+  imageUrl            String?
+  available           Boolean     @default(true)
+  orderItems          OrderItem[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   @@index([categoryId])
+  @@index([secondaryCategoryId])
   @@index([available])
 }
 

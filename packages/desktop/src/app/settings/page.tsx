@@ -179,6 +179,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   const [taxPercentage, setTaxPercentage] = useState(settings.TAX_PERCENTAGE || '10');
   const [currency, setCurrency] = useState(settings.CURRENCY || 'USD');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
     setBusinessName(settings.BUSINESS_NAME || '');
@@ -213,7 +214,6 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
       await saveMutation.mutateAsync({
         BUSINESS_NAME: businessName,
         BUSINESS_ADDRESS: businessAddress,
-        BUSINESS_LOGO_URL: logoUrl,
         TAX_PERCENTAGE: taxPercentage,
         CURRENCY: currency,
       });
@@ -222,8 +222,81 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
     }
   };
 
-  const handleRemoveLogo = () => {
-    setLogoUrl('');
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      onError('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      onError('Image file size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/settings/upload-logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload logo');
+      }
+
+      const data = await response.json();
+      setLogoUrl(data.data.logoUrl);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      onSuccess();
+    } catch (error: any) {
+      onError(error.message || 'Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!confirm('Are you sure you want to remove the logo?')) {
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/settings/logo', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to remove logo');
+      }
+
+      setLogoUrl('');
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      onSuccess();
+    } catch (error: any) {
+      onError(error.message || 'Failed to remove logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   return (
@@ -308,44 +381,70 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           />
         </div>
 
-        {/* Logo URL */}
+        {/* Business Logo Upload */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Logo URL
+            Business Logo
           </label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://example.com/logo.png"
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {logoUrl && (
-              <button
-                onClick={handleRemoveLogo}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
-                         font-medium transition-colors"
-              >
-                Remove
-              </button>
-            )}
-          </div>
+          
+          {/* Current Logo Preview */}
           {logoUrl && (
-            <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Logo Preview:</p>
-              <img 
-                src={logoUrl} 
-                alt="Business Logo" 
-                className="h-20 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+            <div className="mb-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                <img 
+                  src={`http://localhost:5000${logoUrl}`}
+                  alt="Business Logo" 
+                  className="h-20 w-20 object-contain rounded border border-gray-300 dark:border-gray-600"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Logo</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {logoUrl}
+                  </p>
+                </div>
+                <button
+                  onClick={handleRemoveLogo}
+                  disabled={isUploadingLogo}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
+                           font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Upload New Logo */}
+          <div className="relative">
+            <input
+              type="file"
+              id="logo-upload"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              onChange={handleLogoUpload}
+              disabled={isUploadingLogo}
+              className="hidden"
+            />
+            <label
+              htmlFor="logo-upload"
+              className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed
+                       rounded-lg cursor-pointer transition-colors
+                       ${isUploadingLogo 
+                         ? 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+                         : 'border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-gray-800'
+                       }`}
+            >
+              <ArrowUpTrayIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {isUploadingLogo ? 'Uploading...' : logoUrl ? 'Change Logo' : 'Upload Logo'}
+              </span>
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Supported formats: JPEG, PNG, GIF, WebP (Max size: 5MB)
+          </p>
         </div>
       </div>
 

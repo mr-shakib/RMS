@@ -21,6 +21,7 @@
   "dependencies": {
     "@prisma/client": "^5.8.0",
     "@rms/shared": "*",
+    "@types/multer": "^2.0.0",
     "bcrypt": "^5.1.1",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
@@ -31,6 +32,7 @@
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.3",
     "socket.io": "^4.6.0",

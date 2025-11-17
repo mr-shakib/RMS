@@ -28,6 +28,8 @@ export interface MenuItem {
     name: string;
     categoryId: string;
     category?: Category;
+    secondaryCategoryId?: string;
+    secondaryCategory?: Category;
     price: number;
     description?: string;
     imageUrl?: string;
@@ -94,6 +96,7 @@ export interface CreateCategoryDTO {
 export interface CreateMenuItemDTO {
     name: string;
     categoryId: string;
+    secondaryCategoryId?: string;
     price: number;
     description?: string;
     imageUrl?: string;

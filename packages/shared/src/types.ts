@@ -116,6 +116,7 @@ export interface CreateCategoryDTO {
 export interface CreateMenuItemDTO {
   name: string;
   categoryId: string;
+  secondaryCategoryId?: string;
   price: number;
   description?: string;
   imageUrl?: string;
