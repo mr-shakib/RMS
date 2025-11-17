@@ -23,6 +23,50 @@ export default function NewMenuItemPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imagePreview, setImagePreview] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Handle image file upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setErrors({ ...errors, image: 'Please select an image file' });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors({ ...errors, image: 'Image size must be less than 5MB' });
+      return;
+    }
+
+    setUploadedFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setImagePreview(base64String);
+      setFormData((prev) => ({ ...prev, imageUrl: base64String }));
+    };
+    reader.readAsDataURL(file);
+
+    // Clear error
+    if (errors.image) {
+      const newErrors = { ...errors };
+      delete newErrors.image;
+      setErrors(newErrors);
+    }
+  };
+
+  // Remove uploaded image
+  const handleRemoveImage = () => {
+    setUploadedFile(null);
+    setImagePreview('');
+    setFormData((prev) => ({ ...prev, imageUrl: '' }));
+  };
 
   // Handle input change
   const handleChange = (
@@ -35,11 +79,6 @@ export default function NewMenuItemPage() {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
-      
-      // Update image preview
-      if (name === 'imageUrl' && value) {
-        setImagePreview(value);
-      }
     }
     
     // Clear error for this field
@@ -254,46 +293,65 @@ export default function NewMenuItemPage() {
           />
         </div>
 
-        {/* Image URL */}
+        {/* Image Upload */}
         <div>
-          <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Image URL
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Image
           </label>
-          <input
-            type="url"
-            id="imageUrl"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
-                     bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="https://example.com/image.jpg"
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Enter a URL to an image of the menu item
-          </p>
           
-          {/* Image Preview */}
-          {imagePreview && (
-            <div className="mt-3">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-              <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+          {!imagePreview ? (
+            <div>
+              <label
+                htmlFor="image-upload"
+                className="flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed 
+                         border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer 
+                         bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <PhotoIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-3" />
+                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    PNG, JPG, GIF up to 5MB
+                  </p>
+                </div>
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+              {errors.image && (
+                <p className="text-red-500 text-sm mt-1">{errors.image}</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                 <img
                   src={imagePreview}
                   alt="Preview"
-                  className="w-full h-full object-cover"
-                  onError={() => setImagePreview('')}
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-            </div>
-          )}
-          
-          {!imagePreview && (
-            <div className="mt-3 flex items-center justify-center w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <div className="text-center">
-                <PhotoIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">No image preview</p>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <PhotoIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {uploadedFile?.name || 'Image uploaded'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 
+                           dark:hover:text-red-300 font-medium"
+                >
+                  Remove
+                </button>
               </div>
             </div>
           )}
