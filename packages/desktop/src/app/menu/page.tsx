@@ -6,8 +6,6 @@ import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { PlusIcon, MagnifyingGlassIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'UNAVAILABLE';
-
 export default function MenuPage() {
   const router = useRouter();
   const { menuItems, isLoading, toggleAvailability } = useMenu();
@@ -15,7 +13,6 @@ export default function MenuPage() {
   
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'BUFFET' | 'ALL_ITEMS'>('ALL_ITEMS');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
   
@@ -67,13 +64,6 @@ export default function MenuPage() {
       }
     }
 
-    // Apply availability filter
-    if (availabilityFilter === 'AVAILABLE') {
-      filtered = filtered.filter((item) => item.available);
-    } else if (availabilityFilter === 'UNAVAILABLE') {
-      filtered = filtered.filter((item) => !item.available);
-    }
-
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -83,7 +73,7 @@ export default function MenuPage() {
     }
 
     return filtered;
-  }, [menuItems, categories, mainCategoryFilter, buffetCategories, regularCategories, categoryFilter, availabilityFilter, searchQuery]);
+  }, [menuItems, categories, mainCategoryFilter, buffetCategories, regularCategories, categoryFilter, searchQuery]);
 
   // Handle availability toggle
   const handleToggleAvailability = async (itemId: string) => {
@@ -318,48 +308,6 @@ export default function MenuPage() {
             </div>
           )}
         </div>
-
-        {/* Availability Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Availability
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAvailabilityFilter('ALL')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'ALL'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              All ({menuItems.length})
-            </button>
-            <button
-              onClick={() => setAvailabilityFilter('AVAILABLE')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'AVAILABLE'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              Available ({menuItems.filter((item) => item.available).length})
-            </button>
-            <button
-              onClick={() => setAvailabilityFilter('UNAVAILABLE')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'UNAVAILABLE'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              Unavailable ({menuItems.filter((item) => !item.available).length})
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Menu Items Grid */}
@@ -496,19 +444,6 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
             <span className="text-6xl">🍽️</span>
           </div>
         )}
-        {/* Availability Badge */}
-        <div className="absolute top-2 right-2">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium
-              ${
-                item.available
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-              }`}
-          >
-            {item.available ? 'Available' : 'Unavailable'}
-          </span>
-        </div>
         {/* Buffet Badge */}
         {category?.isBuffet && (
           <div className="absolute top-2 left-2">
@@ -536,27 +471,11 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
           </p>
         )}
 
-        {/* Price and Toggle */}
-        <div className="flex items-center justify-between">
+        {/* Price */}
+        <div>
           <span className="text-xl font-bold text-gray-900 dark:text-white">
             ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
           </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleAvailability();
-            }}
-            disabled={isToggling}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors
-              ${
-                item.available
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50'
-                  : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
-              }
-              disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isToggling ? 'Updating...' : item.available ? 'Mark Unavailable' : 'Mark Available'}
-          </button>
         </div>
       </div>
     </div>

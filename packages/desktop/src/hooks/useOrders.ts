@@ -15,6 +15,8 @@ export function useOrders() {
       const response = await apiClient.get<{ status: string; data: { orders: Order[]; count: number } }>('/orders');
       return response.data.orders;
     },
+    refetchInterval: false, // Disable polling - we use WebSocket for real-time updates
+    staleTime: 0, // Always consider data stale to ensure fresh data
   });
 
   // Subscribe to order updates via WebSocket
@@ -38,6 +40,8 @@ export function useOrders() {
         if (!old || !Array.isArray(old)) return [updatedOrder];
         return old.map((order) => (order.id === updatedOrder.id ? updatedOrder : order));
       });
+      // Also invalidate KDS orders to keep kitchen display in sync
+      queryClient.invalidateQueries({ queryKey: ['kds-orders'] });
     };
 
     // Handle order cancelled

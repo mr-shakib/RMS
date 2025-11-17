@@ -457,6 +457,10 @@ export default function BillingPage() {
   const filteredMenuItems = useMemo(() => {
     let items = menuItems.filter((item) => item.available);
     
+    // Filter out buffet items - buffet is only for dine-in, not takeaway
+    const buffetCategoryIds = categories.filter((cat) => cat.isBuffet).map((cat) => cat.id);
+    items = items.filter((item) => !buffetCategoryIds.includes(item.categoryId));
+    
     // Filter by category if selected and not buffet
     if (selectedCategoryId && !selectedCategory?.isBuffet) {
       items = items.filter((item) => item.categoryId === selectedCategoryId);
@@ -469,7 +473,7 @@ export default function BillingPage() {
     }
     
     return items;
-  }, [menuItems, selectedCategoryId, selectedCategory, searchQuery]);
+  }, [menuItems, selectedCategoryId, selectedCategory, searchQuery, categories]);
 
   const changeAmount = useMemo(() => {
     if (manualBillPaymentMethod !== PaymentMethod.CASH) return 0;
@@ -527,7 +531,9 @@ export default function BillingPage() {
             {categoriesLoading ? (
               <div className="px-6 py-3 text-gray-500 dark:text-gray-400">Loading categories...</div>
             ) : (
-              categories.map((category) => (
+              categories
+                .filter((category) => !category.isBuffet) // Filter out buffet categories for takeaway
+                .map((category) => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategoryId(category.id)}
@@ -539,9 +545,6 @@ export default function BillingPage() {
                   }`}
               >
                 {category.name}
-                {category.isBuffet && (
-                  <span className="ml-1 text-xs">🍽️</span>
-                )}
               </button>
             ))
             )}

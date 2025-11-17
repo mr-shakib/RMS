@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTables } from '@/hooks/useTables';
 import { TableStatus } from '@rms/shared';
 import {
@@ -21,6 +22,7 @@ const STATUS_FILTERS: { label: string; value: TableStatusFilter }[] = [
 ];
 
 export default function TablesPage() {
+  const router = useRouter();
   const { tables, isLoading, createTable, updateTable, deleteTable, isCreating, isUpdating, isDeleting } = useTables();
   const [statusFilter, setStatusFilter] = useState<TableStatusFilter>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -34,10 +36,22 @@ export default function TablesPage() {
   const [editTableName, setEditTableName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Filter tables by status
+  // Helper function to extract table number from name
+  const getTableNumber = (tableName: string): number => {
+    const match = tableName.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+  };
+
+  // Filter and sort tables by status and number
   const filteredTables = useMemo(() => {
-    if (statusFilter === 'ALL') return tables;
-    return tables.filter((table) => table.status === statusFilter);
+    let filtered = statusFilter === 'ALL' ? tables : tables.filter((table) => table.status === statusFilter);
+    
+    // Sort by table number (extracted from name)
+    return filtered.sort((a, b) => {
+      const numA = getTableNumber(a.name);
+      const numB = getTableNumber(b.name);
+      return numA - numB;
+    });
   }, [tables, statusFilter]);
 
   // Handle add table
@@ -235,6 +249,11 @@ export default function TablesPage() {
     }
   };
 
+  // Handle table click to create order
+  const handleTableClick = (table: any) => {
+    router.push(`/tables/${table.id}/order`);
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -321,6 +340,7 @@ export default function TablesPage() {
               <TableCard
                 key={table.id}
                 table={table}
+                onClick={() => handleTableClick(table)}
                 onEdit={() => openEditModal(table)}
                 onViewQR={() => openQRModal(table)}
                 onDelete={() => openDeleteModal(table)}
@@ -581,13 +601,14 @@ export default function TablesPage() {
 // Table Card Component
 interface TableCardProps {
   table: any;
+  onClick: () => void;
   onEdit: () => void;
   onViewQR: () => void;
   onDelete: () => void;
   onChangeStatus: () => void;
 }
 
-function TableCard({ table, onEdit, onViewQR, onDelete, onChangeStatus }: TableCardProps) {
+function TableCard({ table, onClick, onEdit, onViewQR, onDelete, onChangeStatus }: TableCardProps) {
   const statusColors: Record<TableStatus, { bg: string; text: string; border: string }> = {
     [TableStatus.FREE]: {
       bg: 'bg-green-50 dark:bg-green-900/20',
@@ -610,13 +631,18 @@ function TableCard({ table, onEdit, onViewQR, onDelete, onChangeStatus }: TableC
 
   return (
     <div
+      onClick={onClick}
       className={`bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg 
-                 transition-shadow p-6 border-2 ${statusStyle.border}`}
+                 transition-all p-6 border-2 ${statusStyle.border} cursor-pointer
+                 hover:scale-105 transform`}
     >
       {/* Status Badge */}
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={onChangeStatus}
+          onClick={(e) => {
+            e.stopPropagation();
+            onChangeStatus();
+          }}
           className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text} 
                      hover:opacity-80 transition-opacity cursor-pointer`}
           title="Click to change status"
@@ -632,13 +658,16 @@ function TableCard({ table, onEdit, onViewQR, onDelete, onChangeStatus }: TableC
 
       {/* Table Info */}
       <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        <p>Table ID: {table.id}</p>
+        <p>Click to create order</p>
       </div>
 
       {/* Action Buttons */}
       <div className="flex gap-2">
         <button
-          onClick={onViewQR}
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewQR();
+          }}
           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 
                    bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 
                    hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -648,7 +677,10 @@ function TableCard({ table, onEdit, onViewQR, onDelete, onChangeStatus }: TableC
           <span className="text-xs font-medium">QR Code</span>
         </button>
         <button
-          onClick={onEdit}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
           className="flex items-center justify-center px-3 py-2 
                    bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 
                    hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -657,7 +689,10 @@ function TableCard({ table, onEdit, onViewQR, onDelete, onChangeStatus }: TableC
           <PencilIcon className="w-4 h-4" />
         </button>
         <button
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
           className="flex items-center justify-center px-3 py-2 
                    bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 
                    hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
