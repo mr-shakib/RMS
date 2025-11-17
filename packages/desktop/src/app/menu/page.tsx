@@ -37,7 +37,8 @@ export default function MenuPage() {
   // Get categories to display based on main filter
   const displayCategories = useMemo(() => {
     if (mainCategoryFilter === 'BUFFET') {
-      return ['All', ...buffetCategories.map((cat) => cat.name)];
+      // Only show buffet categories, no 'All' option
+      return buffetCategories.map((cat) => cat.name);
     } else {
       return ['All', ...regularCategories.map((cat) => cat.name)];
     }
@@ -50,17 +51,36 @@ export default function MenuPage() {
     // Apply main category filter (Buffet vs All Items)
     if (mainCategoryFilter === 'BUFFET') {
       const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
+      // Show items where primary category is buffet
       filtered = filtered.filter((item) => buffetCategoryIds.includes(item.categoryId));
+      
+      // Apply buffet subcategory filter (no 'All' option in buffet)
+      if (categoryFilter && categoryFilter !== 'All') {
+        const selectedCat = buffetCategories.find((cat) => cat.name === categoryFilter);
+        if (selectedCat) {
+          filtered = filtered.filter((item) => item.categoryId === selectedCat.id);
+        }
+      }
     } else {
       const regularCategoryIds = regularCategories.map((cat) => cat.id);
-      filtered = filtered.filter((item) => regularCategoryIds.includes(item.categoryId));
-    }
-
-    // Apply subcategory filter
-    if (categoryFilter !== 'All') {
-      const selectedCat = categories.find((cat) => cat.name === categoryFilter);
-      if (selectedCat) {
-        filtered = filtered.filter((item) => item.categoryId === selectedCat.id);
+      // Show items where primary category is regular OR secondary category is regular
+      filtered = filtered.filter((item) => {
+        const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
+        const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
+        return isPrimaryRegular || isSecondaryRegular;
+      });
+      
+      // Apply subcategory filter for All Items
+      if (categoryFilter !== 'All') {
+        const selectedCat = regularCategories.find((cat) => cat.name === categoryFilter);
+        if (selectedCat) {
+          // Show items where either primary or secondary category matches
+          filtered = filtered.filter((item) => {
+            const isPrimaryMatch = item.categoryId === selectedCat.id;
+            const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
+            return isPrimaryMatch || isSecondaryMatch;
+          });
+        }
       }
     }
 
@@ -90,7 +110,14 @@ export default function MenuPage() {
   // Handle main category change
   const handleMainCategoryChange = (newMainCategory: 'BUFFET' | 'ALL_ITEMS') => {
     setMainCategoryFilter(newMainCategory);
-    setCategoryFilter('All'); // Reset subcategory filter
+    // Set default category based on the view
+    if (newMainCategory === 'BUFFET') {
+      // Set first buffet category as default (no 'All' option)
+      setCategoryFilter(buffetCategories[0]?.name || '');
+    } else {
+      // Reset to 'All' for All Items view
+      setCategoryFilter('All');
+    }
   };
 
   // Category management handlers
@@ -280,10 +307,27 @@ export default function MenuPage() {
                     count = menuItems.filter((item) => buffetCategoryIds.includes(item.categoryId)).length;
                   } else {
                     const regularCategoryIds = regularCategories.map((cat) => cat.id);
-                    count = menuItems.filter((item) => regularCategoryIds.includes(item.categoryId)).length;
+                    count = menuItems.filter((item) => {
+                      const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
+                      const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
+                      return isPrimaryRegular || isSecondaryRegular;
+                    }).length;
                   }
                 } else {
-                  count = category ? menuItems.filter((item) => item.categoryId === category.id).length : 0;
+                  if (category) {
+                    // For subcategories, count items where either primary or secondary category matches
+                    if (mainCategoryFilter === 'BUFFET') {
+                      // In buffet view, only count by primary category
+                      count = menuItems.filter((item) => item.categoryId === category.id).length;
+                    } else {
+                      // In All Items view, count by either primary or secondary category
+                      count = menuItems.filter((item) => {
+                        const isPrimaryMatch = item.categoryId === category.id;
+                        const isSecondaryMatch = (item as any).secondaryCategoryId === category.id;
+                        return isPrimaryMatch || isSecondaryMatch;
+                      }).length;
+                    }
+                  }
                 }
 
                 return (

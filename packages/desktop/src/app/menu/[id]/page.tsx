@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { ArrowLeftIcon, PhotoIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { toast } from '@/store/toastStore';
 
 export default function EditMenuItemPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function EditMenuItemPage() {
   const [formData, setFormData] = useState({
     name: '',
     categoryId: '',
+    secondaryCategoryId: '',
     price: '',
     description: '',
     imageUrl: '',
@@ -29,6 +31,11 @@ export default function EditMenuItemPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
+  // Get buffet and regular categories
+  const buffetCategories = categories.filter((cat) => cat.isBuffet);
+  const regularCategories = categories.filter((cat) => !cat.isBuffet);
+  const selectedCategory = categories.find((cat) => cat.id === formData.categoryId);
+
   // Load menu item data
   useEffect(() => {
     const item = menuItems.find((m) => m.id === itemId);
@@ -36,6 +43,7 @@ export default function EditMenuItemPage() {
       setFormData({
         name: item.name,
         categoryId: item.categoryId,
+        secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
         description: item.description || '',
         imageUrl: item.imageUrl || '',
@@ -58,13 +66,17 @@ export default function EditMenuItemPage() {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setErrors({ ...errors, image: 'Please select an image file' });
+      toast.error('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'Invalid File Type');
+      e.target.value = ''; // Reset input
       return;
     }
 
     // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors({ ...errors, image: 'Image size must be less than 5MB' });
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      toast.error(`Image size is ${sizeMB}MB. Please choose an image smaller than 5MB.`, 'File Too Large');
+      e.target.value = ''; // Reset input
       return;
     }
 
@@ -76,6 +88,11 @@ export default function EditMenuItemPage() {
       const base64String = reader.result as string;
       setImagePreview(base64String);
       setFormData((prev) => ({ ...prev, imageUrl: base64String }));
+      toast.success('Image uploaded successfully!');
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read the image file. Please try again.', 'Upload Error');
+      e.target.value = ''; // Reset input
     };
     reader.readAsDataURL(file);
 
@@ -129,6 +146,12 @@ export default function EditMenuItemPage() {
       newErrors.categoryId = 'Category is required';
     }
 
+    // If buffet category selected, secondary category (All Items) is required
+    const selectedCat = categories.find((cat) => cat.id === formData.categoryId);
+    if (selectedCat?.isBuffet && !formData.secondaryCategoryId) {
+      newErrors.secondaryCategoryId = 'All Items category is required for buffet items';
+    }
+
     if (!formData.price) {
       newErrors.price = 'Price is required';
     } else {
@@ -156,6 +179,7 @@ export default function EditMenuItemPage() {
         data: {
           name: formData.name.trim(),
           categoryId: formData.categoryId,
+          secondaryCategoryId: formData.secondaryCategoryId || undefined,
           price: parseFloat(formData.price),
           description: formData.description.trim() || undefined,
           imageUrl: formData.imageUrl.trim() || undefined,
@@ -163,12 +187,20 @@ export default function EditMenuItemPage() {
         },
       });
 
-      setShowSuccess(true);
+      toast.success('Menu item updated successfully!', 'Success');
       setTimeout(() => {
         router.push('/menu');
-      }, 1500);
+      }, 1000);
     } catch (error: any) {
-      setErrors({ submit: error.message || 'Failed to update menu item' });
+      let errorMessage = error.message || 'Failed to update menu item';
+      
+      // Handle payload too large error
+      if (error.message?.includes('too large') || error.message?.includes('PayloadTooLarge')) {
+        errorMessage = 'Image file is too large. Please upload a smaller image (recommended: under 2MB).';
+      }
+      
+      toast.error(errorMessage, 'Error');
+      setErrors({ submit: errorMessage });
     }
   };
 
@@ -176,8 +208,12 @@ export default function EditMenuItemPage() {
   const handleDelete = async () => {
     try {
       await deleteMenuItem(itemId);
-      router.push('/menu');
+      toast.success('Menu item deleted successfully!', 'Success');
+      setTimeout(() => {
+        router.push('/menu');
+      }, 500);
     } catch (error: any) {
+      toast.error(error.message || 'Failed to delete menu item', 'Error');
       setErrors({ submit: error.message || 'Failed to delete menu item' });
       setShowDeleteModal(false);
     }
@@ -296,7 +332,7 @@ export default function EditMenuItemPage() {
         {/* Category */}
         <div>
           <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Category <span className="text-red-500">*</span>
+            Primary Category <span className="text-red-500">*</span>
           </label>
           <select
             id="categoryId"
@@ -312,22 +348,75 @@ export default function EditMenuItemPage() {
                      }`}
           >
             <option value="">Select a category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name} {category.isBuffet && '(Buffet)'}
-              </option>
-            ))}
+            {regularCategories.length > 0 && (
+              <optgroup label="All Items Categories">
+                {regularCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {buffetCategories.length > 0 && (
+              <optgroup label="Buffet Categories">
+                {buffetCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} (${category.buffetPrice?.toFixed(2) || '0.00'})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           {errors.categoryId && (
             <p className="text-red-500 text-sm mt-1">{errors.categoryId}</p>
           )}
         </div>
 
+        {/* Secondary Category (for buffet items) */}
+        {selectedCategory?.isBuffet && (
+          <div>
+            <label htmlFor="secondaryCategoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              All Items Category <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="secondaryCategoryId"
+              name="secondaryCategoryId"
+              value={formData.secondaryCategoryId}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
+                       text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
+                       focus:border-transparent ${
+                         errors.secondaryCategoryId
+                           ? 'border-red-500 dark:border-red-500'
+                           : 'border-gray-300 dark:border-gray-600'
+                       }`}
+            >
+              <option value="">Select category for All Items menu</option>
+              {regularCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              This item will also appear in the All Items menu under this category with individual pricing
+            </p>
+            {errors.secondaryCategoryId && (
+              <p className="text-red-500 text-sm mt-1">{errors.secondaryCategoryId}</p>
+            )}
+          </div>
+        )}
+
         {/* Price */}
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Price <span className="text-red-500">*</span>
+            Individual Price <span className="text-red-500">*</span>
           </label>
+          {selectedCategory?.isBuffet && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              This price will be shown when the item appears in the All Items menu
+            </p>
+          )}
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
               $

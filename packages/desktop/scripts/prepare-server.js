@@ -20,6 +20,8 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(serverDir, 'package.jso
 // Remove devDependencies for production install
 delete packageJson.devDependencies;
 delete packageJson.scripts;
+// Remove prisma seed configuration to prevent automatic seeding
+delete packageJson.prisma;
 
 // Ensure @prisma/client is in dependencies (needed for prisma generate)
 if (!packageJson.dependencies) {

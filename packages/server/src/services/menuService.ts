@@ -5,6 +5,7 @@ import { emitMenuUpdated } from '../websocket';
 interface CreateMenuItemInput {
   name: string;
   categoryId: string;
+  secondaryCategoryId?: string;
   price: number;
   description?: string;
   imageUrl?: string;
@@ -14,6 +15,7 @@ interface CreateMenuItemInput {
 interface UpdateMenuItemInput {
   name?: string;
   categoryId?: string;
+  secondaryCategoryId?: string;
   price?: number;
   description?: string;
   imageUrl?: string;
@@ -52,6 +54,7 @@ class MenuService {
       where,
       include: {
         category: true,
+        secondaryCategory: true,
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -73,6 +76,7 @@ class MenuService {
       where,
       include: {
         category: true,
+        secondaryCategory: true,
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -88,6 +92,7 @@ class MenuService {
       where: { id },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -98,7 +103,7 @@ class MenuService {
    * Create a new menu item
    */
   async createMenuItem(input: CreateMenuItemInput): Promise<MenuItem> {
-    const { name, categoryId, price, description, imageUrl, available = true } = input;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available = true } = input;
 
     // Validate price
     if (price <= 0) {
@@ -111,10 +116,19 @@ class MenuService {
       throw new Error(`Category with id ${categoryId} not found`);
     }
 
+    // Validate secondary category exists if provided
+    if (secondaryCategoryId) {
+      const secondaryCategory = await prisma.category.findUnique({ where: { id: secondaryCategoryId } });
+      if (!secondaryCategory) {
+        throw new Error(`Secondary category with id ${secondaryCategoryId} not found`);
+      }
+    }
+
     const menuItem = await prisma.menuItem.create({
       data: {
         name,
         categoryId,
+        secondaryCategoryId,
         price,
         description,
         imageUrl,
@@ -122,6 +136,7 @@ class MenuService {
       },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -158,11 +173,20 @@ class MenuService {
       }
     }
 
+    // Validate secondary category if provided
+    if (input.secondaryCategoryId) {
+      const secondaryCategory = await prisma.category.findUnique({ where: { id: input.secondaryCategoryId } });
+      if (!secondaryCategory) {
+        throw new Error(`Secondary category with id ${input.secondaryCategoryId} not found`);
+      }
+    }
+
     const updatedMenuItem = await prisma.menuItem.update({
       where: { id },
       data: input,
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -223,6 +247,7 @@ class MenuService {
       data: { available: !menuItem.available },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 

@@ -1,6 +1,6 @@
 import prisma from '../db/client';
 import { Order, OrderItem } from '@prisma/client';
-import { emitOrderCreated, emitOrderUpdated, emitOrderCancelled } from '../websocket';
+import { emitOrderCreated, emitOrderUpdated, emitOrderCancelled, emitTableUpdated } from '../websocket';
 import printerService from './printerService';
 
 export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID' | 'CANCELLED';
@@ -16,6 +16,7 @@ interface CreateOrderInput {
   items: CreateOrderItemInput[];
   isBuffet?: boolean;
   buffetCategoryId?: string;
+  buffetQuantity?: number;
   discount?: number;
   serviceCharge?: number;
   tip?: number;
@@ -31,7 +32,7 @@ class OrderService {
    * Formula: total = subtotal + tax - discount + serviceCharge + tip
    */
   async createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
-    const { tableId, items, isBuffet = false, buffetCategoryId, discount = 0, serviceCharge = 0, tip = 0 } = input;
+    const { tableId, items, isBuffet = false, buffetCategoryId, buffetQuantity = 1, discount = 0, serviceCharge = 0, tip = 0 } = input;
 
     // Validate table exists
     const table = await prisma.table.findUnique({ where: { id: tableId } });
@@ -57,10 +58,11 @@ class OrderService {
         throw new Error(`Category ${category.name} is not a buffet category`);
       }
 
-      // Use buffet price as subtotal
-      subtotal = category.buffetPrice || 0;
+      // Use buffet price as subtotal, multiplied by quantity (number of people)
+      subtotal = (category.buffetPrice || 0) * buffetQuantity;
 
-      // Still add items to order for tracking, but with 0 price
+      // For buffet orders, items array can be empty
+      // If items are provided, add them to order for tracking, but with 0 price
       for (const item of items) {
         const menuItem = await prisma.menuItem.findUnique({
           where: { id: item.menuItemId },
@@ -108,10 +110,8 @@ class OrderService {
       }
     }
 
-    // Get tax percentage from settings (default 10%)
-    const taxSetting = await prisma.setting.findUnique({ where: { key: 'tax_percentage' } });
-    const taxPercentage = taxSetting ? parseFloat(taxSetting.value) : 10;
-    const tax = (subtotal * taxPercentage) / 100;
+    // Tax removed - set to 0
+    const tax = 0;
 
     // Calculate total
     const total = subtotal + tax - discount + serviceCharge + tip;
@@ -247,25 +247,57 @@ class OrderService {
     // Validate status transition
     this.validateStatusTransition(currentOrder.status as OrderStatus, status);
 
-    // Update order status
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: { status },
-      include: {
-        items: {
-          include: {
-            menuItem: true,
+    let updatedTable = null;
+
+    // Update order status in a transaction
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id },
+        data: { status },
+        include: {
+          items: {
+            include: {
+              menuItem: true,
+            },
           },
+          table: true,
         },
-        table: true,
-      },
+      });
+
+      // If order is marked as PAID, check if table should be freed
+      if (status === 'PAID') {
+        // Check if table has any other active orders
+        const activeOrders = await tx.order.findMany({
+          where: {
+            tableId: currentOrder.tableId,
+            status: {
+              notIn: ['PAID', 'CANCELLED'],
+            },
+          },
+        });
+
+        // If no active orders, set table to FREE
+        if (activeOrders.length === 0) {
+          updatedTable = await tx.table.update({
+            where: { id: currentOrder.tableId },
+            data: { status: 'FREE' },
+          });
+        }
+      }
+
+      return updated;
     });
 
-    // Emit WebSocket event for order update
+    // Emit WebSocket events AFTER transaction commits
     try {
       emitOrderUpdated(updatedOrder);
+      
+      // Emit table update if table was freed
+      if (updatedTable) {
+        emitTableUpdated(updatedTable);
+      }
     } catch (error) {
-      console.error('Failed to emit order:updated event:', error);
+      console.error('Failed to emit WebSocket events:', error);
     }
 
     return updatedOrder;
@@ -337,9 +369,9 @@ class OrderService {
   private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): void {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       PENDING: ['PREPARING', 'CANCELLED'],
-      PREPARING: ['READY', 'CANCELLED'],
-      READY: ['SERVED', 'CANCELLED'],
-      SERVED: ['PAID'],
+      PREPARING: ['PAID', 'CANCELLED'], // Updated: PREPARING can go directly to PAID
+      READY: ['PAID', 'CANCELLED'], // Legacy support
+      SERVED: ['PAID'], // Legacy support
       PAID: [],
       CANCELLED: [],
     };

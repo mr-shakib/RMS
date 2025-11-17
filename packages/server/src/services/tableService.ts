@@ -181,17 +181,31 @@ class TableService {
       throw new Error(`Table with id ${id} not found`);
     }
 
-    // Check if table has any orders
-    const orders = await prisma.order.findFirst({
-      where: { tableId: id },
+    // Check if table has any active orders (not PAID or CANCELLED)
+    const activeOrders = await prisma.order.findFirst({
+      where: {
+        tableId: id,
+        status: {
+          notIn: ['PAID', 'CANCELLED'],
+        },
+      },
     });
 
-    if (orders) {
-      throw new Error('Cannot delete table that has orders');
+    if (activeOrders) {
+      throw new Error('Cannot delete table that has active orders');
     }
 
-    await prisma.table.delete({
-      where: { id },
+    // Delete the table and all its historical orders (PAID/CANCELLED) in a transaction
+    await prisma.$transaction(async (tx) => {
+      // First delete all orders for this table
+      await tx.order.deleteMany({
+        where: { tableId: id },
+      });
+
+      // Then delete the table
+      await tx.table.delete({
+        where: { id },
+      });
     });
   }
 

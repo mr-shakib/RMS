@@ -93,10 +93,6 @@ function ManualBillReceiptModal({ receipt, onClose }: ManualBillReceiptModalProp
               <span>Subtotal:</span>
               <span>${receipt.totals.subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-              <span>Tax ({receipt.totals.taxRate}%):</span>
-              <span>${receipt.totals.tax.toFixed(2)}</span>
-            </div>
             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
               <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white">
                 <span>Total:</span>
@@ -170,6 +166,8 @@ export default function BillingPage() {
   // Manual billing state
   const [manualOrderItems, setManualOrderItems] = useState<ManualOrderItem[]>([]);
   const [showPrintingAnimation, setShowPrintingAnimation] = useState(false);
+  const [discount, setDiscount] = useState(0);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
   
   // Manual bill payment state
   const [manualBillPaymentMethod, setManualBillPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
@@ -177,21 +175,7 @@ export default function BillingPage() {
   const [showManualBillReceipt, setShowManualBillReceipt] = useState(false);
   const [manualBillReceipt, setManualBillReceipt] = useState<any>(null);
 
-  // Fetch global tax rate from settings
-  const { data: taxRateSetting } = useQuery({
-    queryKey: ['setting', 'TAX_RATE'],
-    queryFn: async () => {
-      try {
-        const response = await apiClient.get<{ status: string; data: { setting: { key: string; value: string } } }>('/settings/TAX_RATE');
-        return parseFloat(response.data.setting.value);
-      } catch (error) {
-        // If setting doesn't exist, return default 10%
-        return 10;
-      }
-    },
-  });
-
-  const taxRate = taxRateSetting || 10;
+  // Tax removed from calculations
 
   // Filter unpaid orders (status: SERVED)
   const unpaidOrders = useMemo(() => {
@@ -344,6 +328,8 @@ export default function BillingPage() {
     setManualOrderItems([]);
     setManualBillPaymentMethod(PaymentMethod.CASH);
     setCashReceived(0);
+    setDiscount(0);
+    setShowDiscountInput(false);
   };
 
   const addItemToManualOrder = (menuItem: any) => {
@@ -387,16 +373,15 @@ export default function BillingPage() {
   // Calculate manual bill totals
   const manualBillTotals = useMemo(() => {
     const subtotal = manualOrderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
+    const discountAmount = (discount / 100) * subtotal;
+    const total = subtotal - discountAmount;
 
     return {
       subtotal,
-      tax,
-      taxRate,
+      discount: discountAmount,
       total: Math.max(0, total),
     };
-  }, [manualOrderItems, taxRate]);
+  }, [manualOrderItems, discount]);
 
   // Process manual bill (direct payment, no order creation)
   const processManualBillMutation = useMutation({
@@ -435,11 +420,6 @@ export default function BillingPage() {
   });
 
   const handleProcessManualBill = () => {
-    if (manualBillPaymentMethod === PaymentMethod.CASH && cashReceived < manualBillTotals.total) {
-      alert('Cash received is less than the total amount');
-      return;
-    }
-    
     setShowPrintingAnimation(true);
     processManualBillMutation.mutate();
   };
@@ -457,13 +437,17 @@ export default function BillingPage() {
   const filteredMenuItems = useMemo(() => {
     let items = menuItems.filter((item) => item.available);
     
-    // Filter out buffet items - buffet is only for dine-in, not takeaway
-    const buffetCategoryIds = categories.filter((cat) => cat.isBuffet).map((cat) => cat.id);
-    items = items.filter((item) => !buffetCategoryIds.includes(item.categoryId));
+    // Don't filter out buffet items from the data - just don't show buffet categories in the UI
+    // Buffet items with secondaryCategoryId should still appear in their regular categories
     
-    // Filter by category if selected and not buffet
-    if (selectedCategoryId && !selectedCategory?.isBuffet) {
-      items = items.filter((item) => item.categoryId === selectedCategoryId);
+    // Filter by category if selected
+    if (selectedCategoryId) {
+      items = items.filter((item) => {
+        // Include items where either primary or secondary category matches
+        const isPrimaryMatch = item.categoryId === selectedCategoryId;
+        const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCategoryId;
+        return isPrimaryMatch || isSecondaryMatch;
+      });
     }
     
     // Filter by search query
@@ -473,7 +457,7 @@ export default function BillingPage() {
     }
     
     return items;
-  }, [menuItems, selectedCategoryId, selectedCategory, searchQuery, categories]);
+  }, [menuItems, selectedCategoryId, searchQuery]);
 
   const changeAmount = useMemo(() => {
     if (manualBillPaymentMethod !== PaymentMethod.CASH) return 0;
@@ -757,62 +741,105 @@ export default function BillingPage() {
 
       {/* Bottom Bar - Actions */}
       <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 flex items-center gap-4">
-          {/* Discount */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Discount %
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              placeholder="0"
-              className="w-20 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+        <div className="px-6 py-4">
+          <div className="flex items-center gap-4">
+            {/* Left side - Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={clearManualBilling}
+                disabled={processManualBillMutation.isPending}
+                className="px-8 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 
+                         hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-semibold transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
 
-          <div className="flex-1"></div>
+              <button
+                onClick={handleProcessManualBill}
+                disabled={processManualBillMutation.isPending || manualOrderItems.length === 0}
+                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold 
+                         transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                         flex items-center gap-2"
+              >
+                {processManualBillMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <PrinterIcon className="w-5 h-5" />
+                    <span>Print Invoice</span>
+                  </>
+                )}
+              </button>
+            </div>
 
-          {/* Buttons */}
-          <button
-            onClick={clearManualBilling}
-            disabled={processManualBillMutation.isPending}
-            className="px-8 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 
-                     hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-semibold transition-colors
-                     disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
+            <div className="flex-1"></div>
 
-          <button
-            onClick={handleProcessManualBill}
-            disabled={processManualBillMutation.isPending || manualOrderItems.length === 0}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold 
-                     transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                     flex items-center gap-2"
-          >
-            {processManualBillMutation.isPending ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <PrinterIcon className="w-5 h-5" />
-                <span>Print Invoice</span>
-              </>
-            )}
-          </button>
+            {/* Right side - Totals */}
+            <div className="flex items-center gap-4">
+              {/* Discount Button/Input */}
+              {!showDiscountInput ? (
+                <button
+                  onClick={() => setShowDiscountInput(true)}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg 
+                           font-semibold transition-colors"
+                >
+                  Apply Discount
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Discount %
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={discount}
+                    onChange={(e) => setDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                    className="w-20 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg
+                             bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    onClick={() => {
+                      setDiscount(0);
+                      setShowDiscountInput(false);
+                    }}
+                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
 
-          {/* Total */}
-          <div className="ml-4 px-6 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg min-w-[120px]">
-            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">
-              ${manualBillTotals.total.toFixed(2)}
+              {/* Total Display */}
+              <div className="px-6 py-3 bg-gray-100 dark:bg-gray-700 rounded-lg min-w-[200px]">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                    <span>Subtotal:</span>
+                    <span>${manualBillTotals.subtotal.toFixed(2)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                      <span>Discount ({discount}%):</span>
+                      <span>-${manualBillTotals.discount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="pt-1 border-t border-gray-300 dark:border-gray-600">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Grand Total:</span>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white">
+                        ${manualBillTotals.total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

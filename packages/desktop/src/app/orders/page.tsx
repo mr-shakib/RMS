@@ -11,8 +11,6 @@ const STATUS_FILTERS: { label: string; value: OrderStatusFilter }[] = [
   { label: 'All', value: 'ALL' },
   { label: 'Pending', value: OrderStatus.PENDING },
   { label: 'Preparing', value: OrderStatus.PREPARING },
-  { label: 'Ready', value: OrderStatus.READY },
-  { label: 'Served', value: OrderStatus.SERVED },
   { label: 'Paid', value: OrderStatus.PAID },
 ];
 

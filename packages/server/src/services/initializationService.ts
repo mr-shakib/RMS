@@ -71,6 +71,10 @@ class InitializationService {
    * Initialize database with default data if not already initialized
    */
   async initializeDatabase(): Promise<void> {
+    // TEMPORARILY DISABLED: Auto-seeding disabled to allow manual category/menu setup
+    console.log('ℹ️  Auto-seeding disabled - database ready for manual setup');
+    return;
+    
     const isInitialized = await this.isDatabaseInitialized();
 
     if (isInitialized) {

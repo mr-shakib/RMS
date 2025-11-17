@@ -4,9 +4,6 @@
   "private": true,
   "description": "Express API server for Restaurant Management System",
   "main": "./dist/index.js",
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@prisma/client": "^5.8.0",
     "bcrypt": "^5.1.1",

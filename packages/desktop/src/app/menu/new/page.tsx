@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { ArrowLeftIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { toast } from '@/store/toastStore';
 
 export default function NewMenuItemPage() {
   const router = useRouter();
@@ -13,7 +14,9 @@ export default function NewMenuItemPage() {
   
   const [formData, setFormData] = useState({
     name: '',
-    categoryId: '',
+    mainCategory: 'ALL_ITEMS' as 'ALL_ITEMS' | 'DINNER_BUFFET' | 'LAUNCH_BUFFET',
+    categoryId: '', // The actual category (Main Course, Appetizer, etc.)
+    secondaryCategoryId: '', // For buffet items, this is the "All Items" category
     price: '',
     description: '',
     imageUrl: '',
@@ -25,6 +28,17 @@ export default function NewMenuItemPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
+  // Get buffet and regular categories
+  const buffetCategories = categories.filter((cat) => cat.isBuffet);
+  const regularCategories = categories.filter((cat) => !cat.isBuffet);
+  
+  // Get the buffet category based on main category selection
+  const dinnerBuffetCategory = buffetCategories.find((cat) => cat.name.toLowerCase().includes('dinner'));
+  const launchBuffetCategory = buffetCategories.find((cat) => cat.name.toLowerCase().includes('launch') || cat.name.toLowerCase().includes('lunch'));
+  
+  // Get categories to display based on main category filter
+  const displayCategories = regularCategories; // Always show regular categories as subcategories
+
   // Handle image file upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -32,13 +46,17 @@ export default function NewMenuItemPage() {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setErrors({ ...errors, image: 'Please select an image file' });
+      toast.error('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'Invalid File Type');
+      e.target.value = ''; // Reset input
       return;
     }
 
     // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors({ ...errors, image: 'Image size must be less than 5MB' });
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      toast.error(`Image size is ${sizeMB}MB. Please choose an image smaller than 5MB.`, 'File Too Large');
+      e.target.value = ''; // Reset input
       return;
     }
 
@@ -50,6 +68,11 @@ export default function NewMenuItemPage() {
       const base64String = reader.result as string;
       setImagePreview(base64String);
       setFormData((prev) => ({ ...prev, imageUrl: base64String }));
+      toast.success('Image uploaded successfully', 'Success');
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read the image file. Please try again.', 'Upload Error');
+      e.target.value = ''; // Reset input
     };
     reader.readAsDataURL(file);
 
@@ -125,21 +148,48 @@ export default function NewMenuItemPage() {
     }
 
     try {
+      // Determine the actual categoryId based on main category selection
+      let primaryCategoryId = formData.categoryId;
+      let secondaryCategoryId = null;
+      
+      if (formData.mainCategory === 'DINNER_BUFFET') {
+        if (!dinnerBuffetCategory) {
+          throw new Error('Dinner Buffet category not found. Please create a buffet category with "Dinner" in the name.');
+        }
+        secondaryCategoryId = formData.categoryId; // The selected regular category
+        primaryCategoryId = dinnerBuffetCategory.id; // The buffet category
+      } else if (formData.mainCategory === 'LAUNCH_BUFFET') {
+        if (!launchBuffetCategory) {
+          throw new Error('Launch Buffet category not found. Please create a buffet category with "Launch" or "Lunch" in the name.');
+        }
+        secondaryCategoryId = formData.categoryId; // The selected regular category
+        primaryCategoryId = launchBuffetCategory.id; // The buffet category
+      }
+      
       await createMenuItem({
         name: formData.name.trim(),
-        categoryId: formData.categoryId,
+        categoryId: primaryCategoryId,
+        secondaryCategoryId: secondaryCategoryId || undefined,
         price: parseFloat(formData.price),
         description: formData.description.trim() || undefined,
         imageUrl: formData.imageUrl.trim() || undefined,
         available: formData.available,
       });
 
-      setShowSuccess(true);
+      toast.success('Menu item created successfully!', 'Success');
       setTimeout(() => {
         router.push('/menu');
-      }, 1500);
+      }, 1000);
     } catch (error: any) {
-      setErrors({ submit: error.message || 'Failed to create menu item' });
+      let errorMessage = error.message || 'Failed to create menu item';
+      
+      // Handle payload too large error
+      if (error.message?.includes('too large') || error.message?.includes('PayloadTooLarge')) {
+        errorMessage = 'Image file is too large. Please upload a smaller image (recommended: under 2MB).';
+      }
+      
+      toast.error(errorMessage, 'Error');
+      setErrors({ submit: errorMessage });
     }
   };
 
@@ -211,32 +261,90 @@ export default function NewMenuItemPage() {
 
         {/* Category */}
         <div>
-          <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Category <span className="text-red-500">*</span>
           </label>
+          
+          {/* Main Category Buttons */}
+          <div className="flex gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'ALL_ITEMS', categoryId: '' }))}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
+                formData.mainCategory === 'ALL_ITEMS'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              All Items
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'DINNER_BUFFET', categoryId: '' }))}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
+                formData.mainCategory === 'DINNER_BUFFET'
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Dinner Buffet
+              {!dinnerBuffetCategory && <span className="text-xs ml-1">⚠️</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'LAUNCH_BUFFET', categoryId: '' }))}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
+                formData.mainCategory === 'LAUNCH_BUFFET'
+                  ? 'bg-orange-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Launch Buffet
+              {!launchBuffetCategory && <span className="text-xs ml-1">⚠️</span>}
+            </button>
+          </div>
+
+          {/* Subcategory Selection */}
           {categoriesLoading ? (
             <div className="text-sm text-gray-500 dark:text-gray-400">Loading categories...</div>
+          ) : displayCategories.length === 0 ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              No categories available. Please create categories first.
+            </div>
           ) : (
-            <select
-              id="categoryId"
-              name="categoryId"
-              value={formData.categoryId}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
-                       text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                       focus:border-transparent ${
-                         errors.categoryId
-                           ? 'border-red-500 dark:border-red-500'
-                           : 'border-gray-300 dark:border-gray-600'
-                       }`}
-            >
-              <option value="">Select a category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name} {category.isBuffet && '(Buffet)'}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                {formData.mainCategory === 'ALL_ITEMS' 
+                  ? 'Select subcategory' 
+                  : 'Select subcategory (also shows in All Items)'
+                }
+              </label>
+              <select
+                id="categoryId"
+                name="categoryId"
+                value={formData.categoryId}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
+                         text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
+                         focus:border-transparent ${
+                           errors.categoryId
+                             ? 'border-red-500 dark:border-red-500'
+                             : 'border-gray-300 dark:border-gray-600'
+                         }`}
+              >
+                <option value="">Select a category</option>
+                {displayCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {formData.mainCategory !== 'ALL_ITEMS' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  This item will appear in both {formData.mainCategory === 'DINNER_BUFFET' ? 'Dinner Buffet' : 'Launch Buffet'} and All Items menu
+                </p>
+              )}
+            </div>
           )}
           {errors.categoryId && (
             <p className="text-red-500 text-sm mt-1">{errors.categoryId}</p>
@@ -246,8 +354,13 @@ export default function NewMenuItemPage() {
         {/* Price */}
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Price <span className="text-red-500">*</span>
+            Individual Price <span className="text-red-500">*</span>
           </label>
+          {formData.mainCategory !== 'ALL_ITEMS' && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              This price will be shown in the All Items menu. Buffet pricing is based on the buffet category rate.
+            </p>
+          )}
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
               $

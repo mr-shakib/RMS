@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
       orderBy: { sortOrder: 'asc' },
       include: {
         _count: {
-          select: { menuItems: true },
+          select: { primaryMenuItems: true },
         },
       },
     });
@@ -168,7 +168,7 @@ router.delete('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) 
       where: { id },
       include: {
         _count: {
-          select: { menuItems: true },
+          select: { primaryMenuItems: true },
         },
       },
     });
@@ -181,10 +181,10 @@ router.delete('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) 
     }
 
     // Prevent deletion if category has menu items
-    if (existing._count.menuItems > 0) {
+    if (existing._count.primaryMenuItems > 0) {
       return res.status(400).json({
         status: 'error',
-        message: `Cannot delete category with ${existing._count.menuItems} menu items. Please reassign or delete the items first.`,
+        message: `Cannot delete category with ${existing._count.primaryMenuItems} menu items. Please reassign or delete the items first.`,
       });
     }
 

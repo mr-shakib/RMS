@@ -72,7 +72,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/menu - Create new menu item
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, categoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available } = req.body;
 
     // Validate required fields
     if (!name || !categoryId || price === undefined) {
@@ -86,6 +86,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
     const menuItem = await menuService.createMenuItem({
       name: name.trim(),
       categoryId: categoryId.trim(),
+      secondaryCategoryId: secondaryCategoryId?.trim(),
       price,
       description: description?.trim(),
       imageUrl: imageUrl?.trim(),
@@ -107,7 +108,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price <= 0)) {
@@ -117,6 +118,7 @@ router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res:
     const updateData: any = {};
     if (name !== undefined) updateData.name = name.trim();
     if (categoryId !== undefined) updateData.categoryId = categoryId.trim();
+    if (secondaryCategoryId !== undefined) updateData.secondaryCategoryId = secondaryCategoryId?.trim() || null;
     if (price !== undefined) updateData.price = price;
     if (description !== undefined) updateData.description = description?.trim();
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim();

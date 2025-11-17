@@ -79,23 +79,38 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/orders - Create new order
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { tableId, items, discount, serviceCharge, tip } = req.body;
+    const { tableId, items, isBuffet, buffetCategoryId, buffetQuantity, discount, serviceCharge, tip } = req.body;
 
     // Validate input
-    if (!tableId || !items || !Array.isArray(items) || items.length === 0) {
-      throw new ValidationError('Table ID and items are required');
+    if (!tableId) {
+      throw new ValidationError('Table ID is required');
     }
 
-    // Validate items structure
-    for (const item of items) {
-      if (!item.menuItemId || !item.quantity || item.quantity <= 0) {
-        throw new ValidationError('Each item must have menuItemId and positive quantity');
+    // For buffet orders, items can be empty
+    if (!isBuffet) {
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new ValidationError('Items are required for non-buffet orders');
+      }
+
+      // Validate items structure
+      for (const item of items) {
+        if (!item.menuItemId || !item.quantity || item.quantity <= 0) {
+          throw new ValidationError('Each item must have menuItemId and positive quantity');
+        }
+      }
+    } else {
+      // Validate buffet order
+      if (!buffetCategoryId) {
+        throw new ValidationError('Buffet category ID is required for buffet orders');
       }
     }
 
     const order = await orderService.createOrder({
       tableId,
-      items,
+      items: items || [],
+      isBuffet,
+      buffetCategoryId,
+      buffetQuantity,
       discount: discount || 0,
       serviceCharge: serviceCharge || 0,
       tip: tip || 0,

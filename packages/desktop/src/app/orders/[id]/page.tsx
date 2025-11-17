@@ -32,6 +32,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', params.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] }); // Invalidate tables cache when order status changes
     },
   });
 
@@ -71,9 +72,9 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     const statusFlow: Record<OrderStatus, OrderStatus | null> = {
       [OrderStatus.PENDING]: OrderStatus.PREPARING,
-      [OrderStatus.PREPARING]: OrderStatus.READY,
-      [OrderStatus.READY]: OrderStatus.SERVED,
-      [OrderStatus.SERVED]: OrderStatus.PAID,
+      [OrderStatus.PREPARING]: OrderStatus.PAID,
+      [OrderStatus.READY]: OrderStatus.PAID, // Legacy support
+      [OrderStatus.SERVED]: OrderStatus.PAID, // Legacy support
       [OrderStatus.PAID]: null,
       [OrderStatus.CANCELLED]: null,
     };
@@ -202,7 +203,10 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-                <span>Move to {nextStatus}</span>
+                <span>
+                  {nextStatus === OrderStatus.PREPARING && 'Start Preparing'}
+                  {nextStatus === OrderStatus.PAID && 'Mark as Paid & Generate Receipt'}
+                </span>
               </>
             )}
           </button>

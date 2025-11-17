@@ -61,9 +61,9 @@ export const createApp = (): Application => {
     })
   );
 
-  // Body parsing middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Body parsing middleware (increased limit for base64 images)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Compression middleware
   app.use(compression());
