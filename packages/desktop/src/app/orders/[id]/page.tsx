@@ -131,7 +131,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const nextStatus = getNextStatus(order.status);
   const canUpdateStatus = nextStatus !== null;
   const canCancel = order.status !== OrderStatus.PAID && order.status !== OrderStatus.CANCELLED;
-  const canReprintReceipt = order.status === OrderStatus.PAID;
+  // Allow reprint at any status - no blocking conditions
+  const canReprintReceipt = true;
 
   const statusColors: Record<OrderStatus, string> = {
     [OrderStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',

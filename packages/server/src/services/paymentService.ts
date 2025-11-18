@@ -52,10 +52,8 @@ class PaymentService {
       throw new Error('Order has already been paid');
     }
 
-    // Validate order status
-    if (order.status !== 'SERVED') {
-      throw new Error('Order must be in SERVED status before payment');
-    }
+    // Note: No status validation - allow payment at any order status for flexibility
+    // This enables immediate payment for TakeAway orders and other scenarios
 
     // Validate amount matches order total
     if (Math.abs(amount - order.total) > 0.01) {

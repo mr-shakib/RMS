@@ -129,7 +129,10 @@ router.post(
       const paymentRecord = await paymentService.getPaymentByOrderId(orderId);
 
       if (!paymentRecord) {
-        return res.status(404).json({ error: 'Payment not found for this order' });
+        // If no payment yet, print kitchen ticket instead as a workaround
+        // This allows printing receipts even before payment is processed
+        await multiPrinterService.printOrderByCategory(orderId);
+        return res.json({ message: 'Order receipt printed (kitchen ticket format - no payment yet)' });
       }
 
       // Use multi-printer service for receipt printing

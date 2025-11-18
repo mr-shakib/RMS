@@ -390,12 +390,55 @@ export default function BillingPage() {
         throw new Error('Please add at least one item');
       }
 
-      // Simulate printing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create a temporary table for manual billing (TakeAway orders)
+      // First, check if TakeAway table exists, if not use table ID 1
+      const tablesResponse = await apiClient.get<any>('/tables');
+      const tables = tablesResponse.data?.tables || [];
+      let takeAwayTable = tables.find((t: any) => t.name === 'TakeAway');
+      
+      if (!takeAwayTable) {
+        // Fallback to first table if no TakeAway table found
+        takeAwayTable = tables[0];
+        console.warn('TakeAway table not found, using first available table');
+      }
+
+      if (!takeAwayTable) {
+        throw new Error('No tables available. Please create a table first.');
+      }
+
+      // Create order for the manual bill
+      const orderData = {
+        tableId: takeAwayTable.id,
+        items: manualOrderItems.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          notes: 'TakeAway Order',
+        })),
+        discount: manualBillTotals.discount,
+        serviceCharge: 0,
+        tip: 0,
+      };
+
+      // Create the order
+      const orderResponse = await apiClient.post('/order', orderData);
+      const order = (orderResponse as any).data?.order || orderResponse;
+
+      // Process payment immediately (no status check needed anymore)
+      // Payment service now allows payment at any order status
+      const paymentData = {
+        orderId: order.id,
+        amount: manualBillTotals.total,
+        method: manualBillPaymentMethod,
+      };
+
+      const paymentResponse = await apiClient.post('/payments', paymentData);
+      const payment = (paymentResponse as any).data?.payment || paymentResponse;
 
       // Return receipt data
       return {
-        billId: `BILL-${Date.now()}`,
+        billId: order.id,
+        orderId: order.id,
+        paymentId: payment.id,
         items: manualOrderItems,
         totals: manualBillTotals,
         paymentMethod: manualBillPaymentMethod,
@@ -408,14 +451,22 @@ export default function BillingPage() {
       setShowPrintingAnimation(false);
       setManualBillReceipt(receipt);
       setShowManualBillReceipt(true);
-      // Don't close modal - reset items for next order
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      
+      // Reset form for next order
       setManualOrderItems([]);
       setManualBillPaymentMethod(PaymentMethod.CASH);
       setCashReceived(0);
+      setDiscount(0);
+      setShowDiscountInput(false);
     },
     onError: (error: any) => {
       setShowPrintingAnimation(false);
-      alert(`Failed to process bill: ${error.message || 'Unknown error'}`);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Unknown error';
+      alert(`Failed to process bill: ${errorMessage}`);
     },
   });
 
