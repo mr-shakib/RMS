@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { useUIStore } from '@/store/uiStore';
+import PrinterManagement from '@/components/PrinterManagement';
 import { 
   CheckCircleIcon, 
   ExclamationTriangleIcon,
@@ -136,8 +137,7 @@ export default function SettingsPage() {
                 />
               )}
               {activeTab === 'printer' && (
-                <PrinterSettings 
-                  settings={settings}
+                <PrinterManagement
                   onSuccess={showSuccessMessage}
                   onError={showErrorMessage}
                 />

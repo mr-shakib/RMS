@@ -16,7 +16,7 @@ export function useCategories() {
     queryKey: ['categories'],
     queryFn: async () => {
       const response = await apiClient.get<{ status: string; data: { categories: CategoryWithCount[] } }>('/categories');
-      return response.data.categories;
+      return response.data?.categories || [];
     },
   });
 

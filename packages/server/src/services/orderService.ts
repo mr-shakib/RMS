@@ -2,6 +2,7 @@ import prisma from '../db/client';
 import { Order, OrderItem } from '@prisma/client';
 import { emitOrderCreated, emitOrderUpdated, emitOrderCancelled, emitTableUpdated } from '../websocket';
 import printerService from './printerService';
+import { multiPrinterService } from './multiPrinterService';
 
 export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID' | 'CANCELLED';
 
@@ -160,9 +161,9 @@ class OrderService {
       console.error('Failed to emit order:created event:', error);
     }
 
-    // Print kitchen ticket automatically when order is created (PENDING status)
+    // Print kitchen ticket automatically using multi-printer service (category-based)
     try {
-      await printerService.printKitchenTicket(order.id);
+      await multiPrinterService.printOrderByCategory(order.id);
     } catch (error) {
       console.error('Failed to print kitchen ticket:', error);
       // Don't throw error - order was created successfully, just printing failed

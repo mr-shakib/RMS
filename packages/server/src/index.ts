@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { config } from './config';
 import { initializeWebSocket } from './websocket';
 import { printerService, initializationService } from './services';
+import { multiPrinterService } from './services/multiPrinterService';
 
 dotenv.config();
 
@@ -42,6 +43,14 @@ const server = httpServer.listen(config.port, async () => {
     console.error('⚠️  Failed to initialize printer:', error);
     console.log('ℹ️  Server will continue without printer support');
   }
+
+  // Initialize multi-printer service
+  try {
+    await multiPrinterService.initializeAllPrinters();
+    console.log('🖨️  Multi-printer service initialized');
+  } catch (error) {
+    console.error('⚠️  Failed to initialize multi-printer service:', error);
+  }
 });
 
 // Graceful shutdown
@@ -51,8 +60,9 @@ process.on('SIGTERM', async () => {
   // Disconnect printer
   try {
     await printerService.disconnect();
+    await multiPrinterService.disconnectAll();
   } catch (error) {
-    console.error('Error disconnecting printer:', error);
+    console.error('Error disconnecting printers:', error);
   }
   
   server.close(() => {
@@ -67,8 +77,9 @@ process.on('SIGINT', async () => {
   // Disconnect printer
   try {
     await printerService.disconnect();
+    await multiPrinterService.disconnectAll();
   } catch (error) {
-    console.error('Error disconnecting printer:', error);
+    console.error('Error disconnecting printers:', error);
   }
   
   server.close(() => {

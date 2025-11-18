@@ -2,6 +2,7 @@ import prisma from '../db/client';
 import { Payment } from '@prisma/client';
 import { emitPaymentCompleted } from '../websocket';
 import printerService from './printerService';
+import { multiPrinterService } from './multiPrinterService';
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'WALLET';
 
@@ -118,9 +119,9 @@ class PaymentService {
       console.error('Failed to emit payment:completed event:', error);
     }
 
-    // Print customer receipt automatically when payment is processed
+    // Print customer receipt automatically using multi-printer service
     try {
-      await printerService.printCustomerReceipt(orderId, payment.id);
+      await multiPrinterService.printCustomerReceipt(orderId, payment.id);
     } catch (error) {
       console.error('Failed to print customer receipt:', error);
       // Don't throw error - payment was processed successfully, just printing failed

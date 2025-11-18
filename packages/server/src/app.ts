@@ -15,6 +15,7 @@ import paymentsRouter from './routes/payments';
 import reportsRouter from './routes/reports';
 import settingsRouter from './routes/settings';
 import printerRouter from './routes/printer';
+import printersRouter from './routes/printers';
 import pwaRouter from './routes/pwa';
 import setupRouter from './routes/setup';
 
@@ -104,6 +105,9 @@ export const createApp = (): Application => {
 
   // Printer routes
   app.use('/api/printer', printerRouter);
+
+  // Printers management routes
+  app.use('/api/printers', printersRouter);
 
   // Setup routes (no authentication required)
   app.use('/api/setup', setupRouter);

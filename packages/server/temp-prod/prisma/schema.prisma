@@ -31,16 +31,17 @@ model Table {
 }
 
 model Category {
-  id                    String     @id @default(uuid())
-  name                  String     @unique
-  isBuffet              Boolean    @default(false) // Special flag for buffet categories
-  buffetPrice           Float?     // Price for buffet (if isBuffet is true)
-  sortOrder             Int        @default(0) // For custom ordering
-  primaryMenuItems      MenuItem[] @relation("PrimaryCategory")
-  secondaryMenuItems    MenuItem[] @relation("SecondaryCategory")
-  orders                Order[]    // Orders that selected this buffet category
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  id                    String            @id @default(uuid())
+  name                  String            @unique
+  isBuffet              Boolean           @default(false) // Special flag for buffet categories
+  buffetPrice           Float?            // Price for buffet (if isBuffet is true)
+  sortOrder             Int               @default(0) // For custom ordering
+  primaryMenuItems      MenuItem[]        @relation("PrimaryCategory")
+  secondaryMenuItems    MenuItem[]        @relation("SecondaryCategory")
+  orders                Order[]           // Orders that selected this buffet category
+  printerMappings       PrinterCategory[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([sortOrder])
 }
@@ -120,4 +121,36 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model Printer {
+  id                String            @id @default(uuid())
+  name              String            // User-friendly name like "Kitchen Printer", "Bar Printer"
+  type              String            // network, usb, serial
+  address           String?           // IP address for network printers
+  port              String?           // Port for network printers (default 9100)
+  vendorId          String?           // Vendor ID for USB printers
+  productId         String?           // Product ID for USB printers
+  serialPath        String?           // Path for serial printers
+  isActive          Boolean           @default(true)
+  sortOrder         Int               @default(0)
+  categoryMappings  PrinterCategory[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model PrinterCategory {
+  id         String   @id @default(uuid())
+  printerId  String
+  printer    Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([printerId, categoryId])
+  @@index([printerId])
+  @@index([categoryId])
 }

@@ -84,6 +84,9 @@ class InitializationService {
 
       if (isInitialized) {
         console.log('✅ Database already initialized');
+        
+        // Check if Printer tables exist (for databases created before multi-printer feature)
+        await this.ensurePrinterTablesExist();
         return;
       }
 
@@ -117,6 +120,56 @@ class InitializationService {
       // Don't throw - allow server to start even if initialization fails
       // User can run migrations manually or reinitialize through UI
       console.warn('⚠️  Server will start without initialized database');
+    }
+  }
+
+  /**
+   * Ensure Printer tables exist (for databases created before multi-printer feature)
+   */
+  private async ensurePrinterTablesExist(): Promise<void> {
+    try {
+      // Try to query Printer table
+      await prisma.$queryRaw`SELECT COUNT(*) FROM Printer LIMIT 1`;
+    } catch (error: any) {
+      // If table doesn't exist, create it
+      if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+        console.log('  🔧 Printer tables not found, creating them...');
+        
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "Printer" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "name" TEXT NOT NULL,
+            "type" TEXT NOT NULL,
+            "address" TEXT,
+            "port" TEXT,
+            "vendorId" TEXT,
+            "productId" TEXT,
+            "serialPath" TEXT,
+            "isActive" BOOLEAN NOT NULL DEFAULT 1,
+            "sortOrder" INTEGER NOT NULL DEFAULT 0,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "PrinterCategory" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "printerId" TEXT NOT NULL,
+            "categoryId" TEXT NOT NULL,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE UNIQUE INDEX IF NOT EXISTS "PrinterCategory_printerId_categoryId_key" 
+          ON "PrinterCategory"("printerId", "categoryId");
+        `);
+
+        console.log('  ✅ Printer tables created successfully');
+      }
     }
   }
 
@@ -294,6 +347,42 @@ class InitializationService {
         );
       `);
       console.log('  ✓ Created Setting table');
+
+      // Create Printer tables for multi-printer support
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Printer" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "type" TEXT NOT NULL,
+          "address" TEXT,
+          "port" TEXT,
+          "vendorId" TEXT,
+          "productId" TEXT,
+          "serialPath" TEXT,
+          "isActive" BOOLEAN NOT NULL DEFAULT 1,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Printer table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "PrinterCategory" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "printerId" TEXT NOT NULL,
+          "categoryId" TEXT NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created PrinterCategory table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "PrinterCategory_printerId_categoryId_key" 
+        ON "PrinterCategory"("printerId", "categoryId");
+      `);
 
       console.log('  ✅ Database schema created successfully');
     } catch (error: any) {
