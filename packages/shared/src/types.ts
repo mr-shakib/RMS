@@ -33,6 +33,7 @@ export interface Category {
 // Menu Item types
 export interface MenuItem {
   id: string;
+  itemNumber?: number;
   name: string;
   categoryId: string;
   category?: Category;
@@ -126,6 +127,7 @@ export interface CreateMenuItemDTO {
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 export interface CreateTableDTO {

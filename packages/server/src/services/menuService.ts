@@ -10,6 +10,7 @@ interface CreateMenuItemInput {
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 interface UpdateMenuItemInput {
@@ -20,6 +21,7 @@ interface UpdateMenuItemInput {
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 interface MenuItemFilters {
@@ -124,6 +126,25 @@ class MenuService {
       }
     }
 
+    // Use provided item number or get the next available one
+    let assignedItemNumber: number | undefined = input.itemNumber;
+    
+    if (!assignedItemNumber) {
+      const maxItemNumber = await prisma.menuItem.findFirst({
+        orderBy: { itemNumber: 'desc' },
+        select: { itemNumber: true },
+      });
+      assignedItemNumber = (maxItemNumber?.itemNumber || 0) + 1;
+    } else {
+      // Check if the provided item number is already taken
+      const existingItem = await prisma.menuItem.findUnique({
+        where: { itemNumber: assignedItemNumber },
+      });
+      if (existingItem) {
+        throw new Error(`Item number ${assignedItemNumber} is already assigned to "${existingItem.name}"`);
+      }
+    }
+
     const menuItem = await prisma.menuItem.create({
       data: {
         name,
@@ -133,6 +154,7 @@ class MenuService {
         description,
         imageUrl,
         available,
+        itemNumber: assignedItemNumber,
       },
       include: {
         category: true,
@@ -163,6 +185,20 @@ class MenuService {
     // Validate price if provided
     if (input.price !== undefined && input.price <= 0) {
       throw new Error('Price must be greater than 0');
+    }
+
+    // Validate and check item number if provided
+    if (input.itemNumber !== undefined && input.itemNumber !== existingItem.itemNumber) {
+      if (input.itemNumber < 1) {
+        throw new Error('Item number must be a positive number');
+      }
+      // Check if the new item number is already taken by another item
+      const conflictingItem = await prisma.menuItem.findUnique({
+        where: { itemNumber: input.itemNumber },
+      });
+      if (conflictingItem && conflictingItem.id !== id) {
+        throw new Error(`Item number ${input.itemNumber} is already assigned to "${conflictingItem.name}"`);
+      }
     }
 
     // Validate category if provided

@@ -104,12 +104,6 @@ class InitializationService {
       // Create default tables with QR codes
       await this.createDefaultTables();
 
-      // Create default categories
-      await this.createDefaultCategories();
-
-      // Create default menu items
-      await this.createDefaultMenuItems();
-
       console.log('✅ Database initialization completed successfully');
     } catch (error: any) {
       console.error('❌ Error initializing database:', {
@@ -239,6 +233,7 @@ class InitializationService {
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "MenuItem" (
           "id" TEXT NOT NULL PRIMARY KEY,
+          "itemNumber" INTEGER UNIQUE,
           "name" TEXT NOT NULL,
           "categoryId" TEXT NOT NULL,
           "secondaryCategoryId" TEXT,
@@ -253,6 +248,10 @@ class InitializationService {
         );
       `);
       console.log('  ✓ Created MenuItem table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_itemNumber_idx" ON "MenuItem"("itemNumber");
+      `);
 
       await prisma.$executeRawUnsafe(`
         CREATE INDEX IF NOT EXISTS "MenuItem_categoryId_idx" ON "MenuItem"("categoryId");

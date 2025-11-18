@@ -48,6 +48,7 @@ model Category {
 
 model MenuItem {
   id                  String      @id @default(uuid())
+  itemNumber          Int?        @unique // Unique sequential number for easy searching (nullable for migration)
   name                String
   categoryId          String
   category            Category    @relation("PrimaryCategory", fields: [categoryId], references: [id])
@@ -61,6 +62,7 @@ model MenuItem {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
+  @@index([itemNumber])
   @@index([categoryId])
   @@index([secondaryCategoryId])
   @@index([available])

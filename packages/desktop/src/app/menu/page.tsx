@@ -84,12 +84,14 @@ export default function MenuPage() {
       }
     }
 
-    // Apply search filter
+    // Apply search filter (name or item number)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((item) => {
+        const nameMatch = item.name.toLowerCase().includes(query);
+        const numberMatch = (item as any).itemNumber?.toString() === searchQuery.trim();
+        return nameMatch || numberMatch;
+      });
     }
 
     return filtered;
@@ -486,6 +488,14 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-6xl">🍽️</span>
+          </div>
+        )}
+        {/* Item Number Badge */}
+        {(item as any).itemNumber && (
+          <div className="absolute top-2 right-2">
+            <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-lg">
+              #{(item as any).itemNumber}
+            </span>
           </div>
         )}
         {/* Buffet Badge */}

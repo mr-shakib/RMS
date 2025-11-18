@@ -63,10 +63,14 @@ export default function TableOrderPage() {
       });
     }
     
-    // Filter by search query
+    // Filter by search query (name or item number)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      items = items.filter((item) => item.name.toLowerCase().includes(query));
+      items = items.filter((item) => {
+        const nameMatch = item.name.toLowerCase().includes(query);
+        const numberMatch = (item as any).itemNumber?.toString() === searchQuery.trim();
+        return nameMatch || numberMatch;
+      });
     }
     
     return items;
@@ -293,7 +297,7 @@ export default function TableOrderPage() {
               <div>
                 <input
                   type="text"
-                  placeholder="Search menu items..."
+                  placeholder="Search by name or item number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg
@@ -393,6 +397,11 @@ export default function TableOrderPage() {
                           
                           {/* Gradient Overlay */}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                          
+                          {/* Item Number Badge */}
+                          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs font-bold rounded-full w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center shadow-lg">
+                            #{(item as any).itemNumber}
+                          </div>
                           
                           {/* Content Overlay */}
                           <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3">

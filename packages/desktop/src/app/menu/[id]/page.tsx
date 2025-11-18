@@ -16,6 +16,7 @@ export default function EditMenuItemPage() {
   
   const [formData, setFormData] = useState({
     name: '',
+    itemNumber: '',
     categoryId: '',
     secondaryCategoryId: '',
     price: '',
@@ -42,6 +43,7 @@ export default function EditMenuItemPage() {
     if (item) {
       setFormData({
         name: item.name,
+        itemNumber: (item as any).itemNumber?.toString() || '',
         categoryId: item.categoryId,
         secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
@@ -142,6 +144,13 @@ export default function EditMenuItemPage() {
       newErrors.name = 'Name is required';
     }
 
+    if (formData.itemNumber) {
+      const itemNum = parseInt(formData.itemNumber);
+      if (isNaN(itemNum) || itemNum < 1) {
+        newErrors.itemNumber = 'Item number must be a positive number';
+      }
+    }
+
     if (!formData.categoryId) {
       newErrors.categoryId = 'Category is required';
     }
@@ -184,6 +193,7 @@ export default function EditMenuItemPage() {
           description: formData.description.trim() || undefined,
           imageUrl: formData.imageUrl.trim() || undefined,
           available: formData.available,
+          itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
         },
       });
 
@@ -327,6 +337,35 @@ export default function EditMenuItemPage() {
           {errors.name && (
             <p className="text-red-500 text-sm mt-1">{errors.name}</p>
           )}
+        </div>
+
+        {/* Item Number */}
+        <div>
+          <label htmlFor="itemNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Item Number
+          </label>
+          <input
+            type="number"
+            id="itemNumber"
+            name="itemNumber"
+            value={formData.itemNumber}
+            onChange={handleChange}
+            min="1"
+            className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
+                     text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
+                     focus:border-transparent ${
+                       errors.itemNumber
+                         ? 'border-red-500 dark:border-red-500'
+                         : 'border-gray-300 dark:border-gray-600'
+                     }`}
+            placeholder="Item number"
+          />
+          {errors.itemNumber && (
+            <p className="text-red-500 text-sm mt-1">{errors.itemNumber}</p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Change the item number or leave empty to keep current number
+          </p>
         </div>
 
         {/* Category */}

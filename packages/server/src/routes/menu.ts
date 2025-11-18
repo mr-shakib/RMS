@@ -73,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/menu - Create new menu item
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
 
     // Validate required fields
     if (!name || !categoryId || price === undefined) {
@@ -84,6 +84,11 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       throw new ValidationError('Price must be a positive number');
     }
 
+    // Validate itemNumber if provided
+    if (itemNumber !== undefined && (typeof itemNumber !== 'number' || itemNumber < 1)) {
+      throw new ValidationError('Item number must be a positive number');
+    }
+
     const menuItem = await menuService.createMenuItem({
       name: name.trim(),
       categoryId: categoryId.trim(),
@@ -92,6 +97,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       description: description?.trim(),
       imageUrl: imageUrl?.trim(),
       available: available !== undefined ? available : true,
+      itemNumber: itemNumber,
     });
 
     res.status(201).json({
@@ -109,11 +115,16 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price <= 0)) {
       throw new ValidationError('Price must be a positive number');
+    }
+
+    // Validate itemNumber if provided
+    if (itemNumber !== undefined && (typeof itemNumber !== 'number' || itemNumber < 1)) {
+      throw new ValidationError('Item number must be a positive number');
     }
 
     const updateData: any = {};
@@ -124,6 +135,7 @@ router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res:
     if (description !== undefined) updateData.description = description?.trim();
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim();
     if (available !== undefined) updateData.available = available;
+    if (itemNumber !== undefined) updateData.itemNumber = itemNumber;
 
     if (Object.keys(updateData).length === 0) {
       throw new ValidationError('At least one field must be provided for update');
