@@ -90,8 +90,23 @@ export default function Sidebar() {
   return (
     <aside className="w-48 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       {/* Header */}
-      <div className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">RMS</h1>
+      <div className="h-16 flex items-center justify-center px-4 border-b border-gray-200 dark:border-gray-700">
+        <img 
+          src="/logo.jpg" 
+          alt="SAKE SUSHI" 
+          className="w-full h-14 object-contain rounded-lg"
+          onError={(e) => {
+            // Fallback to text if image fails to load
+            e.currentTarget.style.display = 'none';
+            const parent = e.currentTarget.parentElement;
+            if (parent) {
+              const textElement = document.createElement('h1');
+              textElement.className = 'text-lg font-bold text-gray-900 dark:text-white';
+              textElement.textContent = 'RMS';
+              parent.appendChild(textElement);
+            }
+          }}
+        />
       </div>
 
       {/* Navigation */}
