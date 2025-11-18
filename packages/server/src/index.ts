@@ -21,9 +21,11 @@ const server = httpServer.listen(config.port, async () => {
   console.log(`📊 Health check: http://localhost:${config.port}/api/health`);
   console.log(`🌍 Environment: ${config.nodeEnv}`);
 
-  // Check and initialize database if needed
+  // Initialize database schema and seed data
   try {
+    console.log('🔄 Initializing database...');
     await initializationService.initializeDatabase();
+    console.log('✅ Database ready');
   } catch (error) {
     console.error('⚠️  Failed to initialize database:', error);
   }

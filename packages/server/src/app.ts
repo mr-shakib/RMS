@@ -82,6 +82,7 @@ export const createApp = (): Application => {
 
   // Order management routes
   app.use('/api/orders', ordersRouter);
+  app.use('/api/order', ordersRouter); // Alias for PWA compatibility
 
   // Table management routes
   app.use('/api/tables', tablesRouter);

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import { authenticate, requireRole } from '../middleware/auth';
 import { ValidationError } from '../errors/AppError';
 import * as fs from 'fs';
@@ -81,15 +81,9 @@ router.patch('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Update or create each setting
-    const updates = Object.entries(settings).map(([key, value]) => {
-      return prisma.setting.upsert({
-        where: { key },
-        update: { value: String(value) },
-        create: { key, value: String(value) },
-      });
-    });
-
-    await prisma.$transaction(updates);
+    for (const [key, value] of Object.entries(settings)) {
+      await upsertSetting(key, String(value));
+    }
 
     // Fetch updated settings
     const updatedSettings = await prisma.setting.findMany();
@@ -159,11 +153,7 @@ router.post('/upload-logo', upload.single('logo'), async (req: Request, res: Res
     const logoUrl = `/uploads/${req.file.filename}`;
 
     // Update the BUSINESS_LOGO_URL setting
-    await prisma.setting.upsert({
-      where: { key: 'BUSINESS_LOGO_URL' },
-      update: { value: logoUrl },
-      create: { key: 'BUSINESS_LOGO_URL', value: logoUrl },
-    });
+    await upsertSetting('BUSINESS_LOGO_URL', logoUrl);
 
     res.status(200).json({
       status: 'success',
@@ -206,10 +196,7 @@ router.delete('/logo', async (req: Request, res: Response, next: NextFunction) =
       }
 
       // Clear the setting
-      await prisma.setting.update({
-        where: { key: 'BUSINESS_LOGO_URL' },
-        data: { value: '' },
-      });
+      await upsertSetting('BUSINESS_LOGO_URL', '');
     }
 
     res.status(200).json({

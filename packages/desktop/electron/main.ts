@@ -67,20 +67,8 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Handle window minimize to tray
-  mainWindow.on('minimize', (event: Electron.Event) => {
-    if (tray) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
-  });
-
-  mainWindow.on('close', (event: Electron.Event) => {
-    if (!appWithQuitting.isQuitting && tray) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
-  });
+  // Don't minimize to tray or hide - behave like a normal desktop app
+  // Window stays visible in taskbar at all times
 }
 
 /**

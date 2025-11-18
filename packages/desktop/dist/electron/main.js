@@ -85,19 +85,8 @@ function createWindow() {
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
-    // Handle window minimize to tray
-    mainWindow.on('minimize', (event) => {
-        if (tray) {
-            event.preventDefault();
-            mainWindow?.hide();
-        }
-    });
-    mainWindow.on('close', (event) => {
-        if (!appWithQuitting.isQuitting && tray) {
-            event.preventDefault();
-            mainWindow?.hide();
-        }
-    });
+    // Don't minimize to tray or hide - behave like a normal desktop app
+    // Window stays visible in taskbar at all times
 }
 /**
  * Create system tray icon and menu

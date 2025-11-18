@@ -27,7 +27,34 @@ function getDefaultServerUrl(): string {
   return 'http://localhost:5000';
 }
 
-// All table routes require authentication
+// Public endpoint - Get table by ID (for PWA to display table name)
+// Must be BEFORE authentication middleware
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const tableId = parseInt(id, 10);
+
+    if (isNaN(tableId)) {
+      throw new ValidationError('Invalid table ID');
+    }
+
+    const table = await tableService.getTableById(tableId);
+    if (!table) {
+      throw new NotFoundError('Table');
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        table,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All other table routes require authentication
 router.use(authenticate);
 
 // GET /api/tables/qr/download-all - Download all QR codes as a single PDF (must be before /:id routes)
@@ -92,32 +119,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       data: {
         tables,
         count: tables.length,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /api/tables/:id - Get table by ID
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const tableId = parseInt(id, 10);
-
-    if (isNaN(tableId)) {
-      throw new ValidationError('Invalid table ID');
-    }
-
-    const table = await tableService.getTableById(tableId);
-    if (!table) {
-      throw new NotFoundError('Table');
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        table,
       },
     });
   } catch (error) {

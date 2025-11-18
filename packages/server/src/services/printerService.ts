@@ -1,7 +1,7 @@
 import Printer from 'escpos';
 import USB from 'escpos-usb';
 import Network from 'escpos-network';
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import { PrinterError } from '../errors/AppError';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
@@ -239,48 +239,28 @@ class PrinterService {
   private async saveConfig(config: PrinterConfig): Promise<void> {
     try {
       // Save printer type
-      await prisma.setting.upsert({
-        where: { key: 'printer_type' },
-        update: { value: config.type },
-        create: { key: 'printer_type', value: config.type },
-      });
+      await upsertSetting('printer_type', config.type);
 
       // Save type-specific settings
       switch (config.type) {
         case 'network':
           if (config.address) {
-            await prisma.setting.upsert({
-              where: { key: 'printer_address' },
-              update: { value: config.address },
-              create: { key: 'printer_address', value: config.address },
-            });
+            await upsertSetting('printer_address', config.address);
           }
           break;
 
         case 'usb':
           if (config.vendorId !== undefined) {
-            await prisma.setting.upsert({
-              where: { key: 'printer_vendor_id' },
-              update: { value: config.vendorId.toString() },
-              create: { key: 'printer_vendor_id', value: config.vendorId.toString() },
-            });
+            await upsertSetting('printer_vendor_id', config.vendorId.toString());
           }
           if (config.productId !== undefined) {
-            await prisma.setting.upsert({
-              where: { key: 'printer_product_id' },
-              update: { value: config.productId.toString() },
-              create: { key: 'printer_product_id', value: config.productId.toString() },
-            });
+            await upsertSetting('printer_product_id', config.productId.toString());
           }
           break;
 
         case 'serial':
           if (config.serialPath) {
-            await prisma.setting.upsert({
-              where: { key: 'printer_serial_path' },
-              update: { value: config.serialPath },
-              create: { key: 'printer_serial_path', value: config.serialPath },
-            });
+            await upsertSetting('printer_serial_path', config.serialPath);
           }
           break;
       }

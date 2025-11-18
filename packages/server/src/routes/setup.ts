@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import { userService } from '../services';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
 import { ValidationError } from '../errors/AppError';
@@ -111,11 +111,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
 
     // If skipping setup, use defaults
     if (skipSetup) {
-      await prisma.setting.upsert({
-        where: { key: 'setup_completed' },
-        update: { value: 'true' },
-        create: { key: 'setup_completed', value: 'true' },
-      });
+      await upsertSetting('setup_completed', 'true');
 
       return res.status(200).json({
         status: 'success',
@@ -143,11 +139,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
     ];
 
     for (const setting of businessSettings) {
-      await prisma.setting.upsert({
-        where: { key: setting.key },
-        update: { value: setting.value },
-        create: setting,
-      });
+      await upsertSetting(setting.key, setting.value);
     }
 
     // 2. Create or update admin user (outside transaction due to bcrypt)
@@ -218,12 +210,8 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
       }
     }
 
-    // 4. Mark setup as completed
-    await prisma.setting.upsert({
-      where: { key: 'setup_completed' },
-      update: { value: 'true' },
-      create: { key: 'setup_completed', value: 'true' },
-    });
+    // Mark setup as completed
+    await upsertSetting('setup_completed', 'true');
 
     // Generate QR codes for newly created tables (outside transaction)
     if (tablesToCreate.length > 0) {
@@ -231,11 +219,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
       const serverUrl = getDefaultServerUrl();
       
       // Update server_url setting to match the LAN IP
-      await prisma.setting.upsert({
-        where: { key: 'server_url' },
-        update: { value: serverUrl },
-        create: { key: 'server_url', value: serverUrl },
-      });
+      await upsertSetting('server_url', serverUrl);
 
       for (const table of tablesToCreate) {
         const qrCodeUrl = await generateTableQRCode(table.id, serverUrl, {

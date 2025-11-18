@@ -5,79 +5,9 @@ import { ValidationError, NotFoundError } from '../errors/AppError';
 
 const router = Router();
 
-// All order routes require authentication
-router.use(authenticate);
-
-// GET /api/orders - List all orders with filtering
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { status, tableId, startDate, endDate } = req.query;
-
-    let orders;
-
-    // If filtering by table
-    if (tableId) {
-      const tableIdNum = parseInt(tableId as string, 10);
-      if (isNaN(tableIdNum)) {
-        throw new ValidationError('Invalid table ID');
-      }
-      orders = await orderService.getOrdersByTable(tableIdNum);
-    } else {
-      // Get all active orders or filter by status
-      orders = await orderService.getActiveOrders();
-      
-      // Apply status filter if provided
-      if (status) {
-        orders = orders.filter((order) => order.status === status);
-      }
-      
-      // Apply date range filter if provided
-      if (startDate || endDate) {
-        const start = startDate ? new Date(startDate as string) : new Date(0);
-        const end = endDate ? new Date(endDate as string) : new Date();
-        
-        orders = orders.filter((order) => {
-          const orderDate = new Date(order.createdAt);
-          return orderDate >= start && orderDate <= end;
-        });
-      }
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        orders,
-        count: orders.length,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /api/orders/:id - Get order details
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-
-    const order = await orderService.getOrderById(id);
-    if (!order) {
-      throw new NotFoundError('Order');
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        order,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /api/orders - Create new order
-router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
+// Public endpoint - Create new order (for PWA)
+// Must be BEFORE authentication middleware
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { tableId, items, isBuffet, buffetCategoryId, buffetQuantity, discount, serviceCharge, tip } = req.body;
 
@@ -122,6 +52,129 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       status: 'success',
       data: {
         order,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public endpoint - Get order status by table (for PWA) - returns latest unpaid order
+// This route checks if the param is a number (table ID) or UUID (order ID)
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if it's a UUID (order ID) or a number (table ID)
+    const isUUID = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    
+    if (isUUID) {
+      // Get order by ID (for desktop app)
+      const order = await orderService.getOrderById(id);
+      
+      if (!order) {
+        throw new NotFoundError('Order not found');
+      }
+      
+      res.status(200).json({
+        status: 'success',
+        data: {
+          order,
+        },
+      });
+    } else {
+      // Get order by table ID (for PWA)
+      const tableIdNum = parseInt(id, 10);
+      
+      if (isNaN(tableIdNum)) {
+        throw new ValidationError('Invalid table ID');
+      }
+      
+      const orders = await orderService.getOrdersByTable(tableIdNum);
+      
+      res.status(200).json({
+        status: 'success',
+        data: {
+          order: orders[0] || null,
+        },
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public endpoint - Get all orders for a table (for PWA order selection)
+router.get('/:tableId/all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tableId } = req.params;
+    const tableIdNum = parseInt(tableId, 10);
+    
+    if (isNaN(tableIdNum)) {
+      throw new ValidationError('Invalid table ID');
+    }
+    
+    const orders = await orderService.getOrdersByTable(tableIdNum);
+    
+    // Filter to only show unpaid orders
+    const activeOrders = orders.filter(order => 
+      order.status !== 'PAID' && order.status !== 'CANCELLED'
+    );
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        orders: activeOrders,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All other order routes require authentication
+router.use(authenticate);
+
+// GET /api/orders - List all orders with filtering
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { status, tableId, startDate, endDate } = req.query;
+
+    let orders;
+
+    // If filtering by table
+    if (tableId) {
+      const tableIdNum = parseInt(tableId as string, 10);
+      if (isNaN(tableIdNum)) {
+        throw new ValidationError('Invalid table ID');
+      }
+      orders = await orderService.getOrdersByTable(tableIdNum);
+    } else {
+      // Get all active orders or filter by status
+      orders = await orderService.getActiveOrders();
+      
+      // Apply status filter if provided
+      if (status) {
+        orders = orders.filter((order) => order.status === status);
+      }
+      
+      // Apply date range filter if provided
+      if (startDate || endDate) {
+        const start = startDate ? new Date(startDate as string) : new Date(0);
+        const end = endDate ? new Date(endDate as string) : new Date();
+        
+        orders = orders.filter((order) => {
+          const orderDate = new Date(order.createdAt);
+          return orderDate >= start && orderDate <= end;
+        });
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        orders,
+        count: orders.length,
       },
     });
   } catch (error) {

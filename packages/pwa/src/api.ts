@@ -1,29 +1,5 @@
 import { MenuItem, CreateOrderDTO, Order, Category } from '@rms/shared';
 
-// Get API URL dynamically
-// In production, the PWA is served by the API server, so we use the same origin
-// This ensures mobile devices use the correct LAN IP instead of localhost
-function getApiUrl(): string {
-  // If VITE_API_URL is set, use it (for development)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // In production, use the current origin (same server serving the PWA)
-  // This automatically uses the correct IP address
-  if (typeof window !== 'undefined') {
-    const { protocol, hostname, port } = window.location;
-    // Default to port 5000 if not specified
-    const apiPort = port || '5000';
-    return `${protocol}//${hostname}:${apiPort}`;
-  }
-  
-  // Fallback (should never happen in browser)
-  return 'http://localhost:5000';
-}
-
-const API_URL = getApiUrl();
-
 export class APIError extends Error {
   constructor(
     message: string,
@@ -40,8 +16,20 @@ export class ApiClient {
   private baseUrl: string;
   private requestTimeout = 15000; // 15 seconds
 
-  constructor(baseUrl: string = API_URL) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    // Get API URL dynamically at runtime
+    if (!baseUrl) {
+      if (typeof window !== 'undefined') {
+        const { protocol, hostname, port } = window.location;
+        // Use port from URL if present and not empty, otherwise default to 5000
+        const apiPort = (port && port.trim() !== '') ? port : '5000';
+        this.baseUrl = `${protocol}//${hostname}:${apiPort}/api`;
+      } else {
+        this.baseUrl = 'http://localhost:5000/api';
+      }
+    } else {
+      this.baseUrl = baseUrl;
+    }
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
@@ -107,10 +95,21 @@ export class ApiClient {
 
   async getMenu(): Promise<MenuItem[]> {
     try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/menu`);
+      const url = `${this.baseUrl}/menu`;
+      console.log('[API] Fetching menu from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Menu response status:', response.status, response.statusText);
+      
       const data = await this.handleResponse<any>(response);
-      return data.data?.menuItems || [];
+      console.log('[API] Menu data:', data);
+      
+      const menuItems = data.data?.menuItems || [];
+      console.log('[API] Extracted menu items count:', menuItems.length);
+      
+      return menuItems;
     } catch (error) {
+      console.error('[API] getMenu error:', error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }
@@ -120,10 +119,45 @@ export class ApiClient {
 
   async getCategories(): Promise<Category[]> {
     try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/categories`);
+      const url = `${this.baseUrl}/categories`;
+      console.log('[API] Fetching categories from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Categories response status:', response.status, response.statusText);
+      
       const data = await this.handleResponse<any>(response);
-      return data.data?.categories || [];
+      console.log('[API] Categories data:', data);
+      
+      const categories = data.data?.categories || [];
+      console.log('[API] Extracted categories count:', categories.length);
+      
+      return categories;
     } catch (error) {
+      console.error('[API] getCategories error:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new APIError('Network connection failed', 0, null, true);
+      }
+      throw error;
+    }
+  }
+
+  async getTable(tableId: number): Promise<any> {
+    try {
+      const url = `${this.baseUrl}/tables/${tableId}`;
+      console.log('[API] Fetching table from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Response status:', response.status, response.statusText);
+      
+      const data = await this.handleResponse<any>(response);
+      console.log('[API] Parsed response data:', data);
+      
+      const table = data.data?.table || data;
+      console.log('[API] Extracted table:', table);
+      
+      return table;
+    } catch (error) {
+      console.error('[API] getTable error:', error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }
@@ -162,6 +196,19 @@ export class ApiClient {
       if (error instanceof APIError && error.statusCode === 404) {
         return null;
       }
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new APIError('Network connection failed', 0, null, true);
+      }
+      throw error;
+    }
+  }
+
+  async getTableOrders(tableId: number): Promise<Order[]> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/order/${tableId}/all`);
+      const data = await this.handleResponse<any>(response);
+      return data.data?.orders || [];
+    } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }

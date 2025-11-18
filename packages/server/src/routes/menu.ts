@@ -5,10 +5,8 @@ import { ValidationError, NotFoundError } from '../errors/AppError';
 
 const router = Router();
 
-// All menu routes require authentication
-router.use(authenticate);
-
-// GET /api/menu - Get all menu items with filtering
+// Public endpoint - Get all menu items (for PWA)
+// Must be BEFORE authentication middleware
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { category, available, search } = req.query;
@@ -31,6 +29,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     next(error);
   }
 });
+
+// All other menu routes require authentication
+router.use(authenticate);
 
 // GET /api/menu/categories - Get all unique categories
 router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {

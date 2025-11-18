@@ -1,4 +1,4 @@
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import bcrypt from 'bcrypt';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
 import { config } from '../config';
@@ -45,6 +45,9 @@ class InitializationService {
    */
   async isDatabaseInitialized(): Promise<boolean> {
     try {
+      // First check if tables exist by trying to query them
+      await prisma.$queryRaw`SELECT name FROM sqlite_master WHERE type='table' AND name='User' LIMIT 1`;
+      
       // Check if admin user exists
       const adminUser = await prisma.user.findUnique({
         where: { username: 'admin' },
@@ -61,7 +64,11 @@ class InitializationService {
 
       // Database is considered initialized if all these exist
       return !!(adminUser && tableCount > 0 && menuItemCount > 0 && settingsCount > 0);
-    } catch (error) {
+    } catch (error: any) {
+      // If we get a "table does not exist" error, the database needs to be created
+      if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+        return false;
+      }
       console.error('Error checking database initialization:', error);
       return false;
     }
@@ -71,20 +78,20 @@ class InitializationService {
    * Initialize database with default data if not already initialized
    */
   async initializeDatabase(): Promise<void> {
-    // TEMPORARILY DISABLED: Auto-seeding disabled to allow manual category/menu setup
-    console.log('ℹ️  Auto-seeding disabled - database ready for manual setup');
-    return;
-    
-    const isInitialized = await this.isDatabaseInitialized();
-
-    if (isInitialized) {
-      console.log('✅ Database already initialized');
-      return;
-    }
-
-    console.log('🔧 Database not initialized, running initialization...');
-
     try {
+      console.log('🔍 Checking database initialization status...');
+      const isInitialized = await this.isDatabaseInitialized();
+
+      if (isInitialized) {
+        console.log('✅ Database already initialized');
+        return;
+      }
+
+      console.log('🔧 Database not initialized, creating schema and seeding data...');
+
+      // First, create the database schema if it doesn't exist
+      await this.createDatabaseSchema();
+
       // Create default admin user
       await this.createDefaultUsers();
 
@@ -101,8 +108,200 @@ class InitializationService {
       await this.createDefaultMenuItems();
 
       console.log('✅ Database initialization completed successfully');
-    } catch (error) {
-      console.error('❌ Error initializing database:', error);
+    } catch (error: any) {
+      console.error('❌ Error initializing database:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
+      // Don't throw - allow server to start even if initialization fails
+      // User can run migrations manually or reinitialize through UI
+      console.warn('⚠️  Server will start without initialized database');
+    }
+  }
+
+  /**
+   * Create database schema using raw SQL
+   */
+  private async createDatabaseSchema(): Promise<void> {
+    console.log('  📋 Creating database schema...');
+    
+    try {
+      // Log database configuration
+      const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
+      console.log(`  🗄️  Database URL: ${databaseUrl}`);
+      
+      // Test connection first
+      await prisma.$connect();
+      console.log('  ✓ Database connection established');
+
+      // Verify we can execute queries
+      await prisma.$queryRaw`SELECT 1 as test`;
+      console.log('  ✓ Database is responsive');
+
+      // Create all tables using raw SQL based on Prisma schema
+      console.log('  📝 Creating tables...');
+      
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "User" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "username" TEXT NOT NULL UNIQUE,
+          "password" TEXT NOT NULL,
+          "role" TEXT NOT NULL DEFAULT 'WAITER',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created User table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Table" (
+          "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+          "name" TEXT NOT NULL UNIQUE,
+          "qrCodeUrl" TEXT NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'FREE',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Table table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Category" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL UNIQUE,
+          "isBuffet" BOOLEAN NOT NULL DEFAULT 0,
+          "buffetPrice" REAL,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Category table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Category_sortOrder_idx" ON "Category"("sortOrder");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "MenuItem" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "categoryId" TEXT NOT NULL,
+          "secondaryCategoryId" TEXT,
+          "price" REAL NOT NULL,
+          "description" TEXT,
+          "imageUrl" TEXT,
+          "available" BOOLEAN NOT NULL DEFAULT 1,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL,
+          FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+          FOREIGN KEY ("secondaryCategoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created MenuItem table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_categoryId_idx" ON "MenuItem"("categoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_secondaryCategoryId_idx" ON "MenuItem"("secondaryCategoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_available_idx" ON "MenuItem"("available");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Order" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "tableId" INTEGER NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'PENDING',
+          "isBuffet" BOOLEAN NOT NULL DEFAULT 0,
+          "buffetCategoryId" TEXT,
+          "subtotal" REAL NOT NULL,
+          "tax" REAL NOT NULL,
+          "discount" REAL NOT NULL DEFAULT 0,
+          "serviceCharge" REAL NOT NULL DEFAULT 0,
+          "tip" REAL NOT NULL DEFAULT 0,
+          "total" REAL NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL,
+          FOREIGN KEY ("tableId") REFERENCES "Table"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+          FOREIGN KEY ("buffetCategoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created Order table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_tableId_idx" ON "Order"("tableId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order"("status");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_createdAt_idx" ON "Order"("createdAt");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_buffetCategoryId_idx" ON "Order"("buffetCategoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "OrderItem" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "orderId" TEXT NOT NULL,
+          "menuItemId" TEXT NOT NULL,
+          "quantity" INTEGER NOT NULL,
+          "price" REAL NOT NULL,
+          "notes" TEXT,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE,
+          FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created OrderItem table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Payment" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "orderId" TEXT NOT NULL UNIQUE,
+          "amount" REAL NOT NULL,
+          "method" TEXT NOT NULL,
+          "reference" TEXT,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created Payment table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Payment_createdAt_idx" ON "Payment"("createdAt");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Setting" (
+          "key" TEXT NOT NULL PRIMARY KEY,
+          "value" TEXT NOT NULL,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Setting table');
+
+      console.log('  ✅ Database schema created successfully');
+    } catch (error: any) {
+      console.error('  ❌ Failed to create database schema:', {
+        message: error.message,
+        code: error.code,
+        name: error.name
+      });
       throw error;
     }
   }
@@ -167,11 +366,7 @@ class InitializationService {
     ];
 
     for (const setting of defaultSettings) {
-      await prisma.setting.upsert({
-        where: { key: setting.key },
-        update: { value: setting.value },
-        create: setting,
-      });
+      await upsertSetting(setting.key, setting.value);
     }
 
     console.log('  ✓ Created default settings');

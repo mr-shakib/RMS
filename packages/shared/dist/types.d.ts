@@ -49,6 +49,7 @@ export interface Order {
     serviceCharge: number;
     tip: number;
     total: number;
+    items?: OrderItemWithMenuItem[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -60,6 +61,9 @@ export interface OrderItem {
     price: number;
     notes?: string;
     createdAt: Date;
+}
+export interface OrderItemWithMenuItem extends OrderItem {
+    menuItem?: MenuItem;
 }
 export interface Payment {
     id: string;

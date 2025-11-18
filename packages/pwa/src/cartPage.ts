@@ -6,7 +6,6 @@ import { networkStatus } from './networkStatus';
 export class CartPage {
   private container: HTMLElement;
   private cartItems: CartItem[] = [];
-  private taxPercentage: number = 10;
   private specialInstructions: string = '';
 
   constructor(container: HTMLElement) {
@@ -50,14 +49,6 @@ export class CartPage {
 
         <div class="cart-section">
           <div class="cart-totals">
-            <div class="cart-total-row">
-              <span>Subtotal</span>
-              <span id="subtotal">$0.00</span>
-            </div>
-            <div class="cart-total-row">
-              <span>Tax (${this.taxPercentage}%)</span>
-              <span id="tax">$0.00</span>
-            </div>
             <div class="cart-total-row cart-total-final">
               <span>Total</span>
               <span id="total">$0.00</span>
@@ -237,23 +228,15 @@ export class CartPage {
 
   private updateTotals(): void {
     const buffetMode = cart.getBuffetMode();
-    let subtotal = 0;
+    let total = 0;
 
     if (buffetMode.isBuffet && buffetMode.category) {
-      subtotal = buffetMode.category.buffetPrice || 0;
+      total = buffetMode.category.buffetPrice || 0;
     } else {
-      subtotal = cart.getSubtotal();
+      total = cart.getSubtotal();
     }
 
-    const tax = subtotal * (this.taxPercentage / 100);
-    const total = subtotal + tax;
-
-    const subtotalElement = document.getElementById('subtotal');
-    const taxElement = document.getElementById('tax');
     const totalElement = document.getElementById('total');
-
-    if (subtotalElement) subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
-    if (taxElement) taxElement.textContent = `$${tax.toFixed(2)}`;
     if (totalElement) totalElement.textContent = `$${total.toFixed(2)}`;
   }
 

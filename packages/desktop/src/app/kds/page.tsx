@@ -77,7 +77,7 @@ function OrderTicket({ order, onStatusUpdate, isHighlighted }: OrderTicketProps)
                   <span className="inline-block w-8 text-center font-bold text-blue-600 dark:text-blue-400">
                     {item.quantity}x
                   </span>
-                  {item.menuItem.name}
+                  {item.menuItem?.name || 'Unknown Item'}
                 </p>
                 {item.notes && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 ml-8 italic">

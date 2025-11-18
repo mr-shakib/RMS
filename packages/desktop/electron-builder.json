@@ -135,11 +135,6 @@
     "category": "Office",
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
-  "publish": {
-    "provider": "generic",
-    "url": "https://your-update-server.com/releases"
-  },
-  "afterSign": "scripts/notarize.js",
   "compression": "maximum",
   "asar": false
 }

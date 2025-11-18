@@ -12,17 +12,37 @@ export class SelectionPage {
 
   private async init(): Promise<void> {
     try {
-      await this.loadBuffetCategories();
+      // Render first, then load buffet categories in the background
       this.render();
+      await this.loadBuffetCategories();
+      // Re-render if buffet categories loaded successfully
+      if (this.buffetCategories.length > 0) {
+        this.updateBuffetCategories();
+      }
     } catch (error) {
-      console.error('[SelectionPage] Failed to initialize:', error);
-      this.showError('Failed to load menu options');
+      console.error('[SelectionPage] Failed to load buffet categories:', error);
+      // Don't show error - just continue without buffet options
+      // User can still select regular menu
     }
   }
 
   private async loadBuffetCategories(): Promise<void> {
-    const categories = await apiClient.getCategories();
-    this.buffetCategories = categories.filter(cat => cat.isBuffet);
+    try {
+      const categories = await apiClient.getCategories();
+      this.buffetCategories = categories.filter(cat => cat.isBuffet);
+    } catch (error) {
+      console.error('[SelectionPage] Failed to fetch categories:', error);
+      this.buffetCategories = [];
+    }
+  }
+
+  private updateBuffetCategories(): void {
+    const buffetCategoriesEl = document.getElementById('buffet-categories');
+    if (buffetCategoriesEl) {
+      buffetCategoriesEl.innerHTML = this.renderBuffetCategories();
+      // Re-setup event listeners for the new buffet category cards
+      this.setupBuffetCategoryListeners();
+    }
   }
 
   private render(): void {
@@ -133,6 +153,11 @@ export class SelectionPage {
     const overlay = this.container.querySelector('.modal-overlay');
     overlay?.addEventListener('click', () => this.hideBuffetModal());
 
+    // Setup buffet category listeners
+    this.setupBuffetCategoryListeners();
+  }
+
+  private setupBuffetCategoryListeners(): void {
     // Buffet category selection
     const categoryCards = this.container.querySelectorAll('.buffet-category-card');
     categoryCards.forEach(card => {
@@ -166,18 +191,7 @@ export class SelectionPage {
     }
   }
 
-  private showError(message: string): void {
-    this.container.innerHTML = `
-      <div class="error-state">
-        <div class="error-icon">⚠️</div>
-        <h2>Oops!</h2>
-        <p>${message}</p>
-        <button onclick="window.location.reload()" class="btn btn-primary">Retry</button>
-      </div>
-    `;
-  }
-
   destroy(): void {
-    document.body.style.overflow = '';
+    // Cleanup if needed
   }
 }

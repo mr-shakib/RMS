@@ -15,6 +15,7 @@ enum OrderStatus {
 export class StatusPage {
   private container: HTMLElement;
   private order: Order | null = null;
+  private orders: Order[] = [];
   private tableId: number | null = null;
   private pollInterval: number | null = null;
   private socket: Socket | null = null;
@@ -32,7 +33,7 @@ export class StatusPage {
     }
 
     this.render();
-    await this.loadOrderStatus();
+    await this.loadOrders();
     this.startPolling();
     this.connectWebSocket();
   }
@@ -58,15 +59,17 @@ export class StatusPage {
     });
   }
 
-  private async loadOrderStatus(): Promise<void> {
+  private async loadOrders(): Promise<void> {
     if (!this.tableId) return;
 
     try {
-      this.order = await apiClient.getOrderStatus(this.tableId);
+      this.orders = await apiClient.getTableOrders(this.tableId);
+      // Default to the first order if available
+      this.order = this.orders.length > 0 ? this.orders[0] : null;
       this.renderOrderStatus();
     } catch (error) {
-      console.error('Failed to load order status:', error);
-      this.showError('Failed to load order status. Please try again.');
+      console.error('Failed to load orders:', error);
+      this.showError('Failed to load orders. Please try again.');
     }
   }
 
@@ -98,6 +101,8 @@ export class StatusPage {
     const estimatedTime = this.getEstimatedTime(this.order.status);
 
     statusContent.innerHTML = `
+      ${this.orders.length > 1 ? this.renderOrderSelector() : ''}
+      
       <div class="status-card">
         <div class="status-header">
           <div class="status-icon" style="background-color: ${statusInfo.color}">
@@ -126,6 +131,8 @@ export class StatusPage {
           <div class="order-time">Placed at ${new Date(this.order.createdAt).toLocaleTimeString()}</div>
         </div>
 
+        ${this.renderOrderItems()}
+
         <div class="order-summary">
           <div class="order-summary-header">Order Summary</div>
           <div class="order-total">
@@ -145,7 +152,17 @@ export class StatusPage {
       </div>
     `;
 
-    // Attach event listeners
+    // Attach event listeners for order selector
+    if (this.orders.length > 1) {
+      this.orders.forEach((_, index) => {
+        const orderButton = document.getElementById(`order-select-${index}`);
+        orderButton?.addEventListener('click', () => {
+          this.selectOrder(index);
+        });
+      });
+    }
+
+    // Attach event listeners for actions
     const callWaiterButton = document.getElementById('call-waiter-button');
     callWaiterButton?.addEventListener('click', () => {
       this.callWaiter();
@@ -153,8 +170,71 @@ export class StatusPage {
 
     const refreshButton = document.getElementById('refresh-button');
     refreshButton?.addEventListener('click', () => {
-      this.loadOrderStatus();
+      this.loadOrders();
     });
+  }
+
+  private renderOrderSelector(): string {
+    return `
+      <div class="order-selector">
+        <div class="order-selector-title">Select Order to Track</div>
+        <div class="order-selector-list">
+          ${this.orders.map((order, index) => {
+            const statusInfo = this.getStatusInfo(order.status);
+            const isActive = this.order?.id === order.id;
+            return `
+              <button 
+                class="order-selector-item ${isActive ? 'active' : ''}" 
+                id="order-select-${index}"
+              >
+                <div class="order-selector-item-header">
+                  <span class="order-selector-item-number">Order #${order.id.substring(0, 8)}</span>
+                  <span class="order-selector-item-badge" style="background-color: ${statusInfo.color}">
+                    ${statusInfo.title}
+                  </span>
+                </div>
+                <div class="order-selector-item-details">
+                  <span class="order-selector-item-time">${new Date(order.createdAt).toLocaleTimeString()}</span>
+                  <span class="order-selector-item-total">$${order.total.toFixed(2)}</span>
+                </div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderOrderItems(): string {
+    if (!this.order?.items || this.order.items.length === 0) {
+      return '';
+    }
+
+    return `
+      <div class="order-items">
+        <div class="order-items-header">Order Items</div>
+        <div class="order-items-list">
+          ${this.order.items.map(item => {
+            const itemTotal = item.quantity * item.price;
+            return `
+              <div class="order-item">
+                <div class="order-item-details">
+                  <div class="order-item-name">${item.menuItem?.name || 'Unknown Item'}</div>
+                  ${item.notes ? `<div class="order-item-notes">Note: ${item.notes}</div>` : ''}
+                </div>
+                <div class="order-item-quantity">× ${item.quantity}</div>
+                <div class="order-item-price">$${itemTotal.toFixed(2)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private selectOrder(index: number): void {
+    this.order = this.orders[index];
+    this.renderOrderStatus();
   }
 
   private renderProgressBar(status: OrderStatus): string {
@@ -260,7 +340,7 @@ export class StatusPage {
   private startPolling(): void {
     // Poll every 10 seconds
     this.pollInterval = window.setInterval(() => {
-      this.loadOrderStatus();
+      this.loadOrders();
     }, 10000);
   }
 
@@ -274,7 +354,8 @@ export class StatusPage {
         API_URL = import.meta.env.VITE_API_URL;
       } else if (typeof window !== 'undefined') {
         const { protocol, hostname, port } = window.location;
-        const apiPort = port || '5000';
+        // Use port from URL if present and not empty, otherwise default to 5000
+        const apiPort = (port && port.trim() !== '') ? port : '5000';
         API_URL = `${protocol}//${hostname}:${apiPort}`;
       } else {
         API_URL = 'http://localhost:5000';
