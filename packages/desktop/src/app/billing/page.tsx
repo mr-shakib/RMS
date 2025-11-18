@@ -497,13 +497,13 @@ export default function BillingPage() {
   return (
     <div className="h-full flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Category Bar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Category</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">Category</h2>
+          <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 cursor-grab active:cursor-grabbing scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedCategoryId(null)}
-              className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors min-w-[120px]
+              className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium whitespace-nowrap transition-colors text-sm sm:text-base flex-shrink-0
                 ${
                   !selectedCategoryId
                     ? 'bg-blue-600 text-white'
@@ -513,7 +513,7 @@ export default function BillingPage() {
               All Items
             </button>
             {categoriesLoading ? (
-              <div className="px-6 py-3 text-gray-500 dark:text-gray-400">Loading categories...</div>
+              <div className="px-4 sm:px-6 py-2 sm:py-3 text-gray-500 dark:text-gray-400 text-sm sm:text-base">Loading categories...</div>
             ) : (
               categories
                 .filter((category) => !category.isBuffet) // Filter out buffet categories for takeaway
@@ -521,7 +521,7 @@ export default function BillingPage() {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategoryId(category.id)}
-                className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors min-w-[120px]
+                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium whitespace-nowrap transition-colors text-sm sm:text-base flex-shrink-0
                   ${
                     selectedCategoryId === category.id
                       ? 'bg-blue-600 text-white'
@@ -537,14 +537,14 @@ export default function BillingPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Side - Search Items */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Search items</h3>
+        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 lg:border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">Search items</h3>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="space-y-4">
+          <div className="flex-1 p-3 sm:p-6 overflow-y-auto">
+            <div className="space-y-3 sm:space-y-4">
             {/* Buffet Section */}
             {selectedCategory?.isBuffet ? (
               <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg p-6">
@@ -602,7 +602,7 @@ export default function BillingPage() {
                     placeholder="Search menu items..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                    className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -610,48 +610,52 @@ export default function BillingPage() {
 
                 {/* Menu Items Grid */}
                 {menuLoading ? (
-                  <div className="text-center py-12">
+                  <div className="text-center py-8 sm:py-12">
                     <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      <span className="ml-3 text-gray-600 dark:text-gray-400">Loading menu items...</span>
+                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500"></div>
+                      <span className="ml-3 text-sm sm:text-base text-gray-600 dark:text-gray-400">Loading menu items...</span>
                     </div>
                   </div>
                 ) : filteredMenuItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 sm:py-12">
+                    <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">
                       {searchQuery ? 'No items found' : selectedCategoryId ? 'No items in this category' : 'No available menu items'}
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
                     {filteredMenuItems.map((item) => (
                       <button
                         key={item.id}
                         onClick={() => addItemToManualOrder(item)}
-                        className="border-2 border-gray-200 dark:border-gray-700 rounded-lg
+                        className="relative border-2 border-gray-200 dark:border-gray-700 rounded-lg
                                  hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg transition-all
-                                 bg-white dark:bg-gray-800 overflow-hidden flex flex-col group"
+                                 bg-white dark:bg-gray-800 overflow-hidden aspect-square group"
                       >
-                        {/* Image */}
-                        <div className="relative w-full aspect-square bg-gray-200 dark:bg-gray-700">
+                        {/* Background Image */}
+                        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700">
                           {item.imageUrl ? (
                             <img
                               src={item.imageUrl}
                               alt={item.name}
-                              className="absolute inset-0 w-full h-full object-cover"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-5xl">🍽️</span>
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl">🍽️</span>
                             </div>
                           )}
                         </div>
-                        {/* Content */}
-                        <div className="p-4 flex flex-col gap-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-white text-center text-sm line-clamp-2 min-h-[2.5rem]">
+                        
+                        {/* Gradient Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                        
+                        {/* Content Overlay */}
+                        <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3">
+                          <h3 className="font-bold text-white text-center text-xs sm:text-sm md:text-base line-clamp-2 mb-1">
                             {item.name}
                           </h3>
-                          <p className="text-lg text-blue-600 dark:text-blue-400 font-bold text-center">
+                          <p className="text-sm sm:text-base md:text-lg lg:text-xl text-yellow-400 font-bold text-center">
                             ${Number(item.price).toFixed(2)}
                           </p>
                         </div>
@@ -666,17 +670,17 @@ export default function BillingPage() {
         </div>
 
         {/* Right Side - Items Added */}
-        <div className="w-80 flex flex-col bg-gray-50 dark:bg-gray-900">
-          <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Items Added</h3>
+        <div className="w-full lg:w-80 xl:w-96 flex flex-col bg-gray-50 dark:bg-gray-900 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 max-h-[40vh] lg:max-h-none">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">Items Added ({manualOrderItems.length})</h3>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-0">
             <div>
               {manualOrderItems.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
+                <div className="h-full flex items-center justify-center py-8 sm:py-12">
                   <div className="text-center">
-                    <ShoppingCartIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                    <ShoppingCartIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-300 dark:text-gray-600 mb-2 sm:mb-3" />
+                    <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">
                       No items added yet
                     </p>
                   </div>
@@ -686,11 +690,11 @@ export default function BillingPage() {
                   {manualOrderItems.map((item) => (
                     <div
                       key={item.menuItemId}
-                      className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
+                      className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700"
                     >
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start justify-between mb-2 gap-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm truncate">
                             {item.name}
                           </h4>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -699,34 +703,34 @@ export default function BillingPage() {
                         </div>
                         <button
                           onClick={() => removeItemFromManualOrder(item.menuItemId)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex-shrink-0"
                         >
                           <XMarkIcon className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
                           <button
                             onClick={() => updateItemQuantity(item.menuItemId, item.quantity - 1)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg
+                            className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg
                                      bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
-                                     text-gray-700 dark:text-gray-300"
+                                     text-gray-700 dark:text-gray-300 flex-shrink-0"
                           >
-                            <MinusIcon className="w-4 h-4" />
+                            <MinusIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
-                          <span className="w-8 text-center font-medium text-gray-900 dark:text-white">
+                          <span className="w-6 sm:w-8 text-center font-medium text-gray-900 dark:text-white text-xs sm:text-sm">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => updateItemQuantity(item.menuItemId, item.quantity + 1)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg
+                            className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg
                                      bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
-                                     text-gray-700 dark:text-gray-300"
+                                     text-gray-700 dark:text-gray-300 flex-shrink-0"
                           >
-                            <PlusIcon className="w-4 h-4" />
+                            <PlusIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         </div>
-                        <span className="font-semibold text-gray-900 dark:text-white">
+                        <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
                           ${(item.price * item.quantity).toFixed(2)}
                         </span>
                       </div>

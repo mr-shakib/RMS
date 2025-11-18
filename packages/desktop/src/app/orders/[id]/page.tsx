@@ -45,14 +45,29 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     },
   });
 
-  // Reprint receipt mutation (placeholder - will be implemented with printer service)
+  // Reprint receipt mutation
   const reprintReceiptMutation = useMutation({
-    mutationFn: () => apiClient.post(`/payments/${params.id}/reprint`, {}),
+    mutationFn: () => apiClient.post(`/printer/reprint/receipt/${params.id}`),
     onSuccess: () => {
-      alert('Receipt sent to printer');
+      alert('✅ Receipt sent to printer successfully!\n\nThe receipt has been added to the print queue.');
     },
-    onError: () => {
-      alert('Failed to print receipt. Printer service not yet implemented.');
+    onError: (error: any) => {
+      const rawError = error?.response?.data?.error || error?.message || 'Unknown error';
+      
+      let userMessage = '';
+      
+      // Check for specific error types
+      if (rawError.includes('Printer not connected') || rawError.includes('not configured')) {
+        userMessage = '⚠️ Printer Not Available\n\nNo printer is currently connected or configured.\n\nPlease:\n1. Go to Settings\n2. Configure your printer\n3. Connect to the printer\n\nNote: A PDF receipt will be generated automatically in the receipts folder as a backup.';
+      } else if (rawError.includes('timeout') || rawError.includes('busy')) {
+        userMessage = '⏳ Printer Busy\n\nThe printer is currently processing another job. Please wait a moment and try again.';
+      } else if (rawError.includes('offline') || rawError.includes('communication')) {
+        userMessage = '📡 Connection Error\n\nCannot communicate with the printer. Please check:\n• Printer is turned on\n• Network/USB connection is active\n• Printer is not in error state\n\nA PDF receipt will be generated as backup.';
+      } else {
+        userMessage = `❌ Print Error\n\n${rawError}\n\nIf the printer is not configured, please go to Settings to set it up. A PDF backup will be created in the receipts folder.`;
+      }
+      
+      alert(userMessage);
     },
   });
 
@@ -116,7 +131,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const nextStatus = getNextStatus(order.status);
   const canUpdateStatus = nextStatus !== null;
   const canCancel = order.status !== OrderStatus.PAID && order.status !== OrderStatus.CANCELLED;
-  const canReprint = order.status === OrderStatus.PAID;
+  const canReprintReceipt = order.status === OrderStatus.PAID;
 
   const statusColors: Record<OrderStatus, string> = {
     [OrderStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -212,7 +227,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </button>
         )}
 
-        {canReprint && (
+        {canReprintReceipt && (
           <button
             onClick={handleReprintReceipt}
             disabled={reprintReceiptMutation.isPending}
@@ -220,15 +235,24 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                      flex items-center space-x-2"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-              />
-            </svg>
-            <span>Reprint Receipt</span>
+            {reprintReceiptMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Printing...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                  />
+                </svg>
+                <span>Reprint Receipt</span>
+              </>
+            )}
           </button>
         )}
 
