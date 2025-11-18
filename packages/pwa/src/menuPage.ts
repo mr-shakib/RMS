@@ -40,6 +40,22 @@ export class MenuPage {
   private async init(): Promise<void> {
     try {
       this.render();
+      
+      // Ensure scrolling is enabled after DOM is rendered
+      requestAnimationFrame(() => {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        
+        // Also ensure the menu-content can scroll
+        const menuContent = document.getElementById('menu-content');
+        if (menuContent) {
+          menuContent.style.overflowY = 'auto';
+          console.log('[MenuPage] Enabled scrolling on menu-content');
+        }
+      });
+      
       await Promise.all([
         this.loadMenu(),
         this.loadTableInfo(),
@@ -190,6 +206,21 @@ export class MenuPage {
     });
     
     this.categories = Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+    
+    // Set default category for à la carte mode
+    if (!this.isBuffetMode && this.selectedCategory === 'All') {
+      // Find Beverages or Drinks category
+      const drinksCategory = this.categories.find(cat => 
+        !cat.isBuffet && (cat.name === 'Drinks' || cat.name === 'Beverages')
+      );
+      
+      if (drinksCategory) {
+        this.selectedCategory = drinksCategory.name;
+        console.log('[MenuPage] Set default category to:', this.selectedCategory);
+      } else {
+        console.log('[MenuPage] Drinks/Beverages category not found, using All');
+      }
+    }
   }
 
   private filterItems(): void {

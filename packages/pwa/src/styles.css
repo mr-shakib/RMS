@@ -35,16 +35,19 @@ body {
 }
 
 #app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* ===== SELECTION PAGE ===== */
 .selection-page {
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .selection-hero {
@@ -78,6 +81,8 @@ body {
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .selection-cards {
@@ -207,6 +212,7 @@ body {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease;
+  overflow: hidden;
 }
 
 @keyframes slideUp {
@@ -259,8 +265,12 @@ body {
 }
 
 .modal-body {
+  flex: 1;
   padding: 2rem;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .buffet-categories {
@@ -446,6 +456,8 @@ body {
   display: flex;
   flex-direction: column;
   padding-bottom: 80px; /* Space for fixed cart bar */
+  height: 100vh;
+  overflow: hidden;
 }
 
 .menu-banner {
@@ -532,7 +544,10 @@ body {
 .menu-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.5rem;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .menu-grid {
@@ -970,12 +985,16 @@ body {
 
 /* ===== CART PAGE ===== */
 .cart-container {
+  flex: 1;
   max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem;
-  padding-bottom: 6rem; /* Add bottom padding for scrolling space */
+  padding-bottom: 6rem;
   overflow-y: auto;
-  max-height: calc(100vh - 60px); /* Header height */
+  overflow-x: hidden;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .cart-section {
@@ -1316,9 +1335,15 @@ body {
 
 /* ===== STATUS PAGE ===== */
 .status-container {
+  flex: 1;
   max-width: 800px;
   margin: 0 auto;
   padding: 1.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .status-card {

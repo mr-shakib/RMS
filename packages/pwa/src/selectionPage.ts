@@ -165,6 +165,8 @@ export class SelectionPage {
         const categoryId = card.getAttribute('data-category-id');
         const category = this.buffetCategories.find(c => c.id === categoryId);
         if (category) {
+          // Reset body overflow before navigating
+          document.body.style.overflow = '';
           sessionStorage.setItem('menuMode', 'buffet');
           sessionStorage.setItem('buffetCategoryId', category.id);
           sessionStorage.setItem('buffetCategoryName', category.name);
@@ -192,6 +194,7 @@ export class SelectionPage {
   }
 
   destroy(): void {
-    // Cleanup if needed
+    // Reset body overflow on destroy
+    document.body.style.overflow = '';
   }
 }
