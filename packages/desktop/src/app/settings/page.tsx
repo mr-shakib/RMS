@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { useUIStore } from '@/store/uiStore';
+import { useTranslation } from '@/hooks/useTranslation';
 import PrinterManagement from '@/components/PrinterManagement';
 import { 
   CheckCircleIcon, 
@@ -16,8 +17,10 @@ import {
   SwatchIcon,
   BuildingStorefrontIcon,
   DocumentArrowDownIcon,
-  DocumentArrowUpIcon
+  DocumentArrowUpIcon,
+  LanguageIcon,
 } from '@heroicons/react/24/outline';
+import { SUPPORTED_LOCALES, LOCALE_NAMES, Locale } from '@/i18n';
 
 type TabType = 'business' | 'printer' | 'server' | 'backup';
 
@@ -40,6 +43,7 @@ interface BackupResponse {
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('business');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -65,10 +69,10 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'business' as TabType, label: 'Business Info', icon: BuildingStorefrontIcon },
-    { id: 'printer' as TabType, label: 'Printer', icon: PrinterIcon },
-    { id: 'server' as TabType, label: 'Server & QR', icon: ServerIcon },
-    { id: 'backup' as TabType, label: 'Backup & Theme', icon: SwatchIcon },
+    { id: 'business' as TabType, label: t('settings.tabs.business'), icon: BuildingStorefrontIcon },
+    { id: 'printer' as TabType, label: t('settings.tabs.printer'), icon: PrinterIcon },
+    { id: 'server' as TabType, label: t('settings.tabs.server'), icon: ServerIcon },
+    { id: 'backup' as TabType, label: t('settings.tabs.backup'), icon: SwatchIcon },
   ];
 
   return (
@@ -76,9 +80,9 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Configure system settings and preferences
+            {t('settings.subtitle')}
           </p>
         </div>
         
@@ -86,7 +90,7 @@ export default function SettingsPage() {
         {saveSuccess && (
           <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg">
             <CheckCircleIcon className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings saved successfully!</span>
+            <span className="text-sm font-medium">{t('settings.saveSuccess')}</span>
           </div>
         )}
         {saveError && (
@@ -125,7 +129,7 @@ export default function SettingsPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading settings...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">{t('common.loading')}...</span>
             </div>
           ) : (
             <>
@@ -173,6 +177,7 @@ interface SettingsTabProps {
 
 function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [businessName, setBusinessName] = useState(settings.BUSINESS_NAME || '');
   const [businessAddress, setBusinessAddress] = useState(settings.BUSINESS_ADDRESS || '');
   const [logoUrl, setLogoUrl] = useState(settings.BUSINESS_LOGO_URL || '');
@@ -303,10 +308,10 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Business Information
+          {t('settings.business.title')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Configure your business details that will appear on receipts and reports
+          {t('settings.business.subtitle')}
         </p>
       </div>
 
@@ -314,13 +319,13 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Business Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Business Name
+            {t('settings.business.name')}
           </label>
           <input
             type="text"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="My Restaurant"
+            placeholder={t('settings.business.namePlaceholder')}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -330,7 +335,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Currency */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Currency
+            {t('settings.business.currency')}
           </label>
           <select
             value={currency}
@@ -347,15 +352,23 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           </select>
         </div>
 
+        {/* Language */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {t('settings.business.language')}
+          </label>
+          <LanguageSelector />
+        </div>
+
         {/* Business Address */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Business Address
+            {t('settings.business.address')}
           </label>
           <textarea
             value={businessAddress}
             onChange={(e) => setBusinessAddress(e.target.value)}
-            placeholder="123 Main Street, City, State, ZIP"
+            placeholder={t('settings.business.addressPlaceholder')}
             rows={3}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
@@ -366,7 +379,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Tax Percentage */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Tax Percentage (%)
+            {t('settings.business.tax')}
           </label>
           <input
             type="number"
@@ -384,7 +397,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Business Logo Upload */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Business Logo
+            {t('settings.business.logo')}
           </label>
           
           {/* Current Logo Preview */}
@@ -400,7 +413,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
                   }}
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Logo</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.business.currentLogo')}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {logoUrl}
                   </p>
@@ -411,7 +424,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
                            font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Remove
+                  {t('settings.business.removeLogo')}
                 </button>
               </div>
             </div>
@@ -438,12 +451,12 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
             >
               <ArrowUpTrayIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {isUploadingLogo ? 'Uploading...' : logoUrl ? 'Change Logo' : 'Upload Logo'}
+                {isUploadingLogo ? t('settings.business.uploading') : logoUrl ? t('settings.business.changeLogo') : t('settings.business.uploadLogo')}
               </span>
             </label>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            Supported formats: JPEG, PNG, GIF, WebP (Max size: 5MB)
+            {t('settings.business.logoFormats')}
           </p>
         </div>
       </div>
@@ -456,7 +469,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
                    font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSaving ? 'Saving...' : 'Save Business Settings'}
+          {isSaving ? t('settings.business.saving') : t('settings.business.saveButton')}
         </button>
       </div>
     </div>
@@ -887,6 +900,27 @@ function ServerSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         </p>
       </div>
     </div>
+  );
+}
+
+// Language Selector Component
+function LanguageSelector() {
+  const { locale, setLocale } = useUIStore();
+
+  return (
+    <select
+      value={locale}
+      onChange={(e) => setLocale(e.target.value as Locale)}
+      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+               bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+               focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    >
+      {SUPPORTED_LOCALES.map((localeKey) => (
+        <option key={localeKey} value={localeKey}>
+          {LOCALE_NAMES[localeKey]}
+        </option>
+      ))}
+    </select>
   );
 }
 

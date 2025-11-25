@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore } from '@/store/uiStore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Role } from '@rms/shared';
 import {
   HomeIcon,
@@ -21,7 +22,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
-  name: string;
+  translationKey: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: Role[];
@@ -29,49 +30,49 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    name: 'Tables',
+    translationKey: 'sidebar.tables',
     href: '/tables',
     icon: TableCellsIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
-    name: 'Orders',
+    translationKey: 'sidebar.orders',
     href: '/orders',
     icon: ShoppingBagIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
-    name: 'Menu',
+    translationKey: 'sidebar.menu',
     href: '/menu',
     icon: BookOpenIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
-    name: 'Take Away',
+    translationKey: 'sidebar.takeAway',
     href: '/billing',
     icon: CreditCardIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
-    name: 'Payment',
+    translationKey: 'sidebar.payment',
     href: '/payment',
     icon: CreditCardIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   // {
-  //   name: 'Reports',
+  //   translationKey: 'sidebar.reports',
   //   href: '/reports',
   //   icon: ChartBarIcon,
   //   roles: [Role.ADMIN, Role.WAITER],
   // },
   {
-    name: 'Kitchen Display',
+    translationKey: 'sidebar.kitchenDisplay',
     href: '/kds',
     icon: TvIcon,
     roles: [Role.ADMIN, Role.CHEF],
   },
   {
-    name: 'Settings',
+    translationKey: 'sidebar.settings',
     href: '/settings',
     icon: CogIcon,
     roles: [Role.ADMIN],
@@ -81,6 +82,7 @@ const navItems: NavItem[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { currentUser, theme, toggleTheme } = useUIStore();
+  const { t } = useTranslation();
 
   // Filter nav items based on user role
   const visibleNavItems = currentUser
@@ -123,7 +125,7 @@ export default function Sidebar() {
 
           return (
             <Link
-              key={item.name}
+              key={item.href}
               href={item.href}
               className={`flex flex-col items-center justify-center gap-2 px-3 py-4 rounded-lg transition-colors border ${
                 isActive
@@ -132,7 +134,7 @@ export default function Sidebar() {
               }`}
             >
               <Icon className="w-8 h-8 flex-shrink-0" />
-              <span className="text-xs font-medium text-center leading-tight">{item.name}</span>
+              <span className="text-xs font-medium text-center leading-tight">{t(item.translationKey)}</span>
             </Link>
           );
         })}
@@ -170,7 +172,7 @@ export default function Sidebar() {
             <MoonIcon className="w-4 h-4 flex-shrink-0" />
           )}
           <span className="text-xs">
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            {t(theme === 'dark' ? 'sidebar.lightMode' : 'sidebar.darkMode')}
           </span>
         </button>
 
@@ -180,7 +182,7 @@ export default function Sidebar() {
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
         >
           <ArrowRightOnRectangleIcon className="w-4 h-4 flex-shrink-0" />
-          <span className="text-xs">Logout</span>
+          <span className="text-xs">{t('sidebar.logout')}</span>
         </button>
       </div>
     </aside>
