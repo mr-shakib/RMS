@@ -52,6 +52,12 @@ const navItems: NavItem[] = [
     icon: CreditCardIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
+  {
+    name: 'Payment',
+    href: '/payment',
+    icon: CreditCardIcon,
+    roles: [Role.ADMIN, Role.WAITER],
+  },
   // {
   //   name: 'Reports',
   //   href: '/reports',
