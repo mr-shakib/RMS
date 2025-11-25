@@ -288,8 +288,19 @@ class MultiPrinterService {
       connection.printer
         .text('================================')
         .text('')
-        .cut()
-        .close();
+        .cut();
+
+      // Manually flush the device buffer to send data
+      if (connection.device && typeof connection.device.write === 'function') {
+        const buffer = (connection.printer as any).buffer;
+        if (buffer && buffer.length > 0) {
+          connection.device.write(buffer);
+          (connection.printer as any).buffer = Buffer.alloc(0);
+        }
+      }
+
+      // Wait a bit for data to be sent
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log(`✅ Kitchen ticket printed on ${connection.name}`);
     } catch (error) {
@@ -411,8 +422,19 @@ class MultiPrinterService {
         .text('Thank you for your visit!')
         .text('')
         .text('')
-        .cut()
-        .close();
+        .cut();
+
+      // Manually flush the device buffer to send data
+      if (activePrinter.device && typeof activePrinter.device.write === 'function') {
+        const buffer = (activePrinter.printer as any).buffer;
+        if (buffer && buffer.length > 0) {
+          activePrinter.device.write(buffer);
+          (activePrinter.printer as any).buffer = Buffer.alloc(0);
+        }
+      }
+
+      // Wait a bit for data to be sent
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log(`✅ Customer receipt printed for order ${orderId}`);
     } catch (error) {
@@ -456,8 +478,19 @@ class MultiPrinterService {
         .text('If you can read this,')
         .text('your printer is working!')
         .text('')
-        .cut()
-        .close();
+        .cut();
+
+      // Manually flush the device buffer to send data
+      if (connection.device && typeof connection.device.write === 'function') {
+        const buffer = (connection.printer as any).buffer;
+        if (buffer && buffer.length > 0) {
+          connection.device.write(buffer);
+          (connection.printer as any).buffer = Buffer.alloc(0);
+        }
+      }
+
+      // Wait a bit for data to be sent
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log(`✅ Test print successful on ${connection.name}`);
     } catch (error) {

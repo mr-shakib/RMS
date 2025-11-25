@@ -29,8 +29,8 @@ export class CartPage {
     this.container.innerHTML = `
       <div class="header">
         <div class="header-content">
-          <button class="back-button" id="back-button">← Back</button>
-          <div class="header-title">Your Cart</div>
+          <button class="back-button" id="back-button">← Indietro</button>
+          <div class="header-title">Il Tuo Carrello</div>
         </div>
       </div>
 
@@ -38,11 +38,11 @@ export class CartPage {
         <div id="cart-items"></div>
 
         <div class="cart-section">
-          <label class="cart-label">Special Instructions (Optional)</label>
+          <label class="cart-label">Istruzioni Speciali (Opzionale)</label>
           <textarea
             id="special-instructions"
             class="cart-textarea"
-            placeholder="Any special requests or dietary requirements..."
+            placeholder="Eventuali richieste speciali o esigenze alimentari..."
             rows="3"
           ></textarea>
         </div>
@@ -50,18 +50,18 @@ export class CartPage {
         <div class="cart-section">
           <div class="cart-totals">
             <div class="cart-total-row cart-total-final">
-              <span>Total</span>
-              <span id="total">$0.00</span>
+              <span>Totale</span>
+              <span id="total">€0,00</span>
             </div>
           </div>
         </div>
 
         <div class="cart-actions">
           <button class="button button-secondary" id="clear-cart-button">
-            Clear Cart
+            Svuota Carrello
           </button>
           <button class="button button-primary" id="place-order-button">
-            Place Order
+            Invia Ordine
           </button>
         </div>
       </div>
@@ -71,15 +71,15 @@ export class CartPage {
         <div class="modal-content">
           <div class="modal-body">
             <div class="modal-icon success">✓</div>
-            <h2 class="modal-title">Order Placed Successfully!</h2>
-            <p class="modal-text">Your order has been sent to the kitchen and will be prepared shortly.</p>
+            <h2 class="modal-title">Ordine Inviato con Successo!</h2>
+            <p class="modal-text">Il tuo ordine è stato inviato in cucina e sarà preparato a breve.</p>
             <p class="modal-order-number" id="order-number"></p>
             <div class="modal-actions">
               <button class="button button-secondary" id="back-to-menu-button">
-                Back to Menu
+                Torna al Menu
               </button>
               <button class="button button-primary" id="track-order-button">
-                Track Order
+                Traccia Ordine
               </button>
             </div>
           </div>
@@ -101,9 +101,9 @@ export class CartPage {
       cartItemsContainer.innerHTML = `
         <div class="empty-cart">
           <div class="empty-cart-icon">🛒</div>
-          <div class="empty-cart-text">Your cart is empty</div>
+          <div class="empty-cart-text">Il tuo carrello è vuoto</div>
           <button class="button button-primary" id="browse-menu-button">
-            Browse Menu
+            Sfoglia il Menu
           </button>
         </div>
       `;
@@ -122,7 +122,7 @@ export class CartPage {
         <div class="buffet-banner" style="margin-bottom: 1rem;">
           <div class="buffet-banner-title">🎉 ${buffetMode.category.name}</div>
           <div class="buffet-banner-subtitle">
-            All-you-can-eat for $${(buffetMode.category.buffetPrice || 0).toFixed(2)}
+            Tutto quello che puoi mangiare per €${(buffetMode.category.buffetPrice || 0).toFixed(2).replace('.', ',')}
           </div>
         </div>
       `;
@@ -142,16 +142,16 @@ export class CartPage {
 
   private renderCartItem(item: CartItem, isBuffet: boolean = false): string {
     const price = typeof item.menuItem.price === 'number' 
-      ? item.menuItem.price.toFixed(2) 
-      : '0.00';
-    const itemTotal = isBuffet ? 'Included' : `$${(item.menuItem.price * item.quantity).toFixed(2)}`;
+      ? item.menuItem.price.toFixed(2).replace('.', ',') 
+      : '0,00';
+    const itemTotal = isBuffet ? 'Incluso' : `€${(item.menuItem.price * item.quantity).toFixed(2).replace('.', ',')}`;
 
     return `
       <div class="cart-item" data-item-id="${item.menuItem.id}">
         <div class="cart-item-info">
           <div class="cart-item-name">${item.menuItem.name}</div>
-          <div class="cart-item-price">${isBuffet ? 'Buffet Item' : `$${price} each`}</div>
-          ${item.notes ? `<div class="cart-item-notes">Note: ${item.notes}</div>` : ''}
+          <div class="cart-item-price">${isBuffet ? 'Articolo Buffet' : `€${price} ciascuno`}</div>
+          ${item.notes ? `<div class="cart-item-notes">Nota: ${item.notes}</div>` : ''}
         </div>
         <div class="cart-item-controls">
           <div class="quantity-selector">
@@ -198,7 +198,7 @@ export class CartPage {
 
     const clearCartButton = document.getElementById('clear-cart-button');
     clearCartButton?.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear your cart?')) {
+      if (confirm('Sei sicuro di voler svuotare il carrello?')) {
         cart.clear();
       }
     });
@@ -237,25 +237,25 @@ export class CartPage {
     }
 
     const totalElement = document.getElementById('total');
-    if (totalElement) totalElement.textContent = `$${total.toFixed(2)}`;
+    if (totalElement) totalElement.textContent = `€${total.toFixed(2).replace('.', ',')}`;
   }
 
   private async placeOrder(): Promise<void> {
     if (this.cartItems.length === 0) {
-      alert('Your cart is empty');
+      alert('Il tuo carrello è vuoto');
       return;
     }
 
     const tableId = this.getTableIdFromUrl();
     if (!tableId) {
-      alert('Table ID not found. Please scan the QR code again.');
+      alert('ID tavolo non trovato. Scansiona nuovamente il codice QR.');
       return;
     }
 
     const placeOrderButton = document.getElementById('place-order-button') as HTMLButtonElement;
     if (placeOrderButton) {
       placeOrderButton.disabled = true;
-      placeOrderButton.textContent = 'Placing Order...';
+      placeOrderButton.textContent = 'Invio ordine in corso...';
     }
 
     try {
@@ -291,11 +291,11 @@ export class CartPage {
       }
     } catch (error) {
       console.error('Failed to place order:', error);
-      alert('Failed to place order. Please try again.');
+      alert('Impossibile inviare l\'ordine. Riprova.');
     } finally {
       if (placeOrderButton) {
         placeOrderButton.disabled = false;
-        placeOrderButton.textContent = 'Place Order';
+        placeOrderButton.textContent = 'Invia Ordine';
       }
     }
   }
@@ -311,9 +311,9 @@ export class CartPage {
       // Reset to success state
       modalIcon.className = 'modal-icon success';
       modalIcon.textContent = '✓';
-      modalTitle.textContent = 'Order Placed Successfully!';
-      modalText.textContent = 'Your order has been sent to the kitchen and will be prepared shortly.';
-      orderNumber.textContent = `Order #${orderId.substring(0, 8)}`;
+      modalTitle.textContent = 'Ordine Inviato con Successo!';
+      modalText.textContent = 'Il tuo ordine è stato inviato in cucina e sarà preparato a breve.';
+      orderNumber.textContent = `Ordine #${orderId.substring(0, 8)}`;
       modal.classList.remove('hidden');
       
       // Close modal when clicking overlay
@@ -333,8 +333,8 @@ export class CartPage {
       modalIcon.className = 'modal-icon';
       modalIcon.textContent = '📡';
       modalIcon.style.background = '#f59e0b';
-      modalTitle.textContent = 'Order Queued';
-      modalText.textContent = 'You are offline. Your order will be sent automatically when connection is restored.';
+      modalTitle.textContent = 'Ordine in Coda';
+      modalText.textContent = 'Sei offline. Il tuo ordine sarà inviato automaticamente quando la connessione sarà ripristinata.';
       orderNumber.textContent = '';
       modal.classList.remove('hidden');
       

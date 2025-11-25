@@ -35,14 +35,21 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
           });
 
           if (!response.ok) {
-            throw new Error('Authentication failed');
+            // Token is invalid or expired
+            console.warn('Token validation failed, redirecting to login');
+            localStorage.removeItem('token');
+            setCurrentUser(null);
+            router.push('/login');
+            return;
           }
 
           const result = await response.json();
           setCurrentUser(result.data.user);
           setIsChecking(false);
         } catch (error) {
+          console.error('Authentication error:', error);
           localStorage.removeItem('token');
+          setCurrentUser(null);
           router.push('/login');
           return;
         }

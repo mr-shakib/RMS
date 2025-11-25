@@ -63,6 +63,7 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
+        currentUser: state.currentUser,
       }),
     }
   )
