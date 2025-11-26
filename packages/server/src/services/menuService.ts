@@ -5,19 +5,23 @@ import { emitMenuUpdated } from '../websocket';
 interface CreateMenuItemInput {
   name: string;
   categoryId: string;
+  secondaryCategoryId?: string;
   price: number;
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 interface UpdateMenuItemInput {
   name?: string;
   categoryId?: string;
+  secondaryCategoryId?: string;
   price?: number;
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 interface MenuItemFilters {
@@ -52,6 +56,7 @@ class MenuService {
       where,
       include: {
         category: true,
+        secondaryCategory: true,
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -73,6 +78,7 @@ class MenuService {
       where,
       include: {
         category: true,
+        secondaryCategory: true,
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -88,6 +94,7 @@ class MenuService {
       where: { id },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -98,7 +105,7 @@ class MenuService {
    * Create a new menu item
    */
   async createMenuItem(input: CreateMenuItemInput): Promise<MenuItem> {
-    const { name, categoryId, price, description, imageUrl, available = true } = input;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available = true } = input;
 
     // Validate price
     if (price <= 0) {
@@ -111,17 +118,47 @@ class MenuService {
       throw new Error(`Category with id ${categoryId} not found`);
     }
 
+    // Validate secondary category exists if provided
+    if (secondaryCategoryId) {
+      const secondaryCategory = await prisma.category.findUnique({ where: { id: secondaryCategoryId } });
+      if (!secondaryCategory) {
+        throw new Error(`Secondary category with id ${secondaryCategoryId} not found`);
+      }
+    }
+
+    // Use provided item number or get the next available one
+    let assignedItemNumber: number | undefined = input.itemNumber;
+    
+    if (!assignedItemNumber) {
+      const maxItemNumber = await prisma.menuItem.findFirst({
+        orderBy: { itemNumber: 'desc' },
+        select: { itemNumber: true },
+      });
+      assignedItemNumber = (maxItemNumber?.itemNumber || 0) + 1;
+    } else {
+      // Check if the provided item number is already taken
+      const existingItem = await prisma.menuItem.findUnique({
+        where: { itemNumber: assignedItemNumber },
+      });
+      if (existingItem) {
+        throw new Error(`Item number ${assignedItemNumber} is already assigned to "${existingItem.name}"`);
+      }
+    }
+
     const menuItem = await prisma.menuItem.create({
       data: {
         name,
         categoryId,
+        secondaryCategoryId,
         price,
         description,
         imageUrl,
         available,
+        itemNumber: assignedItemNumber,
       },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -150,6 +187,20 @@ class MenuService {
       throw new Error('Price must be greater than 0');
     }
 
+    // Validate and check item number if provided
+    if (input.itemNumber !== undefined && input.itemNumber !== existingItem.itemNumber) {
+      if (input.itemNumber < 1) {
+        throw new Error('Item number must be a positive number');
+      }
+      // Check if the new item number is already taken by another item
+      const conflictingItem = await prisma.menuItem.findUnique({
+        where: { itemNumber: input.itemNumber },
+      });
+      if (conflictingItem && conflictingItem.id !== id) {
+        throw new Error(`Item number ${input.itemNumber} is already assigned to "${conflictingItem.name}"`);
+      }
+    }
+
     // Validate category if provided
     if (input.categoryId) {
       const category = await prisma.category.findUnique({ where: { id: input.categoryId } });
@@ -158,11 +209,20 @@ class MenuService {
       }
     }
 
+    // Validate secondary category if provided
+    if (input.secondaryCategoryId) {
+      const secondaryCategory = await prisma.category.findUnique({ where: { id: input.secondaryCategoryId } });
+      if (!secondaryCategory) {
+        throw new Error(`Secondary category with id ${input.secondaryCategoryId} not found`);
+      }
+    }
+
     const updatedMenuItem = await prisma.menuItem.update({
       where: { id },
       data: input,
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 
@@ -202,9 +262,8 @@ class MenuService {
       throw new Error('Cannot delete menu item that is in active orders');
     }
 
-    await prisma.menuItem.delete({
-      where: { id },
-    });
+    await prisma.orderItem.deleteMany({ where: { menuItemId: id } });
+    await prisma.menuItem.delete({ where: { id } });
   }
 
   /**
@@ -223,6 +282,7 @@ class MenuService {
       data: { available: !menuItem.available },
       include: {
         category: true,
+        secondaryCategory: true,
       },
     });
 

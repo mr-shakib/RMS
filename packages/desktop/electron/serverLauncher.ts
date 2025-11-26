@@ -125,10 +125,29 @@ export class ServerLauncher {
       } else {
         // In production, run the built server directly
         const serverDir = path.join(process.resourcesPath, 'server');
-        const serverPath = path.join(serverDir, 'dist', 'index.js');
-        serverCommand = 'node';
+        const serverPath = path.join(serverDir, 'dist', 'server', 'src', 'index.js');
+        
+        // Set up production database path in user data directory
+        const { app } = require('electron');
+        const userDataPath = app.getPath('userData');
+        const dbDir = path.join(userDataPath, 'database');
+        const dbPath = path.join(dbDir, 'restaurant.db');
+        
+        // Create database directory if it doesn't exist
+        const fs = require('fs');
+        if (!fs.existsSync(dbDir)) {
+          fs.mkdirSync(dbDir, { recursive: true });
+          console.log(`📁 Created database directory: ${dbDir}`);
+        }
+        
+        // Use the current Node.js executable path
+        serverCommand = process.execPath;
         serverArgs = [serverPath];
         cwd = serverDir; // Set working directory to server folder
+        
+        // Set DATABASE_URL environment variable to user data path
+        process.env.DATABASE_URL = `file:${dbPath}`;
+        console.log(`📊 Database path: ${dbPath}`);
       }
       
       console.log(`Running: ${serverCommand} ${serverArgs.join(' ')}`);

@@ -15,6 +15,7 @@ import paymentsRouter from './routes/payments';
 import reportsRouter from './routes/reports';
 import settingsRouter from './routes/settings';
 import printerRouter from './routes/printer';
+import printersRouter from './routes/printers';
 import pwaRouter from './routes/pwa';
 import setupRouter from './routes/setup';
 
@@ -43,9 +44,12 @@ export const createApp = (): Application => {
           return callback(null, true);
         }
 
-        // In production, check if origin is in allowed list or matches LAN pattern
+        // In production, check if origin is in allowed list or matches LAN pattern or localhost
         if (
           config.corsOrigins.includes(origin) ||
+          /^http:\/\/localhost:\d+$/.test(origin) ||
+          /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+          /^http:\/\/\[::1\]:\d+$/.test(origin) ||
           /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/.test(origin) ||
           /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/.test(origin)
         ) {
@@ -58,9 +62,9 @@ export const createApp = (): Application => {
     })
   );
 
-  // Body parsing middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Body parsing middleware (increased limit for base64 images)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Compression middleware
   app.use(compression());
@@ -79,6 +83,7 @@ export const createApp = (): Application => {
 
   // Order management routes
   app.use('/api/orders', ordersRouter);
+  app.use('/api/order', ordersRouter); // Alias for PWA compatibility
 
   // Table management routes
   app.use('/api/tables', tablesRouter);
@@ -100,6 +105,9 @@ export const createApp = (): Application => {
 
   // Printer routes
   app.use('/api/printer', printerRouter);
+
+  // Printers management routes
+  app.use('/api/printers', printersRouter);
 
   // Setup routes (no authentication required)
   app.use('/api/setup', setupRouter);

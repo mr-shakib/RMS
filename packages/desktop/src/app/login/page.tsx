@@ -39,8 +39,8 @@ export default function LoginPage() {
       // Store user info
       setCurrentUser(result.data.user);
       
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect to tables page
+      router.push('/tables');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {

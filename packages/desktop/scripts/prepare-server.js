@@ -20,42 +20,32 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(serverDir, 'package.jso
 // Remove devDependencies for production install
 delete packageJson.devDependencies;
 delete packageJson.scripts;
+// Remove prisma seed configuration to prevent automatic seeding
+delete packageJson.prisma;
 
-// Replace workspace dependencies with file paths
+// Ensure @prisma/client is in dependencies (needed for prisma generate)
+if (!packageJson.dependencies) {
+  packageJson.dependencies = {};
+}
+if (!packageJson.dependencies['@prisma/client']) {
+  // Add @prisma/client if not present
+  const fullPackageJson = JSON.parse(fs.readFileSync(path.join(serverDir, 'package.json'), 'utf8'));
+  packageJson.dependencies['@prisma/client'] = fullPackageJson.dependencies['@prisma/client'] || fullPackageJson.devDependencies['@prisma/client'] || '^5.0.0';
+}
+// Also add prisma CLI for generating the client
+if (!packageJson.dependencies['prisma']) {
+  const fullPackageJson = JSON.parse(fs.readFileSync(path.join(serverDir, 'package.json'), 'utf8'));
+  packageJson.dependencies['prisma'] = fullPackageJson.devDependencies['prisma'] || '^5.0.0';
+}
+
+// Track workspace dependencies to copy after npm install
+const workspaceDeps = [];
 if (packageJson.dependencies) {
   for (const [dep, version] of Object.entries(packageJson.dependencies)) {
     if (version === '*' || version.startsWith('workspace:')) {
-      // This is a workspace dependency - copy it
-      const depPath = path.join(serverDir, '..', dep.replace('@rms/', ''));
-      if (fs.existsSync(depPath)) {
-        console.log(`  Copying workspace dependency: ${dep}`);
-        const depTempDir = path.join(tempDir, 'node_modules', dep);
-        fs.mkdirSync(depTempDir, { recursive: true });
-        
-        // Copy the workspace package
-        const depPackageJson = JSON.parse(fs.readFileSync(path.join(depPath, 'package.json'), 'utf8'));
-        fs.writeFileSync(
-          path.join(depTempDir, 'package.json'),
-          JSON.stringify(depPackageJson, null, 2)
-        );
-        
-        // Copy source files
-        if (fs.existsSync(path.join(depPath, 'src'))) {
-          fs.cpSync(path.join(depPath, 'src'), path.join(depTempDir, 'src'), { recursive: true });
-        }
-        if (fs.existsSync(path.join(depPath, 'dist'))) {
-          fs.cpSync(path.join(depPath, 'dist'), path.join(depTempDir, 'dist'), { recursive: true });
-        }
-        if (fs.existsSync(path.join(depPath, 'index.ts'))) {
-          fs.copyFileSync(path.join(depPath, 'index.ts'), path.join(depTempDir, 'index.ts'));
-        }
-        if (fs.existsSync(path.join(depPath, 'index.js'))) {
-          fs.copyFileSync(path.join(depPath, 'index.js'), path.join(depTempDir, 'index.js'));
-        }
-        
-        // Remove from dependencies since we copied it manually
-        delete packageJson.dependencies[dep];
-      }
+      workspaceDeps.push(dep);
+      // Remove from dependencies since we'll copy it manually
+      delete packageJson.dependencies[dep];
     }
   }
 }
@@ -80,6 +70,30 @@ try {
   process.exit(1);
 }
 
+// Copy workspace dependencies AFTER npm install
+console.log('\n📦 Copying workspace dependencies...');
+for (const dep of workspaceDeps) {
+  const depPath = path.join(serverDir, '..', dep.replace('@rms/', ''));
+  if (fs.existsSync(depPath)) {
+    console.log(`  Copying ${dep}...`);
+    const depTempDir = path.join(tempDir, 'node_modules', dep);
+    fs.mkdirSync(depTempDir, { recursive: true });
+    
+    // Copy the workspace package
+    const depPackageJson = JSON.parse(fs.readFileSync(path.join(depPath, 'package.json'), 'utf8'));
+    fs.writeFileSync(
+      path.join(depTempDir, 'package.json'),
+      JSON.stringify(depPackageJson, null, 2)
+    );
+    
+    // Copy dist folder (compiled output)
+    if (fs.existsSync(path.join(depPath, 'dist'))) {
+      fs.cpSync(path.join(depPath, 'dist'), path.join(depTempDir, 'dist'), { recursive: true });
+    }
+  }
+}
+console.log('✓ Workspace dependencies copied');
+
 // Copy Prisma generated client from server
 console.log('\n🔧 Copying Prisma client...');
 try {
@@ -99,27 +113,31 @@ try {
     fs.cpSync(migrationsDir, path.join(prismaDir, 'migrations'), { recursive: true });
   }
   
-  // Copy generated Prisma client from server's node_modules
-  const serverPrismaClient = path.join(serverDir, 'node_modules/.prisma');
-  const serverPrismaTypes = path.join(serverDir, 'node_modules/@prisma');
+  // Generate Prisma client in the temp directory
+  console.log('🔧 Generating Prisma client...');
+  execSync('npx prisma generate', {
+    cwd: tempDir,
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: 'file:./dev.db' }
+  });
   
-  if (fs.existsSync(serverPrismaClient)) {
-    const tempPrismaClient = path.join(tempDir, 'node_modules/.prisma');
-    fs.mkdirSync(tempPrismaClient, { recursive: true });
-    fs.cpSync(serverPrismaClient, tempPrismaClient, { recursive: true });
-    console.log('✓ Copied .prisma client');
-  }
-  
-  if (fs.existsSync(serverPrismaTypes)) {
-    const tempPrismaTypes = path.join(tempDir, 'node_modules/@prisma');
-    fs.mkdirSync(path.dirname(tempPrismaTypes), { recursive: true });
-    fs.cpSync(serverPrismaTypes, tempPrismaTypes, { recursive: true });
-    console.log('✓ Copied @prisma types');
+  // Run database migrations
+  console.log('🔧 Running database migrations (deploy mode)...');
+  try {
+    execSync('npx prisma migrate deploy', {
+      cwd: tempDir,
+      stdio: 'inherit',
+      env: { ...process.env, DATABASE_URL: 'file:./dev.db' }
+    });
+    console.log('✓ Database migrations ready');
+  } catch (migError) {
+    console.warn('⚠️ Warning: Migration deployment had issues. Database will be initialized on first run.');
+    console.warn('   Migration error:', migError.message);
   }
   
   console.log('✓ Prisma client ready');
 } catch (error) {
-  console.error('✗ Failed to copy Prisma client:', error.message);
+  console.error('✗ Failed to setup Prisma client:', error.message);
   process.exit(1);
 }
 

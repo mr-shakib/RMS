@@ -16,7 +16,7 @@ if (!validEnvs.includes(env)) {
 
 console.log(`\n🔨 Building for ${env} environment...\n`);
 
-// Copy environment file
+// Copy environment file for desktop
 const envFile = `.env.${env}`;
 const envPath = path.join(__dirname, '..', envFile);
 const targetPath = path.join(__dirname, '..', '.env.local');
@@ -26,6 +26,18 @@ if (fs.existsSync(envPath)) {
   console.log(`✓ Copied ${envFile} to .env.local`);
 } else {
   console.warn(`⚠ Warning: ${envFile} not found, using existing .env.local`);
+}
+
+// Copy environment file for server
+const serverEnvFile = `.env.${env}`;
+const serverEnvPath = path.join(__dirname, '../../../server', serverEnvFile);
+const serverTargetPath = path.join(__dirname, '../../../server', '.env');
+
+if (fs.existsSync(serverEnvPath)) {
+  fs.copyFileSync(serverEnvPath, serverTargetPath);
+  console.log(`✓ Copied server ${serverEnvFile} to .env`);
+} else {
+  console.warn(`⚠ Warning: server ${serverEnvFile} not found`);
 }
 
 // Build server first
@@ -38,6 +50,43 @@ try {
   console.log('✓ Server build complete');
 } catch (error) {
   console.error('✗ Server build failed');
+  process.exit(1);
+}
+
+// Build PWA
+console.log('\n📦 Building PWA...');
+try {
+  // Don't set VITE_API_URL - let PWA use same-origin approach
+  execSync('npm run build --workspace=packages/pwa', { 
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '../../..'),
+    env: {
+      ...process.env,
+      VITE_API_URL: '' // Empty to force same-origin approach
+    }
+  });
+  console.log('✓ PWA build complete');
+} catch (error) {
+  console.error('✗ PWA build failed');
+  process.exit(1);
+}
+
+// Copy PWA build to server public directory (in dist folder)
+console.log('\n📦 Copying PWA to server public directory...');
+try {
+  const pwaDistPath = path.join(__dirname, '../../pwa/dist');
+  const serverPublicPath = path.join(__dirname, '../../server/dist/server/public');
+  
+  // Remove existing public directory
+  if (fs.existsSync(serverPublicPath)) {
+    fs.rmSync(serverPublicPath, { recursive: true, force: true });
+  }
+  
+  // Copy PWA dist to server public
+  fs.cpSync(pwaDistPath, serverPublicPath, { recursive: true });
+  console.log('✓ PWA copied to server dist/server/public directory');
+} catch (error) {
+  console.error('✗ Failed to copy PWA:', error.message);
   process.exit(1);
 }
 

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { useUIStore } from '@/store/uiStore';
+import { useTranslation } from '@/hooks/useTranslation';
+import PrinterManagement from '@/components/PrinterManagement';
 import { 
   CheckCircleIcon, 
   ExclamationTriangleIcon,
@@ -15,8 +17,11 @@ import {
   SwatchIcon,
   BuildingStorefrontIcon,
   DocumentArrowDownIcon,
-  DocumentArrowUpIcon
+  DocumentArrowUpIcon,
+  LanguageIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
+import { SUPPORTED_LOCALES, LOCALE_NAMES, Locale } from '@/i18n';
 
 type TabType = 'business' | 'printer' | 'server' | 'backup';
 
@@ -39,6 +44,7 @@ interface BackupResponse {
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('business');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -64,10 +70,10 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'business' as TabType, label: 'Business Info', icon: BuildingStorefrontIcon },
-    { id: 'printer' as TabType, label: 'Printer', icon: PrinterIcon },
-    { id: 'server' as TabType, label: 'Server & QR', icon: ServerIcon },
-    { id: 'backup' as TabType, label: 'Backup & Theme', icon: SwatchIcon },
+    { id: 'business' as TabType, label: t('settings.tabs.business'), icon: BuildingStorefrontIcon },
+    { id: 'printer' as TabType, label: t('settings.tabs.printer'), icon: PrinterIcon },
+    { id: 'server' as TabType, label: t('settings.tabs.server'), icon: ServerIcon },
+    { id: 'backup' as TabType, label: t('settings.tabs.backup'), icon: SwatchIcon },
   ];
 
   return (
@@ -75,9 +81,9 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Configure system settings and preferences
+            {t('settings.subtitle')}
           </p>
         </div>
         
@@ -85,7 +91,7 @@ export default function SettingsPage() {
         {saveSuccess && (
           <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg">
             <CheckCircleIcon className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings saved successfully!</span>
+            <span className="text-sm font-medium">{t('settings.saveSuccess')}</span>
           </div>
         )}
         {saveError && (
@@ -124,7 +130,7 @@ export default function SettingsPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading settings...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">{t('common.loading')}...</span>
             </div>
           ) : (
             <>
@@ -136,8 +142,7 @@ export default function SettingsPage() {
                 />
               )}
               {activeTab === 'printer' && (
-                <PrinterSettings 
-                  settings={settings}
+                <PrinterManagement
                   onSuccess={showSuccessMessage}
                   onError={showErrorMessage}
                 />
@@ -173,12 +178,14 @@ interface SettingsTabProps {
 
 function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [businessName, setBusinessName] = useState(settings.BUSINESS_NAME || '');
   const [businessAddress, setBusinessAddress] = useState(settings.BUSINESS_ADDRESS || '');
   const [logoUrl, setLogoUrl] = useState(settings.BUSINESS_LOGO_URL || '');
   const [taxPercentage, setTaxPercentage] = useState(settings.TAX_PERCENTAGE || '10');
   const [currency, setCurrency] = useState(settings.CURRENCY || 'USD');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
     setBusinessName(settings.BUSINESS_NAME || '');
@@ -213,7 +220,6 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
       await saveMutation.mutateAsync({
         BUSINESS_NAME: businessName,
         BUSINESS_ADDRESS: businessAddress,
-        BUSINESS_LOGO_URL: logoUrl,
         TAX_PERCENTAGE: taxPercentage,
         CURRENCY: currency,
       });
@@ -222,18 +228,91 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
     }
   };
 
-  const handleRemoveLogo = () => {
-    setLogoUrl('');
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      onError('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      onError('Image file size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/settings/upload-logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload logo');
+      }
+
+      const data = await response.json();
+      setLogoUrl(data.data.logoUrl);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      onSuccess();
+    } catch (error: any) {
+      onError(error.message || 'Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!confirm('Are you sure you want to remove the logo?')) {
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/settings/logo', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to remove logo');
+      }
+
+      setLogoUrl('');
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      onSuccess();
+    } catch (error: any) {
+      onError(error.message || 'Failed to remove logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Business Information
+          {t('settings.business.title')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          Configure your business details that will appear on receipts and reports
+          {t('settings.business.subtitle')}
         </p>
       </div>
 
@@ -241,13 +320,13 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Business Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Business Name
+            {t('settings.business.name')}
           </label>
           <input
             type="text"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="My Restaurant"
+            placeholder={t('settings.business.namePlaceholder')}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -257,7 +336,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Currency */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Currency
+            {t('settings.business.currency')}
           </label>
           <select
             value={currency}
@@ -274,15 +353,23 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           </select>
         </div>
 
+        {/* Language */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {t('settings.business.language')}
+          </label>
+          <LanguageSelector />
+        </div>
+
         {/* Business Address */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Business Address
+            {t('settings.business.address')}
           </label>
           <textarea
             value={businessAddress}
             onChange={(e) => setBusinessAddress(e.target.value)}
-            placeholder="123 Main Street, City, State, ZIP"
+            placeholder={t('settings.business.addressPlaceholder')}
             rows={3}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
@@ -293,7 +380,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
         {/* Tax Percentage */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Tax Percentage (%)
+            {t('settings.business.tax')}
           </label>
           <input
             type="number"
@@ -308,44 +395,70 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           />
         </div>
 
-        {/* Logo URL */}
+        {/* Business Logo Upload */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Logo URL
+            {t('settings.business.logo')}
           </label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://example.com/logo.png"
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {logoUrl && (
-              <button
-                onClick={handleRemoveLogo}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
-                         font-medium transition-colors"
-              >
-                Remove
-              </button>
-            )}
-          </div>
+          
+          {/* Current Logo Preview */}
           {logoUrl && (
-            <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Logo Preview:</p>
-              <img 
-                src={logoUrl} 
-                alt="Business Logo" 
-                className="h-20 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+            <div className="mb-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                <img 
+                  src={`http://localhost:5000${logoUrl}`}
+                  alt="Business Logo" 
+                  className="h-20 w-20 object-contain rounded border border-gray-300 dark:border-gray-600"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.business.currentLogo')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {logoUrl}
+                  </p>
+                </div>
+                <button
+                  onClick={handleRemoveLogo}
+                  disabled={isUploadingLogo}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg
+                           font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t('settings.business.removeLogo')}
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Upload New Logo */}
+          <div className="relative">
+            <input
+              type="file"
+              id="logo-upload"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              onChange={handleLogoUpload}
+              disabled={isUploadingLogo}
+              className="hidden"
+            />
+            <label
+              htmlFor="logo-upload"
+              className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed
+                       rounded-lg cursor-pointer transition-colors
+                       ${isUploadingLogo 
+                         ? 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+                         : 'border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-gray-800'
+                       }`}
+            >
+              <ArrowUpTrayIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {isUploadingLogo ? t('settings.business.uploading') : logoUrl ? t('settings.business.changeLogo') : t('settings.business.uploadLogo')}
+              </span>
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            {t('settings.business.logoFormats')}
+          </p>
         </div>
       </div>
 
@@ -357,7 +470,7 @@ function BusinessSettings({ settings, onSuccess, onError }: SettingsTabProps) {
           className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg
                    font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSaving ? 'Saving...' : 'Save Business Settings'}
+          {isSaving ? t('settings.business.saving') : t('settings.business.saveButton')}
         </button>
       </div>
     </div>
@@ -791,6 +904,27 @@ function ServerSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   );
 }
 
+// Language Selector Component
+function LanguageSelector() {
+  const { locale, setLocale } = useUIStore();
+
+  return (
+    <select
+      value={locale}
+      onChange={(e) => setLocale(e.target.value as Locale)}
+      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+               bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+               focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    >
+      {SUPPORTED_LOCALES.map((localeKey) => (
+        <option key={localeKey} value={localeKey}>
+          {LOCALE_NAMES[localeKey]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 // Backup and Theme Settings Component
 function BackupThemeSettings({ settings, onSuccess, onError }: SettingsTabProps) {
   const { theme, setTheme } = useUIStore();
@@ -1078,6 +1212,30 @@ function BackupThemeSettings({ settings, onSuccess, onError }: SettingsTabProps)
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
           Resets all settings to their default values
         </p>
+      </div>
+
+      {/* Logout Section */}
+      <div className="pt-6 border-t-2 border-gray-300 dark:border-gray-600">
+        <div className="p-6 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+          <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+            <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+            Logout
+          </h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Sign out of your account and return to the login screen
+          </p>
+          <button
+            onClick={() => {
+              localStorage.removeItem('token');
+              window.location.href = '/login';
+            }}
+            className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg
+                     font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+          >
+            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            Logout from Account
+          </button>
+        </div>
       </div>
     </div>
   );

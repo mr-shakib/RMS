@@ -7,13 +7,14 @@ export class MenuPage {
   private menuItems: MenuItem[] = [];
   private filteredItems: MenuItem[] = [];
   private categories: Category[] = [];
-  private selectedCategory: string = 'All';
+  private selectedCategory: string = 'Tutti';
   private searchQuery: string = '';
   private container: HTMLElement;
   private isBuffetMode: boolean = false;
   private buffetCategoryId: string | null = null;
   private buffetCategoryName: string | null = null;
   private buffetPrice: number = 0;
+  private tableName: string = '';
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -39,7 +40,27 @@ export class MenuPage {
   private async init(): Promise<void> {
     try {
       this.render();
-      await this.loadMenu();
+      
+      // Ensure scrolling is enabled after DOM is rendered
+      requestAnimationFrame(() => {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        
+        // Also ensure the menu-content can scroll
+        const menuContent = document.getElementById('menu-content');
+        if (menuContent) {
+          menuContent.style.overflowY = 'auto';
+          console.log('[MenuPage] Enabled scrolling on menu-content');
+        }
+      });
+      
+      await Promise.all([
+        this.loadMenu(),
+        this.loadTableInfo(),
+        this.checkActiveOrder()
+      ]);
       this.setupEventListeners();
       
       networkStatus.subscribe(() => {
@@ -52,20 +73,120 @@ export class MenuPage {
       });
     } catch (error) {
       console.error('[MenuPage] Initialization failed:', error);
-      this.showError('Failed to load menu');
+      this.showError('Impossibile caricare il menu');
+    }
+  }
+
+  private async loadTableInfo(): Promise<void> {
+    try {
+      const tableId = this.getTableIdFromUrl();
+      console.log('[MenuPage] Loading table info for tableId:', tableId);
+      
+      if (tableId) {
+        console.log('[MenuPage] Calling API getTable with ID:', parseInt(tableId));
+        const table = await apiClient.getTable(parseInt(tableId));
+        console.log('[MenuPage] Received table data:', table);
+        
+        this.tableName = table.name;
+        console.log('[MenuPage] Set tableName to:', this.tableName);
+        
+        // Update header with table name
+        this.updateHeader();
+      } else {
+        console.log('[MenuPage] No tableId found in URL');
+      }
+    } catch (error) {
+      console.error('[MenuPage] Failed to load table info:', error);
+      // Use table ID as fallback
+      const tableId = this.getTableIdFromUrl();
+      this.tableName = `Table ${tableId || '?'}`;
+      console.log('[MenuPage] Using fallback tableName:', this.tableName);
+      this.updateHeader();
+    }
+  }
+
+  private async checkActiveOrder(): Promise<void> {
+    try {
+      const tableId = this.getTableIdFromUrl();
+      if (!tableId) return;
+
+      const order = await apiClient.getOrderStatus(parseInt(tableId));
+      
+      // Check if there's an active order (not PAID or CANCELLED)
+      if (order && order.status !== 'PAID' && order.status !== 'CANCELLED') {
+        this.showTrackOrderButton();
+      }
+    } catch (error) {
+      console.error('[MenuPage] Failed to check active order:', error);
+    }
+  }
+
+  private showTrackOrderButton(): void {
+    // Add track order button to header if not already present
+    const headerLeft = document.querySelector('.header-left');
+    if (headerLeft && !document.getElementById('track-order-header-btn')) {
+      const trackButton = document.createElement('button');
+      trackButton.id = 'track-order-header-btn';
+      trackButton.className = 'track-order-btn';
+      trackButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; margin-right: 4px;">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        Traccia Ordine
+      `;
+      trackButton.onclick = () => {
+        window.dispatchEvent(new CustomEvent('navigate', { detail: 'status' }));
+      };
+      
+      const headerContent = headerLeft.querySelector('div');
+      if (headerContent) {
+        headerLeft.insertBefore(trackButton, headerContent);
+      }
+    }
+  }
+
+  private updateHeader(): void {
+    console.log('[MenuPage] updateHeader called with tableName:', this.tableName);
+    const headerTitle = document.querySelector('.header-title');
+    console.log('[MenuPage] Found header element:', headerTitle);
+    
+    if (headerTitle) {
+      console.log('[MenuPage] Current header text:', headerTitle.textContent);
+      headerTitle.textContent = this.tableName;
+      console.log('[MenuPage] Updated header text to:', headerTitle.textContent);
+    } else {
+      console.error('[MenuPage] Header title element not found!');
     }
   }
 
   private async loadMenu(): Promise<void> {
     try {
+      console.log('[MenuPage] Starting to load menu...');
       this.showLoading();
+      
+      console.log('[MenuPage] Calling apiClient.getMenu()...');
       this.menuItems = await apiClient.getMenu();
+      console.log('[MenuPage] Menu items loaded:', this.menuItems.length);
+      
+      console.log('[MenuPage] Extracting categories...');
       this.extractCategories();
+      console.log('[MenuPage] Categories extracted:', this.categories.length);
+      
+      console.log('[MenuPage] Filtering items...');
       this.filterItems();
+      console.log('[MenuPage] Filtered items:', this.filteredItems.length);
+      
+      console.log('[MenuPage] Rendering menu...');
       this.renderMenu();
+      console.log('[MenuPage] Menu rendered successfully');
     } catch (error) {
       console.error('[MenuPage] Failed to load menu:', error);
-      this.showError('Failed to load menu');
+      if (error instanceof Error) {
+        console.error('[MenuPage] Error name:', error.name);
+        console.error('[MenuPage] Error message:', error.message);
+        console.error('[MenuPage] Error stack:', error.stack);
+      }
+      this.showError('Impossibile caricare il menu. Controlla la connessione e riprova.');
     }
   }
 
@@ -73,12 +194,33 @@ export class MenuPage {
     const categoryMap = new Map<string, Category>();
     
     this.menuItems.forEach((item) => {
+      // Add primary category
       if (item.category) {
         categoryMap.set(item.category.id, item.category);
+      }
+      // Also add secondary category if it exists
+      const secondaryCategory = (item as any).secondaryCategory;
+      if (secondaryCategory) {
+        categoryMap.set(secondaryCategory.id, secondaryCategory);
       }
     });
     
     this.categories = Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+    
+    // Set default category for à la carte mode
+    if (!this.isBuffetMode && this.selectedCategory === 'Tutti') {
+      // Find Beverages or Drinks category
+      const drinksCategory = this.categories.find(cat => 
+        !cat.isBuffet && (cat.name === 'Drinks' || cat.name === 'Beverages')
+      );
+      
+      if (drinksCategory) {
+        this.selectedCategory = drinksCategory.name;
+        console.log('[MenuPage] Set default category to:', this.selectedCategory);
+      } else {
+        console.log('[MenuPage] Drinks/Beverages category not found, using Tutti');
+      }
+    }
   }
 
   private filterItems(): void {
@@ -90,14 +232,16 @@ export class MenuPage {
         }
       }
 
-      // If regular mode, exclude buffet categories
-      if (!this.isBuffetMode && item.category?.isBuffet) {
-        return false;
-      }
+      // If regular mode, don't filter out buffet items from the data
+      // Buffet items with secondaryCategoryId should appear in regular categories
+      // We just don't show buffet categories in the UI tabs (handled in renderCategoryTabs)
 
+      // Category filtering - check both primary and secondary categories
       const matchesCategory =
-        this.selectedCategory === 'All' ||
-        item.category?.name === this.selectedCategory;
+        this.selectedCategory === 'Tutti' ||
+        item.category?.name === this.selectedCategory ||
+        // Also check secondaryCategory if it exists
+        ((item as any).secondaryCategory?.name === this.selectedCategory);
       
       const matchesSearch =
         this.searchQuery === '' ||
@@ -110,6 +254,8 @@ export class MenuPage {
 
   private render(): void {
     const tableId = this.getTableIdFromUrl();
+    // Display table name if loaded, otherwise show loading
+    const displayName = this.tableName || `Table ${tableId || '?'}`;
     
     this.container.innerHTML = `
       <div class="menu-page">
@@ -122,8 +268,8 @@ export class MenuPage {
                 </svg>
               </button>
               <div>
-                <div class="header-title">Table ${tableId || '?'}</div>
-                <div class="header-subtitle">${this.isBuffetMode ? this.buffetCategoryName : 'À la Carte'}</div>
+                <div class="header-title">${displayName}</div>
+                <div class="header-subtitle">${this.isBuffetMode ? this.buffetCategoryName : 'Alla Carta'}</div>
               </div>
             </div>
           </div>
@@ -132,7 +278,7 @@ export class MenuPage {
         ${this.isBuffetMode ? `
           <div class="menu-banner">
             <div class="menu-banner-title">${this.buffetCategoryName}</div>
-            <div class="menu-banner-subtitle">All-you-can-eat for $${this.buffetPrice.toFixed(2)}</div>
+            <div class="menu-banner-subtitle">Tutto quello che puoi mangiare per €${this.buffetPrice.toFixed(2).replace('.', ',')}</div>
           </div>
         ` : ''}
 
@@ -141,7 +287,7 @@ export class MenuPage {
             type="text"
             class="search-input"
             id="search-input"
-            placeholder="Search menu..."
+            placeholder="Cerca nel menu..."
           />
         </div>
 
@@ -152,7 +298,7 @@ export class MenuPage {
         <div class="menu-content" id="menu-content">
           <div class="loading-state">
             <div class="loading-spinner"></div>
-            <p>Loading menu...</p>
+            <p>Caricamento del menu...</p>
           </div>
         </div>
 
@@ -160,11 +306,11 @@ export class MenuPage {
         <div class="bottom-cart-bar" id="bottom-cart-bar" style="display: none;">
           <div class="bottom-cart-content">
             <div class="bottom-cart-info">
-              <div class="bottom-cart-items-count" id="bottom-cart-items-count">0 items</div>
-              <div class="bottom-cart-total" id="bottom-cart-total">$0.00</div>
+              <div class="bottom-cart-items-count" id="bottom-cart-items-count">0 articoli</div>
+              <div class="bottom-cart-total" id="bottom-cart-total">€0,00</div>
             </div>
             <button class="bottom-cart-button" id="bottom-cart-button">
-              <span>View Cart</span>
+              <span>Vedi Carrello</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
@@ -186,7 +332,7 @@ export class MenuPage {
     if (this.filteredItems.length === 0) {
       menuContent.innerHTML = `
         <div class="empty-state">
-          <p>No menu items found</p>
+          <p>Nessun articolo trovato</p>
         </div>
       `;
       return;
@@ -207,7 +353,7 @@ export class MenuPage {
 
   private renderMenuItem(item: MenuItem): string {
     const imageUrl = item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
-    const price = this.isBuffetMode ? 'Included' : `$${(typeof item.price === 'number' ? item.price : 0).toFixed(2)}`;
+    const price = this.isBuffetMode ? 'Incluso' : `€${(typeof item.price === 'number' ? item.price : 0).toFixed(2).replace('.', ',')}`;
     const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
     const quantity = cartItem?.quantity || 0;
     
@@ -235,7 +381,7 @@ export class MenuPage {
                 </div>
               </div>
             ` : `
-              <button class="add-to-cart-btn" data-action="add" data-item-id="${item.id}">Add</button>
+              <button class="add-to-cart-btn" data-action="add" data-item-id="${item.id}">Aggiungi</button>
             `}
           </div>
         </div>
@@ -254,7 +400,7 @@ export class MenuPage {
       return;
     }
 
-    const categoryNames = ['All', ...this.categories.filter(c => !c.isBuffet).map(c => c.name)];
+    const categoryNames = ['Tutti', ...this.categories.filter(c => !c.isBuffet).map(c => c.name)];
     
     tabsContainer.innerHTML = categoryNames
       .map(
@@ -331,7 +477,7 @@ export class MenuPage {
     document.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('category-tab')) {
-        this.selectedCategory = target.dataset.category || 'All';
+        this.selectedCategory = target.dataset.category || 'Tutti';
         this.filterItems();
         this.renderMenu();
       }
@@ -368,9 +514,9 @@ export class MenuPage {
       menuContent.innerHTML = `
         <div class="error-state">
           <div class="error-icon">⚠️</div>
-          <h2>Oops!</h2>
+          <h2>Ops!</h2>
           <p>${message}</p>
-          <button onclick="window.location.reload()" class="btn btn-primary">Retry</button>
+          <button onclick="window.location.reload()" class="btn btn-primary">Riprova</button>
         </div>
       `;
     }
@@ -388,10 +534,10 @@ export class MenuPage {
       if (count > 0) {
         cartBar.style.display = 'block';
         if (itemsCount) {
-          itemsCount.textContent = `${count} ${count === 1 ? 'item' : 'items'}`;
+          itemsCount.textContent = `${count} ${count === 1 ? 'articolo' : 'articoli'}`;
         }
         if (totalElement) {
-          totalElement.textContent = `$${total.toFixed(2)}`;
+          totalElement.textContent = `€${total.toFixed(2).replace('.', ',')}`;
         }
       } else {
         cartBar.style.display = 'none';

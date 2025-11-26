@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { ArrowLeftIcon, PhotoIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useCurrency } from '@/hooks/useCurrency';
+import { toast } from '@/store/toastStore';
 
 export default function EditMenuItemPage() {
   const router = useRouter();
@@ -12,10 +14,13 @@ export default function EditMenuItemPage() {
   const itemId = params.id as string;
   const { menuItems, updateMenuItem, deleteMenuItem, isUpdating, isDeleting } = useMenu();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { formatCurrency, symbol } = useCurrency();
   
   const [formData, setFormData] = useState({
     name: '',
+    itemNumber: '',
     categoryId: '',
+    secondaryCategoryId: '',
     price: '',
     description: '',
     imageUrl: '',
@@ -27,6 +32,12 @@ export default function EditMenuItemPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Get buffet and regular categories
+  const buffetCategories = categories.filter((cat) => cat.isBuffet);
+  const regularCategories = categories.filter((cat) => !cat.isBuffet);
+  const selectedCategory = categories.find((cat) => cat.id === formData.categoryId);
 
   // Load menu item data
   useEffect(() => {
@@ -34,7 +45,9 @@ export default function EditMenuItemPage() {
     if (item) {
       setFormData({
         name: item.name,
+        itemNumber: (item as any).itemNumber?.toString() || '',
         categoryId: item.categoryId,
+        secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
         description: item.description || '',
         imageUrl: item.imageUrl || '',
@@ -50,6 +63,58 @@ export default function EditMenuItemPage() {
     }
   }, [itemId, menuItems]);
 
+  // Handle image file upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'Invalid File Type');
+      e.target.value = ''; // Reset input
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      toast.error(`Image size is ${sizeMB}MB. Please choose an image smaller than 5MB.`, 'File Too Large');
+      e.target.value = ''; // Reset input
+      return;
+    }
+
+    setUploadedFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setImagePreview(base64String);
+      setFormData((prev) => ({ ...prev, imageUrl: base64String }));
+      toast.success('Image uploaded successfully!');
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read the image file. Please try again.', 'Upload Error');
+      e.target.value = ''; // Reset input
+    };
+    reader.readAsDataURL(file);
+
+    // Clear error
+    if (errors.image) {
+      const newErrors = { ...errors };
+      delete newErrors.image;
+      setErrors(newErrors);
+    }
+  };
+
+  // Remove uploaded image
+  const handleRemoveImage = () => {
+    setUploadedFile(null);
+    setImagePreview('');
+    setFormData((prev) => ({ ...prev, imageUrl: '' }));
+  };
+
   // Handle input change
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -61,11 +126,6 @@ export default function EditMenuItemPage() {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
-      
-      // Update image preview
-      if (name === 'imageUrl' && value) {
-        setImagePreview(value);
-      }
     }
     
     // Clear error for this field
@@ -86,8 +146,21 @@ export default function EditMenuItemPage() {
       newErrors.name = 'Name is required';
     }
 
+    if (formData.itemNumber) {
+      const itemNum = parseInt(formData.itemNumber);
+      if (isNaN(itemNum) || itemNum < 1) {
+        newErrors.itemNumber = 'Item number must be a positive number';
+      }
+    }
+
     if (!formData.categoryId) {
       newErrors.categoryId = 'Category is required';
+    }
+
+    // If buffet category selected, secondary category (All Items) is required
+    const selectedCat = categories.find((cat) => cat.id === formData.categoryId);
+    if (selectedCat?.isBuffet && !formData.secondaryCategoryId) {
+      newErrors.secondaryCategoryId = 'All Items category is required for buffet items';
     }
 
     if (!formData.price) {
@@ -117,19 +190,29 @@ export default function EditMenuItemPage() {
         data: {
           name: formData.name.trim(),
           categoryId: formData.categoryId,
+          secondaryCategoryId: formData.secondaryCategoryId || undefined,
           price: parseFloat(formData.price),
           description: formData.description.trim() || undefined,
           imageUrl: formData.imageUrl.trim() || undefined,
           available: formData.available,
+          itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
         },
       });
 
-      setShowSuccess(true);
+      toast.success('Menu item updated successfully!', 'Success');
       setTimeout(() => {
         router.push('/menu');
-      }, 1500);
+      }, 1000);
     } catch (error: any) {
-      setErrors({ submit: error.message || 'Failed to update menu item' });
+      let errorMessage = error.message || 'Failed to update menu item';
+      
+      // Handle payload too large error
+      if (error.message?.includes('too large') || error.message?.includes('PayloadTooLarge')) {
+        errorMessage = 'Image file is too large. Please upload a smaller image (recommended: under 2MB).';
+      }
+      
+      toast.error(errorMessage, 'Error');
+      setErrors({ submit: errorMessage });
     }
   };
 
@@ -137,8 +220,12 @@ export default function EditMenuItemPage() {
   const handleDelete = async () => {
     try {
       await deleteMenuItem(itemId);
-      router.push('/menu');
+      toast.success('Menu item deleted successfully!', 'Success');
+      setTimeout(() => {
+        router.push('/menu');
+      }, 500);
     } catch (error: any) {
+      toast.error(error.message || 'Failed to delete menu item', 'Error');
       setErrors({ submit: error.message || 'Failed to delete menu item' });
       setShowDeleteModal(false);
     }
@@ -254,10 +341,39 @@ export default function EditMenuItemPage() {
           )}
         </div>
 
+        {/* Item Number */}
+        <div>
+          <label htmlFor="itemNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Item Number
+          </label>
+          <input
+            type="number"
+            id="itemNumber"
+            name="itemNumber"
+            value={formData.itemNumber}
+            onChange={handleChange}
+            min="1"
+            className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
+                     text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
+                     focus:border-transparent ${
+                       errors.itemNumber
+                         ? 'border-red-500 dark:border-red-500'
+                         : 'border-gray-300 dark:border-gray-600'
+                     }`}
+            placeholder="Item number"
+          />
+          {errors.itemNumber && (
+            <p className="text-red-500 text-sm mt-1">{errors.itemNumber}</p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Change the item number or leave empty to keep current number
+          </p>
+        </div>
+
         {/* Category */}
         <div>
           <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Category <span className="text-red-500">*</span>
+            Primary Category <span className="text-red-500">*</span>
           </label>
           <select
             id="categoryId"
@@ -273,25 +389,78 @@ export default function EditMenuItemPage() {
                      }`}
           >
             <option value="">Select a category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name} {category.isBuffet && '(Buffet)'}
-              </option>
-            ))}
+            {regularCategories.length > 0 && (
+              <optgroup label="All Items Categories">
+                {regularCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {buffetCategories.length > 0 && (
+              <optgroup label="Buffet Categories">
+                {buffetCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({formatCurrency(Number(category.buffetPrice || 0))})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           {errors.categoryId && (
             <p className="text-red-500 text-sm mt-1">{errors.categoryId}</p>
           )}
         </div>
 
+        {/* Secondary Category (for buffet items) */}
+        {selectedCategory?.isBuffet && (
+          <div>
+            <label htmlFor="secondaryCategoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              All Items Category <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="secondaryCategoryId"
+              name="secondaryCategoryId"
+              value={formData.secondaryCategoryId}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
+                       text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
+                       focus:border-transparent ${
+                         errors.secondaryCategoryId
+                           ? 'border-red-500 dark:border-red-500'
+                           : 'border-gray-300 dark:border-gray-600'
+                       }`}
+            >
+              <option value="">Select category for All Items menu</option>
+              {regularCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              This item will also appear in the All Items menu under this category with individual pricing
+            </p>
+            {errors.secondaryCategoryId && (
+              <p className="text-red-500 text-sm mt-1">{errors.secondaryCategoryId}</p>
+            )}
+          </div>
+        )}
+
         {/* Price */}
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Price <span className="text-red-500">*</span>
+            Individual Price <span className="text-red-500">*</span>
           </label>
+          {selectedCategory?.isBuffet && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              This price will be shown when the item appears in the All Items menu
+            </p>
+          )}
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              $
+              {symbol}
             </span>
             <input
               type="number"
@@ -334,46 +503,65 @@ export default function EditMenuItemPage() {
           />
         </div>
 
-        {/* Image URL */}
+        {/* Image Upload */}
         <div>
-          <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Image URL
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Image
           </label>
-          <input
-            type="url"
-            id="imageUrl"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
-                     bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="https://example.com/image.jpg"
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Enter a URL to an image of the menu item
-          </p>
           
-          {/* Image Preview */}
-          {imagePreview && (
-            <div className="mt-3">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-              <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+          {!imagePreview ? (
+            <div>
+              <label
+                htmlFor="image-upload"
+                className="flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed 
+                         border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer 
+                         bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <PhotoIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-3" />
+                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    PNG, JPG, GIF up to 5MB
+                  </p>
+                </div>
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+              {errors.image && (
+                <p className="text-red-500 text-sm mt-1">{errors.image}</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                 <img
                   src={imagePreview}
                   alt="Preview"
-                  className="w-full h-full object-cover"
-                  onError={() => setImagePreview('')}
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
-            </div>
-          )}
-          
-          {!imagePreview && (
-            <div className="mt-3 flex items-center justify-center w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <div className="text-center">
-                <PhotoIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">No image preview</p>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <PhotoIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {uploadedFile?.name || 'Current image'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 
+                           dark:hover:text-red-300 font-medium"
+                >
+                  Remove
+                </button>
               </div>
             </div>
           )}

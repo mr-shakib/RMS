@@ -33,9 +33,12 @@ export interface Category {
 // Menu Item types
 export interface MenuItem {
   id: string;
+  itemNumber?: number;
   name: string;
   categoryId: string;
   category?: Category;
+  secondaryCategoryId?: string;
+  secondaryCategory?: Category;
   price: number;
   description?: string;
   imageUrl?: string;
@@ -57,6 +60,7 @@ export interface Order {
   serviceCharge: number;
   tip: number;
   total: number;
+  items?: OrderItemWithMenuItem[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,6 +73,10 @@ export interface OrderItem {
   price: number;
   notes?: string;
   createdAt: Date;
+}
+
+export interface OrderItemWithMenuItem extends OrderItem {
+  menuItem?: MenuItem;
 }
 
 // Payment types
@@ -114,10 +122,12 @@ export interface CreateCategoryDTO {
 export interface CreateMenuItemDTO {
   name: string;
   categoryId: string;
+  secondaryCategoryId?: string;
   price: number;
   description?: string;
   imageUrl?: string;
   available?: boolean;
+  itemNumber?: number;
 }
 
 export interface CreateTableDTO {

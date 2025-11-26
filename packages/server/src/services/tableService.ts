@@ -2,6 +2,8 @@ import prisma from '../db/client';
 import { Table } from '@prisma/client';
 import { emitTableUpdated } from '../websocket';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
+import { config } from '../config';
+import os from 'os';
 
 export type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED';
 
@@ -15,6 +17,49 @@ interface UpdateTableInput {
 }
 
 class TableService {
+  /**
+   * Get default server URL with LAN IP
+   */
+  private async getDefaultServerUrl(): Promise<string> {
+    // First, check if server_url is saved in settings
+    try {
+      const serverUrlSetting = await prisma.setting.findUnique({
+        where: { key: 'server_url' },
+      });
+      
+      if (serverUrlSetting && serverUrlSetting.value && !serverUrlSetting.value.includes('localhost')) {
+        return serverUrlSetting.value;
+      }
+    } catch (error) {
+      console.warn('Could not fetch server_url from settings:', error);
+    }
+
+    // Use LAN_IP from environment if available (set by Electron)
+    const lanIp = process.env.LAN_IP;
+    const port = config.port;
+    
+    if (lanIp && lanIp !== 'localhost') {
+      return `http://${lanIp}:${port}`;
+    }
+
+    // Try to detect LAN IP from network interfaces
+    const networkInterfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(networkInterfaces)) {
+      const iface = networkInterfaces[name];
+      if (!iface) continue;
+      
+      for (const alias of iface) {
+        if (alias.family === 'IPv4' && !alias.internal) {
+          return `http://${alias.address}:${port}`;
+        }
+      }
+    }
+    
+    // Fallback to localhost with correct port
+    return `http://localhost:${port}`;
+  }
+
   /**
    * Get all tables
    */
@@ -136,17 +181,31 @@ class TableService {
       throw new Error(`Table with id ${id} not found`);
     }
 
-    // Check if table has any orders
-    const orders = await prisma.order.findFirst({
-      where: { tableId: id },
+    // Check if table has any active orders (not PAID or CANCELLED)
+    const activeOrders = await prisma.order.findFirst({
+      where: {
+        tableId: id,
+        status: {
+          notIn: ['PAID', 'CANCELLED'],
+        },
+      },
     });
 
-    if (orders) {
-      throw new Error('Cannot delete table that has orders');
+    if (activeOrders) {
+      throw new Error('Cannot delete table that has active orders');
     }
 
-    await prisma.table.delete({
-      where: { id },
+    // Delete the table and all its historical orders (PAID/CANCELLED) in a transaction
+    await prisma.$transaction(async (tx) => {
+      // First delete all orders for this table
+      await tx.order.deleteMany({
+        where: { tableId: id },
+      });
+
+      // Then delete the table
+      await tx.table.delete({
+        where: { id },
+      });
     });
   }
 
@@ -180,9 +239,8 @@ class TableService {
    * Returns base64 data URL
    */
   async generateQRCode(tableId: number): Promise<string> {
-    // Get server URL from settings or use default
-    const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+    // Always use actual LAN IP for QR codes, never localhost
+    const serverUrl = await this.getDefaultServerUrl();
 
     try {
       // Use the utility function to generate QR code

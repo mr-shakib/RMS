@@ -5,17 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { PlusIcon, MagnifyingGlassIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
-
-type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'UNAVAILABLE';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function MenuPage() {
   const router = useRouter();
   const { menuItems, isLoading, toggleAvailability } = useMenu();
   const { categories, isLoading: categoriesLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
+  const { formatCurrency, symbol } = useCurrency();
   
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'BUFFET' | 'ALL_ITEMS'>('ALL_ITEMS');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
   
@@ -25,7 +24,7 @@ export default function MenuPage() {
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false, buffetPrice: 0 });
+  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // Get buffet and regular categories
@@ -40,7 +39,8 @@ export default function MenuPage() {
   // Get categories to display based on main filter
   const displayCategories = useMemo(() => {
     if (mainCategoryFilter === 'BUFFET') {
-      return ['All', ...buffetCategories.map((cat) => cat.name)];
+      // Only show buffet categories, no 'All' option
+      return buffetCategories.map((cat) => cat.name);
     } else {
       return ['All', ...regularCategories.map((cat) => cat.name)];
     }
@@ -53,37 +53,51 @@ export default function MenuPage() {
     // Apply main category filter (Buffet vs All Items)
     if (mainCategoryFilter === 'BUFFET') {
       const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
+      // Show items where primary category is buffet
       filtered = filtered.filter((item) => buffetCategoryIds.includes(item.categoryId));
+      
+      // Apply buffet subcategory filter (no 'All' option in buffet)
+      if (categoryFilter && categoryFilter !== 'All') {
+        const selectedCat = buffetCategories.find((cat) => cat.name === categoryFilter);
+        if (selectedCat) {
+          filtered = filtered.filter((item) => item.categoryId === selectedCat.id);
+        }
+      }
     } else {
       const regularCategoryIds = regularCategories.map((cat) => cat.id);
-      filtered = filtered.filter((item) => regularCategoryIds.includes(item.categoryId));
-    }
-
-    // Apply subcategory filter
-    if (categoryFilter !== 'All') {
-      const selectedCat = categories.find((cat) => cat.name === categoryFilter);
-      if (selectedCat) {
-        filtered = filtered.filter((item) => item.categoryId === selectedCat.id);
+      // Show items where primary category is regular OR secondary category is regular
+      filtered = filtered.filter((item) => {
+        const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
+        const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
+        return isPrimaryRegular || isSecondaryRegular;
+      });
+      
+      // Apply subcategory filter for All Items
+      if (categoryFilter !== 'All') {
+        const selectedCat = regularCategories.find((cat) => cat.name === categoryFilter);
+        if (selectedCat) {
+          // Show items where either primary or secondary category matches
+          filtered = filtered.filter((item) => {
+            const isPrimaryMatch = item.categoryId === selectedCat.id;
+            const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
+            return isPrimaryMatch || isSecondaryMatch;
+          });
+        }
       }
     }
 
-    // Apply availability filter
-    if (availabilityFilter === 'AVAILABLE') {
-      filtered = filtered.filter((item) => item.available);
-    } else if (availabilityFilter === 'UNAVAILABLE') {
-      filtered = filtered.filter((item) => !item.available);
-    }
-
-    // Apply search filter
+    // Apply search filter (name or item number)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((item) => {
+        const nameMatch = item.name.toLowerCase().includes(query);
+        const numberMatch = (item as any).itemNumber?.toString() === searchQuery.trim();
+        return nameMatch || numberMatch;
+      });
     }
 
     return filtered;
-  }, [menuItems, categories, mainCategoryFilter, buffetCategories, regularCategories, categoryFilter, availabilityFilter, searchQuery]);
+  }, [menuItems, categories, mainCategoryFilter, buffetCategories, regularCategories, categoryFilter, searchQuery]);
 
   // Handle availability toggle
   const handleToggleAvailability = async (itemId: string) => {
@@ -100,7 +114,14 @@ export default function MenuPage() {
   // Handle main category change
   const handleMainCategoryChange = (newMainCategory: 'BUFFET' | 'ALL_ITEMS') => {
     setMainCategoryFilter(newMainCategory);
-    setCategoryFilter('All'); // Reset subcategory filter
+    // Set default category based on the view
+    if (newMainCategory === 'BUFFET') {
+      // Set first buffet category as default (no 'All' option)
+      setCategoryFilter(buffetCategories[0]?.name || '');
+    } else {
+      // Reset to 'All' for All Items view
+      setCategoryFilter('All');
+    }
   };
 
   // Category management handlers
@@ -116,8 +137,9 @@ export default function MenuPage() {
         name: categoryFormData.name.trim(),
         isBuffet: categoryFormData.isBuffet,
         buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
+        sortOrder: categoryFormData.sortOrder,
       });
-      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
       setShowAddCategoryModal(false);
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to create category');
@@ -140,11 +162,12 @@ export default function MenuPage() {
           name: categoryFormData.name.trim(),
           isBuffet: categoryFormData.isBuffet,
           buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
+          sortOrder: categoryFormData.sortOrder,
         },
       });
       setShowEditCategoryModal(false);
       setSelectedCategory(null);
-      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to update category');
     }
@@ -168,7 +191,8 @@ export default function MenuPage() {
     setCategoryFormData({ 
       name: category.name, 
       isBuffet: category.isBuffet,
-      buffetPrice: category.buffetPrice || 0
+      buffetPrice: category.buffetPrice || 0,
+      sortOrder: category.sortOrder ?? 0,
     });
     setCategoryError(null);
     setShowEditCategoryModal(true);
@@ -290,10 +314,27 @@ export default function MenuPage() {
                     count = menuItems.filter((item) => buffetCategoryIds.includes(item.categoryId)).length;
                   } else {
                     const regularCategoryIds = regularCategories.map((cat) => cat.id);
-                    count = menuItems.filter((item) => regularCategoryIds.includes(item.categoryId)).length;
+                    count = menuItems.filter((item) => {
+                      const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
+                      const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
+                      return isPrimaryRegular || isSecondaryRegular;
+                    }).length;
                   }
                 } else {
-                  count = category ? menuItems.filter((item) => item.categoryId === category.id).length : 0;
+                  if (category) {
+                    // For subcategories, count items where either primary or secondary category matches
+                    if (mainCategoryFilter === 'BUFFET') {
+                      // In buffet view, only count by primary category
+                      count = menuItems.filter((item) => item.categoryId === category.id).length;
+                    } else {
+                      // In All Items view, count by either primary or secondary category
+                      count = menuItems.filter((item) => {
+                        const isPrimaryMatch = item.categoryId === category.id;
+                        const isSecondaryMatch = (item as any).secondaryCategoryId === category.id;
+                        return isPrimaryMatch || isSecondaryMatch;
+                      }).length;
+                    }
+                  }
                 }
 
                 return (
@@ -309,7 +350,7 @@ export default function MenuPage() {
                   >
                     {categoryName}
                     {category?.isBuffet && category.buffetPrice && (
-                      <span className="ml-1 text-xs font-bold">${category.buffetPrice.toFixed(2)}</span>
+                      <span className="ml-1 text-xs font-bold">{formatCurrency(category.buffetPrice)}</span>
                     )}
                     <span className="ml-2 text-xs opacity-75">({count})</span>
                   </button>
@@ -317,48 +358,6 @@ export default function MenuPage() {
               })}
             </div>
           )}
-        </div>
-
-        {/* Availability Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Availability
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAvailabilityFilter('ALL')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'ALL'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              All ({menuItems.length})
-            </button>
-            <button
-              onClick={() => setAvailabilityFilter('AVAILABLE')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'AVAILABLE'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              Available ({menuItems.filter((item) => item.available).length})
-            </button>
-            <button
-              onClick={() => setAvailabilityFilter('UNAVAILABLE')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  availabilityFilter === 'UNAVAILABLE'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-            >
-              Unavailable ({menuItems.filter((item) => !item.available).length})
-            </button>
-          </div>
         </div>
       </div>
 
@@ -405,7 +404,7 @@ export default function MenuPage() {
           onClose={() => setShowCategoryModal(false)}
           onAdd={() => {
             setShowCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
             setShowAddCategoryModal(true);
           }}
@@ -425,7 +424,7 @@ export default function MenuPage() {
           onSubmit={handleAddCategory}
           onClose={() => {
             setShowAddCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
           }}
         />
@@ -443,7 +442,7 @@ export default function MenuPage() {
           onClose={() => {
             setShowEditCategoryModal(false);
             setSelectedCategory(null);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
           }}
         />
@@ -477,6 +476,7 @@ interface MenuItemCardProps {
 }
 
 function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
+  const { formatCurrency } = useCurrency();
   return (
     <div
       className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg 
@@ -496,19 +496,14 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
             <span className="text-6xl">🍽️</span>
           </div>
         )}
-        {/* Availability Badge */}
-        <div className="absolute top-2 right-2">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium
-              ${
-                item.available
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-              }`}
-          >
-            {item.available ? 'Available' : 'Unavailable'}
-          </span>
-        </div>
+        {/* Item Number Badge */}
+        {(item as any).itemNumber && (
+          <div className="absolute top-2 right-2">
+            <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-lg">
+              #{(item as any).itemNumber}
+            </span>
+          </div>
+        )}
         {/* Buffet Badge */}
         {category?.isBuffet && (
           <div className="absolute top-2 left-2">
@@ -536,27 +531,11 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
           </p>
         )}
 
-        {/* Price and Toggle */}
-        <div className="flex items-center justify-between">
+        {/* Price */}
+        <div>
           <span className="text-xl font-bold text-gray-900 dark:text-white">
-            ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+            {typeof item.price === 'number' ? formatCurrency(item.price) : item.price}
           </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleAvailability();
-            }}
-            disabled={isToggling}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors
-              ${
-                item.available
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50'
-                  : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
-              }
-              disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isToggling ? 'Updating...' : item.available ? 'Mark Unavailable' : 'Mark Available'}
-          </button>
         </div>
       </div>
     </div>
@@ -651,15 +630,16 @@ function CategoryManagementModal({ categories, onClose, onAdd, onEdit, onDelete 
 // Category Form Modal Component
 interface CategoryFormModalProps {
   title: string;
-  formData: { name: string; isBuffet: boolean; buffetPrice: number };
+  formData: { name: string; isBuffet: boolean; buffetPrice: number; sortOrder: number };
   error: string | null;
   isSubmitting: boolean;
-  onChange: (data: { name: string; isBuffet: boolean; buffetPrice: number }) => void;
+  onChange: (data: { name: string; isBuffet: boolean; buffetPrice: number; sortOrder: number }) => void;
   onSubmit: () => void;
   onClose: () => void;
 }
 
 function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onSubmit, onClose }: CategoryFormModalProps) {
+  const { symbol } = useCurrency();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
@@ -722,7 +702,7 @@ function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onS
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                  $
+                  {symbol}
                 </span>
                 <input
                   type="number"
@@ -741,6 +721,26 @@ function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onS
               </p>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Priority Number
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formData.sortOrder}
+              onChange={(e) => onChange({ ...formData, sortOrder: parseInt(e.target.value || '0', 10) })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Lower numbers show earlier. Use unique numbers to define order.
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
@@ -792,7 +792,7 @@ function DeleteCategoryModal({ category, error, isDeleting, onConfirm, onClose }
             Are you sure you want to delete the category <strong>{category.name}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            This action cannot be undone. Categories with menu items cannot be deleted.
+            Deleting this category will also delete all items in it. This cannot be undone.
           </p>
 
           <div className="flex gap-3 justify-end pt-4">

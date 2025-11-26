@@ -48,6 +48,18 @@ try {
   process.exit(1);
 }
 
+// Prepare Next.js for packaging
+console.log('\n📦 Preparing Next.js for packaging...');
+try {
+  execSync(`node ${path.join(__dirname, 'prepare-next.js')}`, { 
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '..')
+  });
+} catch (error) {
+  console.error('✗ Next.js preparation failed');
+  process.exit(1);
+}
+
 // Package with electron-builder
 console.log('\n📦 Creating installer packages...');
 try {
@@ -68,13 +80,14 @@ try {
       break;
   }
 
-  execSync(`electron-builder ${builderArgs} --config electron-builder.json`, { 
+  const outDir = `release/build-${Date.now()}`;
+  execSync(`electron-builder ${builderArgs} --config electron-builder.json -c.directories.output=${outDir}`, { 
     stdio: 'inherit',
     cwd: path.join(__dirname, '..')
   });
   
   console.log('\n✅ Packaging complete!');
-  console.log(`\n📁 Output directory: packages/desktop/release\n`);
+  console.log(`\n📁 Output directory: packages/desktop/${outDir}\n`);
 } catch (error) {
   console.error('✗ Packaging failed');
   process.exit(1);

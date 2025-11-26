@@ -5,7 +5,134 @@ import { ValidationError, NotFoundError } from '../errors/AppError';
 
 const router = Router();
 
-// All order routes require authentication
+// Public endpoint - Create new order (for PWA)
+// Must be BEFORE authentication middleware
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tableId, items, isBuffet, buffetCategoryId, buffetQuantity, discount, serviceCharge, tip } = req.body;
+
+    // Validate input
+    if (!tableId) {
+      throw new ValidationError('Table ID is required');
+    }
+
+    // For buffet orders, items can be empty
+    if (!isBuffet) {
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new ValidationError('Items are required for non-buffet orders');
+      }
+
+      // Validate items structure
+      for (const item of items) {
+        if (!item.menuItemId || !item.quantity || item.quantity <= 0) {
+          throw new ValidationError('Each item must have menuItemId and positive quantity');
+        }
+      }
+    } else {
+      // Validate buffet order
+      if (!buffetCategoryId) {
+        throw new ValidationError('Buffet category ID is required for buffet orders');
+      }
+    }
+
+    const order = await orderService.createOrder({
+      tableId,
+      items: items || [],
+      isBuffet,
+      buffetCategoryId,
+      buffetQuantity,
+      discount: discount || 0,
+      serviceCharge: serviceCharge || 0,
+      tip: tip || 0,
+    });
+
+    // TODO: Broadcast order:created event via WebSocket
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        order,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public endpoint - Get order status by table (for PWA) - returns latest unpaid order
+// This route checks if the param is a number (table ID) or UUID (order ID)
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if it's a UUID (order ID) or a number (table ID)
+    const isUUID = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    
+    if (isUUID) {
+      // Get order by ID (for desktop app)
+      const order = await orderService.getOrderById(id);
+      
+      if (!order) {
+        throw new NotFoundError('Order not found');
+      }
+      
+      res.status(200).json({
+        status: 'success',
+        data: {
+          order,
+        },
+      });
+    } else {
+      // Get order by table ID (for PWA)
+      const tableIdNum = parseInt(id, 10);
+      
+      if (isNaN(tableIdNum)) {
+        throw new ValidationError('Invalid table ID');
+      }
+      
+      const orders = await orderService.getOrdersByTable(tableIdNum);
+      
+      res.status(200).json({
+        status: 'success',
+        data: {
+          order: orders[0] || null,
+        },
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public endpoint - Get all orders for a table (for PWA order selection)
+router.get('/:tableId/all', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tableId } = req.params;
+    const tableIdNum = parseInt(tableId, 10);
+    
+    if (isNaN(tableIdNum)) {
+      throw new ValidationError('Invalid table ID');
+    }
+    
+    const orders = await orderService.getOrdersByTable(tableIdNum);
+    
+    // Filter to only show unpaid orders
+    const activeOrders = orders.filter(order => 
+      order.status !== 'PAID' && order.status !== 'CANCELLED'
+    );
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        orders: activeOrders,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All other order routes require authentication
 router.use(authenticate);
 
 // GET /api/orders - List all orders with filtering
@@ -48,65 +175,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       data: {
         orders,
         count: orders.length,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// GET /api/orders/:id - Get order details
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-
-    const order = await orderService.getOrderById(id);
-    if (!order) {
-      throw new NotFoundError('Order');
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        order,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /api/orders - Create new order
-router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { tableId, items, discount, serviceCharge, tip } = req.body;
-
-    // Validate input
-    if (!tableId || !items || !Array.isArray(items) || items.length === 0) {
-      throw new ValidationError('Table ID and items are required');
-    }
-
-    // Validate items structure
-    for (const item of items) {
-      if (!item.menuItemId || !item.quantity || item.quantity <= 0) {
-        throw new ValidationError('Each item must have menuItemId and positive quantity');
-      }
-    }
-
-    const order = await orderService.createOrder({
-      tableId,
-      items,
-      discount: discount || 0,
-      serviceCharge: serviceCharge || 0,
-      tip: tip || 0,
-    });
-
-    // TODO: Broadcast order:created event via WebSocket
-
-    res.status(201).json({
-      status: 'success',
-      data: {
-        order,
       },
     });
   } catch (error) {

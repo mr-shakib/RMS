@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { printerService } from '../services';
+import { multiPrinterService } from '../services/multiPrinterService';
 import { authenticate, requireRole } from '../middleware/auth';
 import { PrinterError } from '../errors/AppError';
 
@@ -124,16 +125,18 @@ router.post(
       const { orderId } = req.params;
 
       // Get payment for this order
-      const payment = await printerService['getSetting']('', ''); // Access via service
-      // Actually, let's query directly
       const { paymentService } = await import('../services');
       const paymentRecord = await paymentService.getPaymentByOrderId(orderId);
 
       if (!paymentRecord) {
-        return res.status(404).json({ error: 'Payment not found for this order' });
+        // If no payment yet, print kitchen ticket instead as a workaround
+        // This allows printing receipts even before payment is processed
+        await multiPrinterService.printOrderByCategory(orderId);
+        return res.json({ message: 'Order receipt printed (kitchen ticket format - no payment yet)' });
       }
 
-      await printerService.printCustomerReceipt(orderId, paymentRecord.id);
+      // Use multi-printer service for receipt printing
+      await multiPrinterService.printCustomerReceipt(orderId, paymentRecord.id);
 
       res.json({ message: 'Receipt reprinted successfully' });
     } catch (error) {
@@ -155,7 +158,8 @@ router.post(
     try {
       const { orderId } = req.params;
 
-      await printerService.printKitchenTicket(orderId);
+      // Use multi-printer service for kitchen ticket printing
+      await multiPrinterService.printOrderByCategory(orderId);
 
       res.json({ message: 'Kitchen ticket reprinted successfully' });
     } catch (error) {

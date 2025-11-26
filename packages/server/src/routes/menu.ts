@@ -5,10 +5,8 @@ import { ValidationError, NotFoundError } from '../errors/AppError';
 
 const router = Router();
 
-// All menu routes require authentication
-router.use(authenticate);
-
-// GET /api/menu - Get all menu items with filtering
+// Public endpoint - Get all menu items (for PWA)
+// Must be BEFORE authentication middleware
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { category, available, search } = req.query;
@@ -31,6 +29,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     next(error);
   }
 });
+
+// All other menu routes require authentication
+router.use(authenticate);
 
 // GET /api/menu/categories - Get all unique categories
 router.get('/categories', async (req: Request, res: Response, next: NextFunction) => {
@@ -72,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/menu - Create new menu item
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, categoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
 
     // Validate required fields
     if (!name || !categoryId || price === undefined) {
@@ -83,13 +84,20 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       throw new ValidationError('Price must be a positive number');
     }
 
+    // Validate itemNumber if provided
+    if (itemNumber !== undefined && (typeof itemNumber !== 'number' || itemNumber < 1)) {
+      throw new ValidationError('Item number must be a positive number');
+    }
+
     const menuItem = await menuService.createMenuItem({
       name: name.trim(),
       categoryId: categoryId.trim(),
+      secondaryCategoryId: secondaryCategoryId?.trim(),
       price,
       description: description?.trim(),
       imageUrl: imageUrl?.trim(),
       available: available !== undefined ? available : true,
+      itemNumber: itemNumber,
     });
 
     res.status(201).json({
@@ -107,20 +115,27 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, price, description, imageUrl, available } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price <= 0)) {
       throw new ValidationError('Price must be a positive number');
     }
 
+    // Validate itemNumber if provided
+    if (itemNumber !== undefined && (typeof itemNumber !== 'number' || itemNumber < 1)) {
+      throw new ValidationError('Item number must be a positive number');
+    }
+
     const updateData: any = {};
     if (name !== undefined) updateData.name = name.trim();
     if (categoryId !== undefined) updateData.categoryId = categoryId.trim();
+    if (secondaryCategoryId !== undefined) updateData.secondaryCategoryId = secondaryCategoryId?.trim() || null;
     if (price !== undefined) updateData.price = price;
     if (description !== undefined) updateData.description = description?.trim();
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim();
     if (available !== undefined) updateData.available = available;
+    if (itemNumber !== undefined) updateData.itemNumber = itemNumber;
 
     if (Object.keys(updateData).length === 0) {
       throw new ValidationError('At least one field must be provided for update');

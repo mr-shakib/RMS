@@ -1,7 +1,7 @@
 import prisma from '../db/client';
 import { Payment } from '@prisma/client';
 import { emitPaymentCompleted } from '../websocket';
-import printerService from './printerService';
+import multiPrinterService from './multiPrinterService';
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'WALLET';
 
@@ -51,10 +51,8 @@ class PaymentService {
       throw new Error('Order has already been paid');
     }
 
-    // Validate order status
-    if (order.status !== 'SERVED') {
-      throw new Error('Order must be in SERVED status before payment');
-    }
+    // Note: No status validation - allow payment at any order status for flexibility
+    // This enables immediate payment for TakeAway orders and other scenarios
 
     // Validate amount matches order total
     if (Math.abs(amount - order.total) > 0.01) {
@@ -118,9 +116,9 @@ class PaymentService {
       console.error('Failed to emit payment:completed event:', error);
     }
 
-    // Print customer receipt automatically when payment is processed
+    // Print customer receipt - ONLY using multiPrinterService
     try {
-      await printerService.printCustomerReceipt(orderId, payment.id);
+      await multiPrinterService.printCustomerReceipt(orderId, payment.id);
     } catch (error) {
       console.error('Failed to print customer receipt:', error);
       // Don't throw error - payment was processed successfully, just printing failed

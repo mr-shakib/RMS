@@ -7,21 +7,25 @@
     "output": "release",
     "buildResources": "build"
   },
+  "includeSubNodeModules": true,
   "files": [
     "dist/electron/**/*",
-    ".next/**/*",
-    "public/**/*",
-    "package.json",
-    "!node_modules/**/*",
-    "node_modules/@rms/**/*",
-    "node_modules/next/**/*",
-    "node_modules/react/**/*",
-    "node_modules/react-dom/**/*",
-    "node_modules/socket.io-client/**/*",
-    "node_modules/zustand/**/*",
-    "node_modules/@tanstack/**/*",
-    "node_modules/@heroicons/**/*",
-    "node_modules/lucide-react/**/*"
+    {
+      "from": ".next/standalone",
+      "to": ".next/standalone",
+      "filter": ["**/*"]
+    },
+    {
+      "from": ".next/static",
+      "to": ".next/static",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "public",
+      "to": "public",
+      "filter": ["**/*"]
+    },
+    "package.json"
   ],
   "extraResources": [
     {
@@ -38,6 +42,10 @@
       "from": "../server/public",
       "to": "server/public",
       "filter": ["**/*"]
+    },
+    {
+      "from": "../server/scripts/init-production-db.js",
+      "to": "server/scripts/init-production-db.js"
     },
     {
       "from": "../server/temp-prod/package.json",
@@ -135,15 +143,6 @@
     "category": "Office",
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
-  "publish": {
-    "provider": "generic",
-    "url": "https://your-update-server.com/releases"
-  },
-  "afterSign": "scripts/notarize.js",
   "compression": "maximum",
-  "asar": true,
-  "asarUnpack": [
-    "node_modules/@prisma/**/*",
-    "node_modules/.prisma/**/*"
-  ]
+  "asar": false
 }

@@ -145,9 +145,14 @@ export async function generateTableQRCodePDF(
         align: 'center',
       });
 
-      // Add footer with URL
+      // Add footer with URL and Table info
       doc.moveDown(2);
-      doc.fontSize(8).fillColor('#666666').text(`${serverUrl}/?table=${tableId}`, {
+      const tableUrl = `${serverUrl}/?table=${tableId}`;
+      doc.fontSize(12).fillColor('#000000').font('Helvetica-Bold').text(`Table ${tableName} (#${tableId})`, {
+        align: 'center',
+      });
+      doc.moveDown(0.3);
+      doc.fontSize(9).fillColor('#333333').font('Helvetica').text(tableUrl, {
         align: 'center',
       });
 
@@ -227,9 +232,14 @@ export async function generateBulkQRCodesPDF(
           align: 'center',
         });
 
-        // Add footer with URL
+        // Add footer with URL and Table info
         doc.moveDown(2);
-        doc.fontSize(8).fillColor('#666666').text(`${serverUrl}/?table=${table.id}`, {
+        const tableUrl = `${serverUrl}/?table=${table.id}`;
+        doc.fontSize(12).fillColor('#000000').font('Helvetica-Bold').text(`Table ${table.name} (#${table.id})`, {
+          align: 'center',
+        });
+        doc.moveDown(0.3);
+        doc.fontSize(9).fillColor('#333333').font('Helvetica').text(tableUrl, {
           align: 'center',
         });
       }

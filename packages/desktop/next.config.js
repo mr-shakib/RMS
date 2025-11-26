@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: '.next',
+  output: 'standalone',
+  transpilePackages: ['@rms/shared'],
   images: {
     unoptimized: true,
   },

@@ -1,11 +1,39 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import { userService } from '../services';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
 import { ValidationError } from '../errors/AppError';
+import { config } from '../config';
 import os from 'os';
 
 const router = Router();
+
+// Helper function to get default server URL with LAN IP
+function getDefaultServerUrl(): string {
+  // Use LAN_IP from environment if available (set by Electron)
+  const lanIp = process.env.LAN_IP;
+  const port = config.port;
+  
+  if (lanIp && lanIp !== 'localhost') {
+    return `http://${lanIp}:${port}`;
+  }
+
+  // Try to detect LAN IP from network interfaces
+  const networkInterfaces = os.networkInterfaces();
+  
+  for (const name of Object.keys(networkInterfaces)) {
+    const iface = networkInterfaces[name];
+    if (!iface) continue;
+    
+    for (const alias of iface) {
+      if (alias.family === 'IPv4' && !alias.internal) {
+        return `http://${alias.address}:${port}`;
+      }
+    }
+  }
+  
+  return `http://localhost:${port}`;
+}
 
 /**
  * GET /api/setup/status - Check if setup has been completed
@@ -83,11 +111,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
 
     // If skipping setup, use defaults
     if (skipSetup) {
-      await prisma.setting.upsert({
-        where: { key: 'setup_completed' },
-        update: { value: 'true' },
-        create: { key: 'setup_completed', value: 'true' },
-      });
+      await upsertSetting('setup_completed', 'true');
 
       return res.status(200).json({
         status: 'success',
@@ -115,11 +139,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
     ];
 
     for (const setting of businessSettings) {
-      await prisma.setting.upsert({
-        where: { key: setting.key },
-        update: { value: setting.value },
-        create: setting,
-      });
+      await upsertSetting(setting.key, setting.value);
     }
 
     // 2. Create or update admin user (outside transaction due to bcrypt)
@@ -157,7 +177,7 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
     }
 
     // 3. Create tables if specified (without QR codes)
-    const tablesToCreate: Array<{ id: string; name: string }> = [];
+    const tablesToCreate: Array<{ id: number; name: string }> = [];
     
     if (numberOfTables && numberOfTables > 0) {
       for (let i = 1; i <= numberOfTables; i++) {
@@ -190,17 +210,16 @@ router.post('/complete', async (req: Request, res: Response, next: NextFunction)
       }
     }
 
-    // 4. Mark setup as completed
-    await prisma.setting.upsert({
-      where: { key: 'setup_completed' },
-      update: { value: 'true' },
-      create: { key: 'setup_completed', value: 'true' },
-    });
+    // Mark setup as completed
+    await upsertSetting('setup_completed', 'true');
 
     // Generate QR codes for newly created tables (outside transaction)
     if (tablesToCreate.length > 0) {
-      const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-      const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+      // Always use actual LAN IP for QR codes, never localhost
+      const serverUrl = getDefaultServerUrl();
+      
+      // Update server_url setting to match the LAN IP
+      await upsertSetting('server_url', serverUrl);
 
       for (const table of tablesToCreate) {
         const qrCodeUrl = await generateTableQRCode(table.id, serverUrl, {

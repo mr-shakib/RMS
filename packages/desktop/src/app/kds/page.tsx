@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useKDS } from '@/hooks/useKDS';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { OrderStatus } from '@rms/shared';
 import type { Order } from '@rms/shared';
@@ -76,7 +77,7 @@ function OrderTicket({ order, onStatusUpdate, isHighlighted }: OrderTicketProps)
                   <span className="inline-block w-8 text-center font-bold text-blue-600 dark:text-blue-400">
                     {item.quantity}x
                   </span>
-                  {item.menuItem.name}
+                  {item.menuItem?.name || 'Unknown Item'}
                 </p>
                 {item.notes && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 ml-8 italic">
@@ -131,6 +132,9 @@ export default function KDSPage() {
     preparing: useRef<HTMLDivElement>(null),
     ready: useRef<HTMLDivElement>(null),
   };
+  
+  // Import useQueryClient for manual cache updates
+  const queryClient = useQueryClient();
 
   // Initialize audio
   useEffect(() => {
@@ -203,10 +207,23 @@ export default function KDSPage() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      // Optimistic update - immediately update the UI
+      queryClient.setQueryData<Order[]>(['kds-orders'], (old) => {
+        if (!old) return [];
+        return old.map((order) => 
+          order.id === orderId ? { ...order, status: newStatus } : order
+        );
+      });
+
+      // Make the API call
       await apiClient.patch(`/orders/${orderId}`, { status: newStatus });
-      // The useKDS hook will automatically update via WebSocket
+      
+      // Invalidate to ensure we have the latest data from server
+      queryClient.invalidateQueries({ queryKey: ['kds-orders'] });
     } catch (error) {
       console.error('Failed to update order status:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['kds-orders'] });
       alert('Failed to update order status. Please try again.');
     }
   };

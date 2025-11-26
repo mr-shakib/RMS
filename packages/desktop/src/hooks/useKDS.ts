@@ -19,6 +19,8 @@ export function useKDS() {
         ['PENDING', 'PREPARING', 'READY'].includes(order.status)
       );
     },
+    refetchInterval: false, // Disable polling - we use WebSocket for real-time updates
+    staleTime: 0, // Always consider data stale to ensure fresh data
   });
 
   // Subscribe to KDS updates via WebSocket

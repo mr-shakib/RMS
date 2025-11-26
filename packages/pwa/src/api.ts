@@ -1,8 +1,5 @@
 import { MenuItem, CreateOrderDTO, Order, Category } from '@rms/shared';
 
-// Get API URL from environment or default to localhost
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export class APIError extends Error {
   constructor(
     message: string,
@@ -19,8 +16,20 @@ export class ApiClient {
   private baseUrl: string;
   private requestTimeout = 15000; // 15 seconds
 
-  constructor(baseUrl: string = API_URL) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    // Get API URL dynamically at runtime
+    if (!baseUrl) {
+      if (typeof window !== 'undefined') {
+        const { protocol, hostname, port } = window.location;
+        // Use port from URL if present and not empty, otherwise default to 5000
+        const apiPort = (port && port.trim() !== '') ? port : '5000';
+        this.baseUrl = `${protocol}//${hostname}:${apiPort}/api`;
+      } else {
+        this.baseUrl = 'http://localhost:5000/api';
+      }
+    } else {
+      this.baseUrl = baseUrl;
+    }
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
@@ -86,10 +95,21 @@ export class ApiClient {
 
   async getMenu(): Promise<MenuItem[]> {
     try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/menu`);
+      const url = `${this.baseUrl}/menu`;
+      console.log('[API] Fetching menu from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Menu response status:', response.status, response.statusText);
+      
       const data = await this.handleResponse<any>(response);
-      return data.data?.menuItems || [];
+      console.log('[API] Menu data:', data);
+      
+      const menuItems = data.data?.menuItems || [];
+      console.log('[API] Extracted menu items count:', menuItems.length);
+      
+      return menuItems;
     } catch (error) {
+      console.error('[API] getMenu error:', error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }
@@ -99,10 +119,45 @@ export class ApiClient {
 
   async getCategories(): Promise<Category[]> {
     try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/categories`);
+      const url = `${this.baseUrl}/categories`;
+      console.log('[API] Fetching categories from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Categories response status:', response.status, response.statusText);
+      
       const data = await this.handleResponse<any>(response);
-      return data.data?.categories || [];
+      console.log('[API] Categories data:', data);
+      
+      const categories = data.data?.categories || [];
+      console.log('[API] Extracted categories count:', categories.length);
+      
+      return categories;
     } catch (error) {
+      console.error('[API] getCategories error:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new APIError('Network connection failed', 0, null, true);
+      }
+      throw error;
+    }
+  }
+
+  async getTable(tableId: number): Promise<any> {
+    try {
+      const url = `${this.baseUrl}/tables/${tableId}`;
+      console.log('[API] Fetching table from:', url);
+      
+      const response = await this.fetchWithTimeout(url);
+      console.log('[API] Response status:', response.status, response.statusText);
+      
+      const data = await this.handleResponse<any>(response);
+      console.log('[API] Parsed response data:', data);
+      
+      const table = data.data?.table || data;
+      console.log('[API] Extracted table:', table);
+      
+      return table;
+    } catch (error) {
+      console.error('[API] getTable error:', error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }
@@ -141,6 +196,19 @@ export class ApiClient {
       if (error instanceof APIError && error.statusCode === 404) {
         return null;
       }
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new APIError('Network connection failed', 0, null, true);
+      }
+      throw error;
+    }
+  }
+
+  async getTableOrders(tableId: number): Promise<Order[]> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/order/${tableId}/all`);
+      const data = await this.handleResponse<any>(response);
+      return data.data?.orders || [];
+    } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network connection failed', 0, null, true);
       }

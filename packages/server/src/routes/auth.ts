@@ -87,4 +87,40 @@ router.get('/me', authenticate, async (req: Request, res: Response, next: NextFu
   }
 });
 
+// POST /api/auth/refresh
+router.post('/refresh', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    // Verify user still exists
+    const user = await userService.getUserById(req.user.userId);
+    if (!user) {
+      throw new AuthenticationError('User not found');
+    }
+
+    // Generate new JWT token
+    const token = generateToken({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

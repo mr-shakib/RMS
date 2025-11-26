@@ -1,16 +1,53 @@
-import prisma from '../db/client';
+import prisma, { upsertSetting } from '../db/client';
 import bcrypt from 'bcrypt';
 import { generateTableQRCode } from '../utils/qrCodeGenerator';
+import { config } from '../config';
+import os from 'os';
 
 /**
  * Service to check and initialize database on server startup
  */
 class InitializationService {
   /**
+   * Get default server URL with LAN IP
+   */
+  private getDefaultServerUrl(): string {
+    // Use LAN_IP from environment if available (set by Electron)
+    const lanIp = process.env.LAN_IP;
+    const port = config.port;
+    
+    if (lanIp && lanIp !== 'localhost') {
+      console.log(`🌐 Using LAN IP from environment: ${lanIp}:${port}`);
+      return `http://${lanIp}:${port}`;
+    }
+
+    // Try to detect LAN IP from network interfaces
+    const networkInterfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(networkInterfaces)) {
+      const iface = networkInterfaces[name];
+      if (!iface) continue;
+      
+      for (const alias of iface) {
+        if (alias.family === 'IPv4' && !alias.internal) {
+          console.log(`🌐 Detected LAN IP from network: ${alias.address}:${port}`);
+          return `http://${alias.address}:${port}`;
+        }
+      }
+    }
+    
+    console.warn(`⚠️  Could not detect LAN IP, falling back to localhost:${port}`);
+    return `http://localhost:${port}`;
+  }
+
+  /**
    * Check if database has been initialized with seed data
    */
   async isDatabaseInitialized(): Promise<boolean> {
     try {
+      // First check if tables exist by trying to query them
+      await prisma.$queryRaw`SELECT name FROM sqlite_master WHERE type='table' AND name='User' LIMIT 1`;
+      
       // Check if admin user exists
       const adminUser = await prisma.user.findUnique({
         where: { username: 'admin' },
@@ -27,7 +64,11 @@ class InitializationService {
 
       // Database is considered initialized if all these exist
       return !!(adminUser && tableCount > 0 && menuItemCount > 0 && settingsCount > 0);
-    } catch (error) {
+    } catch (error: any) {
+      // If we get a "table does not exist" error, the database needs to be created
+      if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+        return false;
+      }
       console.error('Error checking database initialization:', error);
       return false;
     }
@@ -37,16 +78,23 @@ class InitializationService {
    * Initialize database with default data if not already initialized
    */
   async initializeDatabase(): Promise<void> {
-    const isInitialized = await this.isDatabaseInitialized();
-
-    if (isInitialized) {
-      console.log('✅ Database already initialized');
-      return;
-    }
-
-    console.log('🔧 Database not initialized, running initialization...');
-
     try {
+      console.log('🔍 Checking database initialization status...');
+      const isInitialized = await this.isDatabaseInitialized();
+
+      if (isInitialized) {
+        console.log('✅ Database already initialized');
+        
+        // Check if Printer tables exist (for databases created before multi-printer feature)
+        await this.ensurePrinterTablesExist();
+        return;
+      }
+
+      console.log('🔧 Database not initialized, creating schema and seeding data...');
+
+      // First, create the database schema if it doesn't exist
+      await this.createDatabaseSchema();
+
       // Create default admin user
       await this.createDefaultUsers();
 
@@ -56,15 +104,292 @@ class InitializationService {
       // Create default tables with QR codes
       await this.createDefaultTables();
 
-      // Create default categories
-      await this.createDefaultCategories();
-
-      // Create default menu items
-      await this.createDefaultMenuItems();
-
       console.log('✅ Database initialization completed successfully');
-    } catch (error) {
-      console.error('❌ Error initializing database:', error);
+    } catch (error: any) {
+      console.error('❌ Error initializing database:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
+      // Don't throw - allow server to start even if initialization fails
+      // User can run migrations manually or reinitialize through UI
+      console.warn('⚠️  Server will start without initialized database');
+    }
+  }
+
+  /**
+   * Ensure Printer tables exist (for databases created before multi-printer feature)
+   */
+  private async ensurePrinterTablesExist(): Promise<void> {
+    try {
+      // Try to query Printer table
+      await prisma.$queryRaw`SELECT COUNT(*) FROM Printer LIMIT 1`;
+    } catch (error: any) {
+      // If table doesn't exist, create it
+      if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+        console.log('  🔧 Printer tables not found, creating them...');
+        
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "Printer" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "name" TEXT NOT NULL,
+            "type" TEXT NOT NULL,
+            "address" TEXT,
+            "port" TEXT,
+            "vendorId" TEXT,
+            "productId" TEXT,
+            "serialPath" TEXT,
+            "isActive" BOOLEAN NOT NULL DEFAULT 1,
+            "sortOrder" INTEGER NOT NULL DEFAULT 0,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "PrinterCategory" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "printerId" TEXT NOT NULL,
+            "categoryId" TEXT NOT NULL,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE UNIQUE INDEX IF NOT EXISTS "PrinterCategory_printerId_categoryId_key" 
+          ON "PrinterCategory"("printerId", "categoryId");
+        `);
+
+        console.log('  ✅ Printer tables created successfully');
+      }
+    }
+  }
+
+  /**
+   * Create database schema using raw SQL
+   */
+  private async createDatabaseSchema(): Promise<void> {
+    console.log('  📋 Creating database schema...');
+    
+    try {
+      // Log database configuration
+      const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
+      console.log(`  🗄️  Database URL: ${databaseUrl}`);
+      
+      // Test connection first
+      await prisma.$connect();
+      console.log('  ✓ Database connection established');
+
+      // Verify we can execute queries
+      await prisma.$queryRaw`SELECT 1 as test`;
+      console.log('  ✓ Database is responsive');
+
+      // Create all tables using raw SQL based on Prisma schema
+      console.log('  📝 Creating tables...');
+      
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "User" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "username" TEXT NOT NULL UNIQUE,
+          "password" TEXT NOT NULL,
+          "role" TEXT NOT NULL DEFAULT 'WAITER',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created User table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Table" (
+          "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+          "name" TEXT NOT NULL UNIQUE,
+          "qrCodeUrl" TEXT NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'FREE',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Table table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Category" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL UNIQUE,
+          "isBuffet" BOOLEAN NOT NULL DEFAULT 0,
+          "buffetPrice" REAL,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Category table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Category_sortOrder_idx" ON "Category"("sortOrder");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "MenuItem" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "itemNumber" INTEGER UNIQUE,
+          "name" TEXT NOT NULL,
+          "categoryId" TEXT NOT NULL,
+          "secondaryCategoryId" TEXT,
+          "price" REAL NOT NULL,
+          "description" TEXT,
+          "imageUrl" TEXT,
+          "available" BOOLEAN NOT NULL DEFAULT 1,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL,
+          FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+          FOREIGN KEY ("secondaryCategoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created MenuItem table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_itemNumber_idx" ON "MenuItem"("itemNumber");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_categoryId_idx" ON "MenuItem"("categoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_secondaryCategoryId_idx" ON "MenuItem"("secondaryCategoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItem_available_idx" ON "MenuItem"("available");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Order" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "tableId" INTEGER NOT NULL,
+          "status" TEXT NOT NULL DEFAULT 'PENDING',
+          "isBuffet" BOOLEAN NOT NULL DEFAULT 0,
+          "buffetCategoryId" TEXT,
+          "subtotal" REAL NOT NULL,
+          "tax" REAL NOT NULL,
+          "discount" REAL NOT NULL DEFAULT 0,
+          "serviceCharge" REAL NOT NULL DEFAULT 0,
+          "tip" REAL NOT NULL DEFAULT 0,
+          "total" REAL NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL,
+          FOREIGN KEY ("tableId") REFERENCES "Table"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+          FOREIGN KEY ("buffetCategoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created Order table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_tableId_idx" ON "Order"("tableId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order"("status");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_createdAt_idx" ON "Order"("createdAt");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Order_buffetCategoryId_idx" ON "Order"("buffetCategoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "OrderItem" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "orderId" TEXT NOT NULL,
+          "menuItemId" TEXT NOT NULL,
+          "quantity" INTEGER NOT NULL,
+          "price" REAL NOT NULL,
+          "notes" TEXT,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE,
+          FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created OrderItem table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Payment" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "orderId" TEXT NOT NULL UNIQUE,
+          "amount" REAL NOT NULL,
+          "method" TEXT NOT NULL,
+          "reference" TEXT,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created Payment table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "Payment_createdAt_idx" ON "Payment"("createdAt");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Setting" (
+          "key" TEXT NOT NULL PRIMARY KEY,
+          "value" TEXT NOT NULL,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Setting table');
+
+      // Create Printer tables for multi-printer support
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Printer" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "type" TEXT NOT NULL,
+          "address" TEXT,
+          "port" TEXT,
+          "vendorId" TEXT,
+          "productId" TEXT,
+          "serialPath" TEXT,
+          "isActive" BOOLEAN NOT NULL DEFAULT 1,
+          "sortOrder" INTEGER NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `);
+      console.log('  ✓ Created Printer table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "PrinterCategory" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "printerId" TEXT NOT NULL,
+          "categoryId" TEXT NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created PrinterCategory table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "PrinterCategory_printerId_categoryId_key" 
+        ON "PrinterCategory"("printerId", "categoryId");
+      `);
+
+      console.log('  ✅ Database schema created successfully');
+    } catch (error: any) {
+      console.error('  ❌ Failed to create database schema:', {
+        message: error.message,
+        code: error.code,
+        name: error.name
+      });
       throw error;
     }
   }
@@ -121,19 +446,16 @@ class InitializationService {
       { key: 'business_address', value: '123 Main Street, City, State 12345' },
       { key: 'tax_percentage', value: '10' },
       { key: 'currency', value: 'USD' },
-      { key: 'server_port', value: '5000' },
-      { key: 'server_url', value: 'http://localhost:5000' },
+      { key: 'server_port', value: config.port.toString() },
+      { key: 'server_url', value: this.getDefaultServerUrl() },
       { key: 'theme', value: 'light' },
       { key: 'printer_type', value: '' },
       { key: 'printer_address', value: '' },
+      { key: 'full_order_printer_id', value: '' },
     ];
 
     for (const setting of defaultSettings) {
-      await prisma.setting.upsert({
-        where: { key: setting.key },
-        update: { value: setting.value },
-        create: setting,
-      });
+      await upsertSetting(setting.key, setting.value);
     }
 
     console.log('  ✓ Created default settings');
@@ -145,7 +467,7 @@ class InitializationService {
   private async createDefaultTables(): Promise<void> {
     // Get server URL for QR code generation
     const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
-    const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
+    const serverUrl = serverUrlSetting?.value || this.getDefaultServerUrl();
 
     // Create 10 tables
     for (let i = 1; i <= 10; i++) {
