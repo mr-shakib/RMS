@@ -41,6 +41,7 @@
     "app-builder-bin": "^4.2.0",
     "app-builder-lib": "^26.0.12",
     "builder-util": "^26.0.11",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "node-thermal-printer": "^4.5.0"
   }
 }

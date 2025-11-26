@@ -1,6 +1,4 @@
-import Printer from 'escpos';
-import USB from 'escpos-usb';
-import Network from 'escpos-network';
+import { ThermalPrinter, PrinterTypes } from 'node-thermal-printer';
 import prisma from '../db/client';
 import { PrinterError } from '../errors/AppError';
 
@@ -9,9 +7,15 @@ export interface PrinterConnection {
   name: string;
   type: 'network' | 'usb' | 'serial';
   device: any;
-  printer: Printer | null;
+  printer: ThermalPrinter | null;
   categoryIds: string[];
   isConnected: boolean;
+  // Store printer config instead of reusing instance
+  printerConfig: {
+    type: any;
+    interface: string;
+    options: any;
+  };
 }
 
 class MultiPrinterService {
@@ -22,13 +26,13 @@ class MultiPrinterService {
    */
   async initializeAllPrinters(): Promise<void> {
     try {
-      // Check if printer table exists (after migration)
-      const activePrinters = await (prisma as any).printer?.findMany({
-        where: { isActive: true },
-        include: {
-          categoryMappings: true,
-        },
-      }) || [];
+      const activePrinters =
+        ((prisma as any).printer?.findMany
+          ? await (prisma as any).printer.findMany({
+            where: { isActive: true },
+            include: { categoryMappings: true },
+          })
+          : []) || [];
 
       console.log(`🖨️  Found ${activePrinters.length} active printer(s)`);
 
@@ -46,76 +50,60 @@ class MultiPrinterService {
 
   /**
    * Connect to a specific printer
+   * Uses node-thermal-printer. Currently network printers are supported.
    */
   async connectPrinter(printerId: string): Promise<void> {
     try {
       const printerConfig = await (prisma as any).printer?.findUnique({
         where: { id: printerId },
-        include: {
-          categoryMappings: true,
-        },
+        include: { categoryMappings: true },
       });
 
-      if (!printerConfig) {
-        throw new PrinterError('Printer not found');
-      }
+      if (!printerConfig) throw new PrinterError('Printer not found');
+      if (!printerConfig.isActive) throw new PrinterError('Printer is not active');
 
-      if (!printerConfig.isActive) {
-        throw new PrinterError('Printer is not active');
-      }
-
-      // Create device based on type
-      let device: any = null;
+      let printerInstanceConfig: any = null;
 
       switch (printerConfig.type) {
-        case 'network':
+        case 'network': {
           if (!printerConfig.address) {
             throw new PrinterError('Network printer requires address');
           }
-          const [ip, port] = printerConfig.address.split(':');
-          device = new Network(ip, parseInt(printerConfig.port || port || '9100'));
+          const [ip, portFromAddr] = String(printerConfig.address).split(':');
+          const port = parseInt(printerConfig.port || portFromAddr || '9100', 10);
+
+          printerInstanceConfig = {
+            type: PrinterTypes.EPSON,
+            interface: `tcp://${ip}:${port}`,
+            options: { timeout: 3000 },
+          };
+
+          // Test connection
+          const testPrinter = new ThermalPrinter(printerInstanceConfig);
+          const ok = await testPrinter.isPrinterConnected();
+          if (!ok) throw new PrinterError(`Printer at ${ip}:${port} is not reachable`);
           break;
+        }
 
         case 'usb':
-          if (!printerConfig.vendorId || !printerConfig.productId) {
-            throw new PrinterError('USB printer requires vendorId and productId');
-          }
-          const vendorId = parseInt(printerConfig.vendorId.replace('0x', ''), 16);
-          const productId = parseInt(printerConfig.productId.replace('0x', ''), 16);
-          const usbDevice = USB.findPrinter(vendorId, productId);
-          if (!usbDevice) {
-            throw new PrinterError(`USB printer not found (${printerConfig.vendorId}:${printerConfig.productId})`);
-          }
-          device = new USB(usbDevice);
-          break;
+          throw new PrinterError('USB printer support not yet implemented with node-thermal-printer');
 
         case 'serial':
-          throw new PrinterError('Serial printer support not yet implemented');
+          throw new PrinterError('Serial printer support not yet implemented with node-thermal-printer');
 
         default:
           throw new PrinterError(`Unsupported printer type: ${printerConfig.type}`);
       }
 
-      // Open device connection
-      await new Promise<void>((resolve, reject) => {
-        device.open((error: Error) => {
-          if (error) {
-            reject(new PrinterError(`Failed to open printer: ${error.message}`));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      const printer = new Printer(device);
       const categoryIds = printerConfig.categoryMappings.map((m: any) => m.categoryId);
 
       this.printers.set(printerId, {
         id: printerId,
         name: printerConfig.name,
         type: printerConfig.type as 'network' | 'usb' | 'serial',
-        device,
-        printer,
+        device: null,
+        printer: null, // Don't store instance
+        printerConfig: printerInstanceConfig, // Store config instead
         categoryIds,
         isConnected: true,
       });
@@ -129,17 +117,14 @@ class MultiPrinterService {
 
   /**
    * Disconnect a specific printer
+   * node-thermal-printer does not keep an open connection; just drop the instance.
    */
   async disconnectPrinter(printerId: string): Promise<void> {
     const connection = this.printers.get(printerId);
     if (!connection) return;
 
     try {
-      if (connection.device) {
-        await new Promise<void>((resolve) => {
-          connection.device.close(() => resolve());
-        });
-      }
+      // No explicit close is required for node-thermal-printer
       this.printers.delete(printerId);
       console.log(`🔌 Printer disconnected: ${connection.name}`);
     } catch (error) {
@@ -178,15 +163,7 @@ class MultiPrinterService {
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
-          items: {
-            include: {
-              menuItem: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          },
+          items: { include: { menuItem: { include: { category: true } } } },
           table: true,
         },
       });
@@ -195,39 +172,28 @@ class MultiPrinterService {
         throw new PrinterError('Order not found');
       }
 
-      // Group items by category
       const itemsByCategory = new Map<string, typeof order.items>();
       for (const item of order.items) {
         const categoryId = item.menuItem.categoryId;
-        if (!itemsByCategory.has(categoryId)) {
-          itemsByCategory.set(categoryId, []);
-        }
+        if (!itemsByCategory.has(categoryId)) itemsByCategory.set(categoryId, []);
         itemsByCategory.get(categoryId)!.push(item);
       }
 
-      // Get business settings
       const businessName = await this.getSetting('business_name', 'Restaurant');
 
-      // Print items on their designated printers
       const printPromises: Promise<void>[] = [];
 
       for (const [categoryId, items] of itemsByCategory.entries()) {
         const printers = this.getPrintersForCategory(categoryId);
-        
+
         if (printers.length === 0) {
           console.warn(`⚠️  No printer assigned for category ${items[0].menuItem.category.name}`);
           continue;
         }
 
-        // Print on all printers assigned to this category
         for (const printerConnection of printers) {
           printPromises.push(
-            this.printKitchenTicketOnPrinter(
-              printerConnection,
-              order,
-              items,
-              businessName
-            )
+            this.printKitchenTicketOnPrinter(printerConnection, order, items, businessName)
           );
         }
       }
@@ -241,6 +207,128 @@ class MultiPrinterService {
   }
 
   /**
+   * Create a fresh printer instance for each print job
+   */
+  private createPrinterInstance(connection: PrinterConnection): ThermalPrinter {
+    return new ThermalPrinter(connection.printerConfig);
+  }
+
+  /**
+   * Print full customer receipt (all items on one printer)
+   */
+  async printCustomerReceipt(orderId: string, paymentId: string): Promise<void> {
+    try {
+      const activePrinter = Array.from(this.printers.values())[0];
+
+      if (!activePrinter) {
+        console.warn('⚠️  No printer available for customer receipt');
+        return;
+      }
+      if (!activePrinter.printerConfig) {
+        throw new PrinterError('Printer not initialized');
+      }
+
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { include: { menuItem: true } },
+          table: true,
+          payment: true,
+        },
+      });
+
+      const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+
+      if (!order || !payment) {
+        throw new PrinterError('Order or payment not found');
+      }
+
+      const businessName = await this.getSetting('business_name', 'Restaurant');
+      const businessAddress = await this.getSetting('business_address', '');
+      const currency = await this.getSetting('currency', 'USD');
+
+      // Create fresh instance for this print job
+      const p = this.createPrinterInstance(activePrinter);
+
+      // Header
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1); // Use setTextSize instead of individual methods
+      p.println(businessName);
+      p.setTextNormal(); // Reset to normal
+
+      if (businessAddress) {
+        p.println(businessAddress);
+      }
+      p.drawLine();
+
+      // Order details
+      p.alignLeft();
+      p.println(`Date: ${new Date().toLocaleString()}`);
+      p.println(`Order #: ${String(order.id).substring(0, 8)}`);
+      p.println(`Table: ${order.table.name}`);
+      p.println(`Payment: ${payment.method}`);
+      p.drawLine();
+      p.println('Items:');
+      p.newLine();
+
+      // Items list
+      for (const item of order.items) {
+        const itemName = item.menuItem.name;
+        const qty = item.quantity;
+        const price = item.price;
+        const total = qty * price;
+
+        p.print(`${itemName}  `);
+        p.println(`${qty} x ${currency} ${price.toFixed(2)} = ${currency} ${total.toFixed(2)}`);
+
+        if (item.notes) {
+          p.println(`  Note: ${item.notes}`);
+        }
+      }
+
+      // Totals
+      p.newLine();
+      p.drawLine();
+      p.println(`Subtotal: ${currency} ${order.subtotal.toFixed(2)}`);
+      p.println(`Tax: ${currency} ${order.tax.toFixed(2)}`);
+
+      if (order.discount > 0) {
+        p.println(`Discount: -${currency} ${order.discount.toFixed(2)}`);
+      }
+      if (order.serviceCharge > 0) {
+        p.println(`Service Charge: ${currency} ${order.serviceCharge.toFixed(2)}`);
+      }
+      if (order.tip > 0) {
+        p.println(`Tip: ${currency} ${order.tip.toFixed(2)}`);
+      }
+
+      p.drawLine();
+
+      // Total
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1);
+      p.println(`TOTAL: ${currency} ${order.total.toFixed(2)}`);
+      p.setTextNormal();
+
+      p.drawLine();
+      p.println('Thank you for your visit!');
+      p.newLine();
+      p.newLine();
+      p.cut();
+
+      // Execute ONCE
+      await p.execute();
+
+      console.log(`✅ Customer receipt printed for order ${orderId}`);
+    } catch (error) {
+      console.error('Error printing customer receipt:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Print kitchen ticket on a specific printer
    */
   private async printKitchenTicketOnPrinter(
@@ -249,58 +337,50 @@ class MultiPrinterService {
     items: any[],
     businessName: string
   ): Promise<void> {
-    if (!connection.printer) {
+    if (!connection.printerConfig) {
       throw new PrinterError(`Printer ${connection.name} not initialized`);
     }
 
-    try {
-      connection.printer
-        .font('a')
-        .align('ct')
-        .style('bu')
-        .size(1, 1)
-        .text(businessName)
-        .text(`[${connection.name}]`)
-        .style('normal')
-        .size(0, 0)
-        .text('================================')
-        .align('lt')
-        .text(`Time: ${new Date().toLocaleTimeString()}`)
-        .text(`Order #: ${order.id.substring(0, 8)}`)
-        .text(`Table: ${order.table.name}`)
-        .text('================================');
+    // Create fresh instance for this print job
+    const p = this.createPrinterInstance(connection);
 
-      // Print items
+    try {
+      // Header
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1); // Double size for header
+      p.println(businessName);
+      p.setTextNormal();
+      p.drawLine();
+
+      // Order info
+      p.alignLeft();
+      p.setTextSize(0, 0); // Normal size
+      p.println(`Time: ${new Date().toLocaleTimeString()}`);
+      p.println(`Order #: ${String(order.id).substring(0, 8)}`);
+      p.println(`Table: ${order.table.name}`);
+      p.drawLine();
+
+      // Items - with moderate emphasis
       for (const item of items) {
-        connection.printer
-          .style('bu')
-          .size(1, 1)
-          .text(`${item.quantity}x ${item.menuItem.name}`)
-          .style('normal')
-          .size(0, 0);
+        p.bold(true);
+        p.setTextSize(1, 0); // Wide but not tall - more readable
+        p.println(`${item.quantity}x ${item.menuItem.name}`);
+        p.setTextNormal();
 
         if (item.notes) {
-          connection.printer.text(`Note: ${item.notes}`);
+          p.setTextSize(0, 0); // Normal size for notes
+          p.println(`  Note: ${item.notes}`);
         }
-        connection.printer.text('');
+        p.newLine();
       }
 
-      connection.printer
-        .text('================================')
-        .text('')
-        .cut();
+      p.drawLine();
+      p.newLine();
+      p.cut();
 
-      // Manually flush the device buffer to send data
-      if (connection.device && typeof connection.device.write === 'function') {
-        const buffer = (connection.printer as any).buffer;
-        if (buffer && buffer.length > 0) {
-          connection.device.write(buffer);
-          (connection.printer as any).buffer = Buffer.alloc(0);
-        }
-      }
-
-      // Wait a bit for data to be sent
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Execute ONCE
+      await p.execute();
 
       console.log(`✅ Kitchen ticket printed on ${connection.name}`);
     } catch (error) {
@@ -312,185 +392,45 @@ class MultiPrinterService {
   }
 
   /**
-   * Print full customer receipt (all items on one printer)
-   */
-  async printCustomerReceipt(orderId: string, paymentId: string): Promise<void> {
-    try {
-      // Find a printer for customer receipts
-      // Priority: First active printer or fallback to any printer
-      const activePrinter = Array.from(this.printers.values())[0];
-
-      if (!activePrinter) {
-        console.warn('⚠️  No printer available for customer receipt');
-        return;
-      }
-
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          items: {
-            include: {
-              menuItem: true,
-            },
-          },
-          table: true,
-          payment: true,
-        },
-      });
-
-      const payment = await prisma.payment.findUnique({
-        where: { id: paymentId },
-      });
-
-      if (!order || !payment) {
-        throw new PrinterError('Order or payment not found');
-      }
-
-      // Get business settings
-      const businessName = await this.getSetting('business_name', 'Restaurant');
-      const businessAddress = await this.getSetting('business_address', '');
-      const currency = await this.getSetting('currency', 'USD');
-
-      if (!activePrinter.printer) {
-        throw new PrinterError('Printer not initialized');
-      }
-
-      // Print customer receipt
-      activePrinter.printer
-        .font('a')
-        .align('ct')
-        .style('bu')
-        .size(1, 1)
-        .text(businessName)
-        .style('normal')
-        .size(0, 0)
-        .text(businessAddress)
-        .text('--------------------------------')
-        .align('lt')
-        .text(`Date: ${new Date().toLocaleString()}`)
-        .text(`Order #: ${order.id.substring(0, 8)}`)
-        .text(`Table: ${order.table.name}`)
-        .text(`Payment: ${payment.method}`)
-        .text('--------------------------------')
-        .text('Items:')
-        .text('');
-
-      // Print items
-      for (const item of order.items) {
-        const itemName = item.menuItem.name;
-        const qty = item.quantity;
-        const price = item.price;
-        const total = qty * price;
-
-        activePrinter.printer
-          .text(`${itemName}`)
-          .text(`  ${qty} x ${currency} ${price.toFixed(2)} = ${currency} ${total.toFixed(2)}`);
-
-        if (item.notes) {
-          activePrinter.printer.text(`  Note: ${item.notes}`);
-        }
-      }
-
-      // Print totals
-      activePrinter.printer
-        .text('')
-        .text('--------------------------------')
-        .text(`Subtotal: ${currency} ${order.subtotal.toFixed(2)}`)
-        .text(`Tax: ${currency} ${order.tax.toFixed(2)}`);
-
-      if (order.discount > 0) {
-        activePrinter.printer.text(`Discount: -${currency} ${order.discount.toFixed(2)}`);
-      }
-
-      if (order.serviceCharge > 0) {
-        activePrinter.printer.text(`Service Charge: ${currency} ${order.serviceCharge.toFixed(2)}`);
-      }
-
-      if (order.tip > 0) {
-        activePrinter.printer.text(`Tip: ${currency} ${order.tip.toFixed(2)}`);
-      }
-
-      activePrinter.printer
-        .text('--------------------------------')
-        .style('bu')
-        .size(1, 1)
-        .text(`TOTAL: ${currency} ${order.total.toFixed(2)}`)
-        .style('normal')
-        .size(0, 0)
-        .text('--------------------------------')
-        .align('ct')
-        .text('Thank you for your visit!')
-        .text('')
-        .text('')
-        .cut();
-
-      // Manually flush the device buffer to send data
-      if (activePrinter.device && typeof activePrinter.device.write === 'function') {
-        const buffer = (activePrinter.printer as any).buffer;
-        if (buffer && buffer.length > 0) {
-          activePrinter.device.write(buffer);
-          (activePrinter.printer as any).buffer = Buffer.alloc(0);
-        }
-      }
-
-      // Wait a bit for data to be sent
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      console.log(`✅ Customer receipt printed for order ${orderId}`);
-    } catch (error) {
-      console.error('Error printing customer receipt:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Test print on a specific printer
    */
   async testPrint(printerId: string): Promise<void> {
     const connection = this.printers.get(printerId);
-    
+
     if (!connection) {
-      // Try to connect if not already connected
       await this.connectPrinter(printerId);
       return this.testPrint(printerId);
     }
 
-    if (!connection.printer) {
+    if (!connection.printerConfig) {
       throw new PrinterError(`Printer ${connection.name} not initialized`);
     }
 
+    // Create fresh instance for this print job
+    const p = this.createPrinterInstance(connection);
+
     try {
-      connection.printer
-        .font('a')
-        .align('ct')
-        .style('bu')
-        .size(1, 1)
-        .text('TEST PRINT')
-        .style('normal')
-        .size(0, 0)
-        .text('================================')
-        .align('lt')
-        .text(`Printer: ${connection.name}`)
-        .text(`Type: ${connection.type}`)
-        .text(`Time: ${new Date().toLocaleString()}`)
-        .text('================================')
-        .align('ct')
-        .text('If you can read this,')
-        .text('your printer is working!')
-        .text('')
-        .cut();
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1);
+      p.println('TEST PRINT');
+      p.setTextNormal();
+      p.drawLine();
+      
+      p.alignLeft();
+      p.println(`Printer: ${connection.name}`);
+      p.println(`Type: ${connection.type}`);
+      p.println(`Time: ${new Date().toLocaleString()}`);
+      p.drawLine();
+      
+      p.alignCenter();
+      p.println('If you can read this,');
+      p.println('your printer is working!');
+      p.newLine();
+      p.cut();
 
-      // Manually flush the device buffer to send data
-      if (connection.device && typeof connection.device.write === 'function') {
-        const buffer = (connection.printer as any).buffer;
-        if (buffer && buffer.length > 0) {
-          connection.device.write(buffer);
-          (connection.printer as any).buffer = Buffer.alloc(0);
-        }
-      }
-
-      // Wait a bit for data to be sent
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Execute ONCE
+      await p.execute();
 
       console.log(`✅ Test print successful on ${connection.name}`);
     } catch (error) {
@@ -508,7 +448,7 @@ class MultiPrinterService {
     try {
       const setting = await prisma.setting.findUnique({ where: { key } });
       return setting?.value || defaultValue;
-    } catch (error) {
+    } catch {
       return defaultValue;
     }
   }
@@ -525,4 +465,6 @@ class MultiPrinterService {
   }
 }
 
+// Export both default and named export
 export const multiPrinterService = new MultiPrinterService();
+export default multiPrinterService;

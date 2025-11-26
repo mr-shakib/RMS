@@ -265,11 +265,11 @@ export default function PaymentPage() {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Print receipt
-      try {
-        await apiClient.post(`/printer/reprint/receipt/${selectedOrderId}`);
-      } catch (error) {
-        console.error('Failed to print receipt:', error);
-      }
+      // try {
+      //   await apiClient.post(`/printer/reprint/receipt/${selectedOrderId}`);
+      // } catch (error) {
+      //   console.error('Failed to print receipt:', error);
+      // }
       
       setShowPrintingAnimation(false);
       
