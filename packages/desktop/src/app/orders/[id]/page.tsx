@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { OrderStatus } from '@rms/shared';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface OrderDetailPageProps {
   params: {
@@ -16,6 +17,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const { formatCurrency } = useCurrency();
 
   // Fetch order details
   const { data: orderResponse, isLoading, error } = useQuery({
@@ -390,13 +392,13 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Price</p>
                     <p className="font-medium text-gray-900 dark:text-white">
-                      ${Number(item.price).toFixed(2)}
+                      {formatCurrency(Number(item.price))}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Subtotal</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      ${(Number(item.price) * item.quantity).toFixed(2)}
+                      {formatCurrency(Number(item.price) * item.quantity)}
                     </p>
                   </div>
                 </div>
@@ -418,34 +420,34 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         <div className="space-y-3">
           <div className="flex justify-between text-gray-600 dark:text-gray-400">
             <span>Subtotal:</span>
-            <span>${Number(order.subtotal).toFixed(2)}</span>
+            <span>{formatCurrency(Number(order.subtotal))}</span>
           </div>
           <div className="flex justify-between text-gray-600 dark:text-gray-400">
             <span>Tax:</span>
-            <span>${Number(order.tax).toFixed(2)}</span>
+            <span>{formatCurrency(Number(order.tax))}</span>
           </div>
           {Number(order.discount) > 0 && (
             <div className="flex justify-between text-green-600 dark:text-green-400">
               <span>Discount:</span>
-              <span>-${Number(order.discount).toFixed(2)}</span>
+              <span>-{formatCurrency(Number(order.discount))}</span>
             </div>
           )}
           {Number(order.serviceCharge) > 0 && (
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Service Charge:</span>
-              <span>${Number(order.serviceCharge).toFixed(2)}</span>
+              <span>{formatCurrency(Number(order.serviceCharge))}</span>
             </div>
           )}
           {Number(order.tip) > 0 && (
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Tip:</span>
-              <span>${Number(order.tip).toFixed(2)}</span>
+              <span>{formatCurrency(Number(order.tip))}</span>
             </div>
           )}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
             <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-white">
               <span>Total:</span>
-              <span>${Number(order.total).toFixed(2)}</span>
+              <span>{formatCurrency(Number(order.total))}</span>
             </div>
           </div>
         </div>

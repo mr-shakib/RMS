@@ -8,6 +8,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { ArrowLeftIcon, XMarkIcon, PlusIcon, MinusIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface OrderItem {
   menuItemId: string;
@@ -23,6 +24,7 @@ export default function TableOrderPage() {
   const params = useParams();
   const tableId = params.id as string;
   const queryClient = useQueryClient();
+  const { formatCurrency } = useCurrency();
   
   const { tables } = useTables();
   const { menuItems, isLoading: menuLoading } = useMenu();
@@ -329,7 +331,7 @@ export default function TableOrderPage() {
                             {selectedCategory.name}
                           </h3>
                           <p className="text-xl sm:text-2xl text-blue-600 dark:text-blue-400 font-bold">
-                            ${Number(selectedCategory.buffetPrice).toFixed(2)} <span className="text-xs sm:text-sm font-normal">per person</span>
+                            {formatCurrency(Number(selectedCategory.buffetPrice))} <span className="text-xs sm:text-sm font-normal">per person</span>
                           </p>
                         </div>
                         
@@ -409,7 +411,7 @@ export default function TableOrderPage() {
                               {item.name}
                             </h3>
                             <p className="text-sm sm:text-base md:text-lg lg:text-xl text-yellow-400 font-bold text-center">
-                              ${Number(item.price).toFixed(2)}
+                              {formatCurrency(Number(item.price))}
                             </p>
                           </div>
                         </button>
@@ -449,7 +451,7 @@ export default function TableOrderPage() {
                             {item.name}
                           </h4>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            ${item.price.toFixed(2)} each
+                            {formatCurrency(item.price)} each
                           </p>
                         </div>
                         <button
@@ -482,7 +484,7 @@ export default function TableOrderPage() {
                           </button>
                         </div>
                         <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -497,11 +499,11 @@ export default function TableOrderPage() {
             <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4">
               <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                <span className="text-gray-900 dark:text-white font-medium">${totals.subtotal.toFixed(2)}</span>
+                <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(totals.subtotal)}</span>
               </div>
               <div className="flex justify-between text-base sm:text-lg font-bold pt-1.5 sm:pt-2 border-t border-gray-200 dark:border-gray-700">
                 <span className="text-gray-900 dark:text-white">Total:</span>
-                <span className="text-gray-900 dark:text-white">${totals.total.toFixed(2)}</span>
+                <span className="text-gray-900 dark:text-white">{formatCurrency(totals.total)}</span>
               </div>
             </div>
             <button

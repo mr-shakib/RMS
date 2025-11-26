@@ -262,9 +262,8 @@ class MenuService {
       throw new Error('Cannot delete menu item that is in active orders');
     }
 
-    await prisma.menuItem.delete({
-      where: { id },
-    });
+    await prisma.orderItem.deleteMany({ where: { menuItemId: id } });
+    await prisma.menuItem.delete({ where: { id } });
   }
 
   /**

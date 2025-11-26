@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { ArrowLeftIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { toast } from '@/store/toastStore';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function NewMenuItemPage() {
   const router = useRouter();
   const { createMenuItem, isCreating } = useMenu();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { symbol } = useCurrency();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -401,7 +403,7 @@ export default function NewMenuItemPage() {
           )}
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              $
+              {symbol}
             </span>
             <input
               type="number"

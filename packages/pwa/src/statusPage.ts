@@ -139,7 +139,7 @@ export class StatusPage {
           <div class="order-summary-header">Order Summary</div>
           <div class="order-total">
             <span>Total Amount</span>
-            <span class="order-total-value">$${this.order.total.toFixed(2)}</span>
+            <span class="order-total-value">€${this.order.total.toFixed(2)}</span>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ export class StatusPage {
                 </div>
                 <div class="order-selector-item-details">
                   <span class="order-selector-item-time">${new Date(order.createdAt).toLocaleTimeString()}</span>
-                  <span class="order-selector-item-total">$${order.total.toFixed(2)}</span>
+                  <span class="order-selector-item-total">€${order.total.toFixed(2)}</span>
                 </div>
               </button>
             `;
@@ -225,7 +225,7 @@ export class StatusPage {
                   ${item.notes ? `<div class="order-item-notes">Note: ${item.notes}</div>` : ''}
                 </div>
                 <div class="order-item-quantity">× ${item.quantity}</div>
-                <div class="order-item-price">$${itemTotal.toFixed(2)}</div>
+                <div class="order-item-price">€${itemTotal.toFixed(2)}</div>
               </div>
             `;
           }).join('')}

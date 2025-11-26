@@ -158,7 +158,7 @@ router.patch('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) =
   }
 });
 
-// DELETE /api/categories/:id - Delete a category (Admin only)
+// DELETE /api/categories/:id - Delete a category and its items (Admin only)
 router.delete('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
   try {
     const { id } = req.params;
@@ -180,24 +180,60 @@ router.delete('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) 
       });
     }
 
-    // Prevent deletion if category has menu items
-    if (existing._count.primaryMenuItems > 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Cannot delete category with ${existing._count.primaryMenuItems} menu items. Please reassign or delete the items first.`,
-      });
-    }
+    const items = await prisma.menuItem.findMany({ where: { categoryId: id }, select: { id: true } });
+    const itemIds = items.map((i) => i.id);
 
-    await prisma.category.delete({
-      where: { id },
-    });
+    await prisma.$transaction([
+      prisma.orderItem.deleteMany({ where: { menuItemId: { in: itemIds } } }),
+      prisma.menuItem.deleteMany({ where: { categoryId: id } }),
+      prisma.category.delete({ where: { id } }),
+    ]);
 
-    res.status(204).send();
+    res.json({ status: 'success', message: 'Category and its items deleted' });
   } catch (error: any) {
     console.error('Error deleting category:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to delete category',
+    });
+  }
+});
+
+// PATCH /api/categories/reorder - Reorder categories by IDs (Admin only)
+router.patch('/reorder', authenticate, requireRole([Role.ADMIN]), async (req, res) => {
+  try {
+    const { categoryIds } = req.body as { categoryIds: string[] };
+
+    if (!Array.isArray(categoryIds)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'categoryIds must be an array',
+      });
+    }
+
+    await prisma.$transaction(
+      categoryIds.map((id, index) =>
+        prisma.category.update({
+          where: { id },
+          data: { sortOrder: index },
+        })
+      )
+    );
+
+    const categories = await prisma.category.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    res.json({
+      status: 'success',
+      data: { categories },
+      message: 'Categories reordered successfully',
+    });
+  } catch (error: any) {
+    console.error('Error reordering categories:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to reorder categories',
     });
   }
 });

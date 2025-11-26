@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrders } from '@/hooks/useOrders';
+import { useCurrency } from '@/hooks/useCurrency';
 import { OrderStatus } from '@rms/shared';
 
 type OrderStatusFilter = 'ALL' | OrderStatus;
@@ -140,6 +141,7 @@ interface OrderCardProps {
 }
 
 function OrderCard({ order, onClick }: OrderCardProps) {
+  const { formatCurrency } = useCurrency();
   const statusColors: Record<OrderStatus, string> = {
     [OrderStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     [OrderStatus.PREPARING]: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
@@ -233,7 +235,7 @@ function OrderCard({ order, onClick }: OrderCardProps) {
         <div className="text-right ml-4">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            ${order.total.toFixed(2)}
+            {formatCurrency(Number(order.total))}
           </p>
         </div>
       </div>
