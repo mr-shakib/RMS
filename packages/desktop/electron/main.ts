@@ -47,7 +47,12 @@ function createWindow() {
       devTools: isDev,
     },
     show: false, // Don't show until ready
+    autoHideMenuBar: true, // Hide menu bar (Alt key to show temporarily)
+    fullscreen: true, // Start in fullscreen mode
   });
+
+  // Hide the menu bar completely
+  mainWindow.setMenuBarVisibility(false);
 
   // Show window when ready to avoid flickering
   mainWindow.once('ready-to-show', () => {
@@ -65,6 +70,15 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Allow F11 to toggle fullscreen
+  mainWindow.on('leave-full-screen', () => {
+    console.log('Exited fullscreen mode');
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    console.log('Entered fullscreen mode');
   });
 
   // Handle window minimize to tray
@@ -136,6 +150,14 @@ function updateTrayMenu() {
       label: 'Hide',
       click: () => {
         mainWindow?.hide();
+      },
+    },
+    {
+      label: 'Toggle Fullscreen',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.setFullScreen(!mainWindow.isFullScreen());
+        }
       },
     },
     { type: 'separator' },
@@ -330,6 +352,15 @@ function setupIpcHandlers() {
       console.error('Failed to set auto-launch:', error);
       return { success: false, error: (error as Error).message };
     }
+  });
+
+  // Toggle fullscreen
+  ipcMain.handle('toggle-fullscreen', () => {
+    if (mainWindow) {
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      return { success: true, fullscreen: mainWindow.isFullScreen() };
+    }
+    return { success: false, error: 'Window not available' };
   });
 
   // Update controls

@@ -264,6 +264,13 @@ export default function PaymentPage() {
       // Simulate printing delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      // Print receipt
+      // try {
+      //   await apiClient.post(`/printer/reprint/receipt/${selectedOrderId}`);
+      // } catch (error) {
+      //   console.error('Failed to print receipt:', error);
+      // }
+      
       setShowPrintingAnimation(false);
       
       // Invalidate queries to refresh data

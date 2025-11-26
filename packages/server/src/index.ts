@@ -4,7 +4,7 @@ import { createApp } from './app';
 import { config } from './config';
 import { initializeWebSocket } from './websocket';
 import { printerService, initializationService } from './services';
-import { multiPrinterService } from './services/multiPrinterService';
+import multiPrinterService from './services/multiPrinterService'; // Changed to default import
 
 dotenv.config();
 
