@@ -92,6 +92,20 @@ body {
   margin-top: -3rem;
 }
 
+.selection-image {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.selection-image img {
+  width: 100%;
+  max-width: 700px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px var(--shadow-md);
+}
+
 .selection-card {
   background: var(--surface);
   border-radius: 16px;
