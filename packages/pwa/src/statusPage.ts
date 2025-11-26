@@ -131,6 +131,8 @@ export class StatusPage {
           <div class="order-time">Placed at ${new Date(this.order.createdAt).toLocaleTimeString()}</div>
         </div>
 
+        ${this.renderKitchenInstructions()}
+
         ${this.renderOrderItems()}
 
         <div class="order-summary">
@@ -227,6 +229,30 @@ export class StatusPage {
               </div>
             `;
           }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderKitchenInstructions(): string {
+    const notes = (this.order?.items || [])
+      .map((i) => i.notes)
+      .filter((n): n is string => !!n && n.trim().length > 0);
+    if (notes.length === 0) return '';
+    const unique = Array.from(new Set(notes.map((n) => n.trim())));
+    if (unique.length === 1) {
+      return `
+        <div class="order-details">
+          <div class="order-details-header">Kitchen Instructions</div>
+          <div>${unique[0]}</div>
+        </div>
+      `;
+    }
+    return `
+      <div class="order-details">
+        <div class="order-details-header">Kitchen Instructions</div>
+        <div>
+          ${unique.map((n) => `<div>• ${n}</div>`).join('')}
         </div>
       </div>
     `;

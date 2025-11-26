@@ -130,64 +130,27 @@ export class NextServerLauncher {
         cwd = path.join(__dirname, '../../');
         useShell = true;
       } else {
-        // In production, run Next.js server directly with Node.js
+        // In production, run Next.js standalone server
         const { app } = require('electron');
         const fs = require('fs');
         
         // Get app path (no asar, all files are unpacked)
         const nextDir = path.join(__dirname, '../../');
         
-        const nextBuildPath = path.join(nextDir, '.next');
-        if (!fs.existsSync(nextBuildPath)) {
-          throw new Error(`Next.js build not found at: ${nextBuildPath}`);
+        // Check for standalone server
+        const standaloneServerPath = path.join(nextDir, '.next/standalone/server.js');
+        
+        if (!fs.existsSync(standaloneServerPath)) {
+          throw new Error(`Next.js standalone server not found at: ${standaloneServerPath}`);
         }
         
-        const nextServerPath = path.join(nextDir, 'node_modules/next/dist/bin/next');
-        if (!fs.existsSync(nextServerPath)) {
-          throw new Error(`Next binary not found: ${nextServerPath}`);
-        }
+        // Use process.execPath which points to the Electron executable
+        // Electron has Node.js built-in, so we can use it directly
+        nextCommand = process.execPath;
+        nextArgs = [standaloneServerPath];
+        cwd = path.join(nextDir, '.next/standalone');
         
-        // Get Node.js executable - NOT process.execPath which points to .exe in packaged apps
-        const isPackaged = app.isPackaged;
-        let nodeCommand: string = '';
-        
-        if (isPackaged) {
-          // In packaged app, look for node.exe in multiple locations
-          const appDir = path.dirname(app.getPath('exe'));
-          const bundledNode = path.join(appDir, 'node.exe');
-          
-          if (fs.existsSync(bundledNode)) {
-            nodeCommand = bundledNode;
-            console.log(`✓ Using bundled node: ${nodeCommand}`);
-          } else {
-            // Check common node installation locations
-            const possiblePaths = [
-              'C:\\Program Files\\nodejs\\node.exe',
-              'C:\\Program Files (x86)\\nodejs\\node.exe',
-              path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'nodejs', 'node.exe'),
-              path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe'),
-            ];
-            
-            for (const nodePath of possiblePaths) {
-              if (fs.existsSync(nodePath)) {
-                nodeCommand = nodePath;
-                console.log(`✓ Found system node at: ${nodeCommand}`);
-                break;
-              }
-            }
-            
-            if (!nodeCommand) {
-              throw new Error('Node.js not found. Please install Node.js or bundle node.exe with the app.');
-            }
-          }
-        } else {
-          // In development, use system node
-          nodeCommand = 'node';
-        }
-        
-        nextCommand = nodeCommand;
-        nextArgs = [nextServerPath, 'start', '-p', port.toString()];
-        cwd = nextDir;
+        console.log(`✓ Using Electron's Node.js: ${nextCommand}`);
       }
       
       console.log(`Running: ${nextCommand} ${nextArgs.join(' ')}`);

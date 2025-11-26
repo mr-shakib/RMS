@@ -11,13 +11,21 @@
   "files": [
     "dist/electron/**/*",
     {
-      "from": ".next",
-      "to": ".next",
-      "filter": ["**/*", "!cache/**/*"]
+      "from": ".next/standalone",
+      "to": ".next/standalone",
+      "filter": ["**/*"]
     },
-    "public/**/*",
-    "package.json",
-    "node_modules/**/*"
+    {
+      "from": ".next/static",
+      "to": ".next/static",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "public",
+      "to": "public",
+      "filter": ["**/*"]
+    },
+    "package.json"
   ],
   "extraResources": [
     {

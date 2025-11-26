@@ -12,4 +12,5 @@ electron_1.contextBridge.exposeInMainWorld('electron', {
     setAutoLaunch: (enable) => electron_1.ipcRenderer.invoke('set-auto-launch', enable),
     checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
+    quitApp: () => electron_1.ipcRenderer.invoke('quit-app'),
 });

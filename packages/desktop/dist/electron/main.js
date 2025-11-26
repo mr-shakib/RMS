@@ -70,10 +70,15 @@ function createWindow() {
             devTools: isDev,
         },
         show: false, // Don't show until ready
+        autoHideMenuBar: true, // Hide menu bar (Alt key to show temporarily)
     });
+    // Hide the menu bar completely
+    mainWindow.setMenuBarVisibility(false);
     // Show window when ready to avoid flickering
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();
+        // Maximize the window to fill the entire screen after showing
+        mainWindow?.maximize();
     });
     // Load from Next.js server (dev or production)
     const nextUrl = nextServerConfig?.url || 'http://localhost:3000';
@@ -85,8 +90,26 @@ function createWindow() {
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
-    // Don't minimize to tray or hide - behave like a normal desktop app
-    // Window stays visible in taskbar at all times
+    // Allow F11 to toggle fullscreen
+    mainWindow.on('leave-full-screen', () => {
+        console.log('Exited fullscreen mode');
+    });
+    mainWindow.on('enter-full-screen', () => {
+        console.log('Entered fullscreen mode');
+    });
+    // Handle window minimize to tray
+    mainWindow.on('minimize', (event) => {
+        if (tray) {
+            event.preventDefault();
+            mainWindow?.hide();
+        }
+    });
+    mainWindow.on('close', (event) => {
+        if (!appWithQuitting.isQuitting && tray) {
+            event.preventDefault();
+            mainWindow?.hide();
+        }
+    });
 }
 /**
  * Create system tray icon and menu
@@ -134,6 +157,14 @@ function updateTrayMenu() {
             label: 'Hide',
             click: () => {
                 mainWindow?.hide();
+            },
+        },
+        {
+            label: 'Toggle Fullscreen',
+            click: () => {
+                if (mainWindow) {
+                    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+                }
             },
         },
         { type: 'separator' },
@@ -316,6 +347,14 @@ function setupIpcHandlers() {
             return { success: false, error: error.message };
         }
     });
+    // Toggle fullscreen
+    electron_1.ipcMain.handle('toggle-fullscreen', () => {
+        if (mainWindow) {
+            mainWindow.setFullScreen(!mainWindow.isFullScreen());
+            return { success: true, fullscreen: mainWindow.isFullScreen() };
+        }
+        return { success: false, error: 'Window not available' };
+    });
     // Update controls
     electron_1.ipcMain.handle('check-for-updates', async () => {
         if (isDev) {
@@ -353,6 +392,21 @@ function setupIpcHandlers() {
         }
         */
     });
+    // Quit application
+    electron_1.ipcMain.handle('quit-app', () => {
+        try {
+            appWithQuitting.isQuitting = true;
+            // Use setImmediate to ensure the response is sent before quitting
+            setImmediate(() => {
+                electron_1.app.quit();
+            });
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Error quitting app:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
 // Application lifecycle
 electron_1.app.whenReady().then(async () => {
@@ -364,24 +418,31 @@ electron_1.app.whenReady().then(async () => {
                 const userDataPath = electron_1.app.getPath('userData');
                 const logPath = path.join(userDataPath, 'startup.log');
                 logStream = fs.createWriteStream(logPath, { flags: 'a' });
+                // Override console.log and console.error to also write to file
                 const originalLog = console.log;
                 const originalError = console.error;
                 console.log = (...args) => {
                     const message = args.join(' ');
+                    originalLog(...args);
                     if (logStream) {
                         try {
                             logStream.write(`[LOG ${new Date().toISOString()}] ${message}\n`);
                         }
-                        catch { }
+                        catch (e) {
+                            // Ignore write errors
+                        }
                     }
                 };
                 console.error = (...args) => {
                     const message = args.join(' ');
+                    originalError(...args);
                     if (logStream) {
                         try {
                             logStream.write(`[ERROR ${new Date().toISOString()}] ${message}\n`);
                         }
-                        catch { }
+                        catch (e) {
+                            // Ignore write errors
+                        }
                     }
                 };
             }

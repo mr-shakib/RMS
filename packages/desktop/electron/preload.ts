@@ -14,6 +14,7 @@ export interface ElectronAPI {
   setAutoLaunch: (enable: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>;
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
+  quitApp: () => Promise<{ success: boolean }>;
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -28,4 +29,5 @@ contextBridge.exposeInMainWorld('electron', {
   setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  quitApp: () => ipcRenderer.invoke('quit-app'),
 } as ElectronAPI);

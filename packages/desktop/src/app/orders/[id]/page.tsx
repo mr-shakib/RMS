@@ -151,6 +151,13 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     day: 'numeric',
   });
   const formattedTime = orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const kitchenNotes: string[] = Array.from(
+    new Set(
+      (order.items || [])
+        .map((i: any) => (typeof i.notes === 'string' ? i.notes.trim() : ''))
+        .filter((n: string) => n.length > 0)
+    )
+  );
 
   return (
     <div className="p-6 space-y-6">
@@ -332,6 +339,24 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Kitchen Instructions */}
+      {kitchenNotes.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Kitchen Instructions
+          </h2>
+          {kitchenNotes.length === 1 ? (
+            <p className="text-gray-700 dark:text-gray-300">{kitchenNotes[0]}</p>
+          ) : (
+            <ul className="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+              {kitchenNotes.map((n, idx) => (
+                <li key={idx}>{n}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Order Items */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">

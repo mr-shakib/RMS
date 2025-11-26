@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore } from '@/store/uiStore';
@@ -11,6 +12,7 @@ import {
   TableCellsIcon,
   BookOpenIcon,
   CreditCardIcon,
+  ShoppingCartIcon,
   CogIcon,
   TvIcon,
   ArrowRightOnRectangleIcon,
@@ -19,6 +21,8 @@ import {
   SunIcon,
   MoonIcon,
   ChartBarIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -38,7 +42,7 @@ const navItems: NavItem[] = [
   {
     translationKey: 'sidebar.orders',
     href: '/orders',
-    icon: ShoppingBagIcon,
+    icon: ShoppingCartIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
@@ -50,7 +54,7 @@ const navItems: NavItem[] = [
   {
     translationKey: 'sidebar.takeAway',
     href: '/billing',
-    icon: CreditCardIcon,
+    icon: ShoppingBagIcon,
     roles: [Role.ADMIN, Role.WAITER],
   },
   {
@@ -65,12 +69,12 @@ const navItems: NavItem[] = [
   //   icon: ChartBarIcon,
   //   roles: [Role.ADMIN, Role.WAITER],
   // },
-  {
-    translationKey: 'sidebar.kitchenDisplay',
-    href: '/kds',
-    icon: TvIcon,
-    roles: [Role.ADMIN, Role.CHEF],
-  },
+  // {
+  //   translationKey: 'sidebar.kitchenDisplay',
+  //   href: '/kds',
+  //   icon: TvIcon,
+  //   roles: [Role.ADMIN, Role.CHEF],
+  // },
   {
     translationKey: 'sidebar.settings',
     href: '/settings',
@@ -83,16 +87,33 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { currentUser, theme, toggleTheme } = useUIStore();
   const { t } = useTranslation();
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Filter nav items based on user role
   const visibleNavItems = currentUser
     ? navItems.filter((item) => item.roles.includes(currentUser.role))
     : [];
 
-  const handleLogout = () => {
-    // Logout logic will be implemented in task 7.2
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+  const handleExitClick = () => {
+    setShowExitConfirm(true);
+  };
+
+  const handleExitConfirm = async () => {
+    try {
+      if (window.electron?.quitApp) {
+        console.log('Quitting application...');
+        await window.electron.quitApp();
+      } else {
+        console.warn('Electron API not available - running in browser mode');
+      }
+    } catch (error) {
+      console.error('Failed to quit app:', error);
+    }
+    setShowExitConfirm(false);
+  };
+
+  const handleExitCancel = () => {
+    setShowExitConfirm(false);
   };
 
   return (
@@ -176,15 +197,50 @@ export default function Sidebar() {
           </span>
         </button>
 
-        {/* Logout */}
+        {/* Exit App - Enhanced Styling */}
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          onClick={handleExitClick}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 mt-2 rounded-lg font-semibold text-sm text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
         >
-          <ArrowRightOnRectangleIcon className="w-4 h-4 flex-shrink-0" />
-          <span className="text-xs">{t('sidebar.logout')}</span>
+          <XCircleIcon className="w-5 h-5 flex-shrink-0" />
+          <span>Exit App</span>
         </button>
       </div>
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="w-10 h-10 text-yellow-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Exit Application
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                  Are you sure you want to exit the application? All unsaved data will be lost.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={handleExitCancel}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExitConfirm}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  >
+                    Exit App
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

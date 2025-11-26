@@ -48,7 +48,6 @@ function createWindow() {
     },
     show: false, // Don't show until ready
     autoHideMenuBar: true, // Hide menu bar (Alt key to show temporarily)
-    fullscreen: true, // Start in fullscreen mode
   });
 
   // Hide the menu bar completely
@@ -57,6 +56,8 @@ function createWindow() {
   // Show window when ready to avoid flickering
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+    // Maximize the window to fill the entire screen after showing
+    mainWindow?.maximize();
   });
 
   // Load from Next.js server (dev or production)
@@ -402,6 +403,21 @@ function setupIpcHandlers() {
       return { success: false, error: (error as Error).message };
     }
     */
+  });
+
+  // Quit application
+  ipcMain.handle('quit-app', () => {
+    try {
+      appWithQuitting.isQuitting = true;
+      // Use setImmediate to ensure the response is sent before quitting
+      setImmediate(() => {
+        app.quit();
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error quitting app:', error);
+      return { success: false, error: (error as Error).message };
+    }
   });
 }
 
