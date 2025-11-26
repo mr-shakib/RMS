@@ -67,8 +67,20 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Don't minimize to tray or hide - behave like a normal desktop app
-  // Window stays visible in taskbar at all times
+  // Handle window minimize to tray
+  mainWindow.on('minimize', (event: Electron.Event) => {
+    if (tray) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
+  mainWindow.on('close', (event: Electron.Event) => {
+    if (!appWithQuitting.isQuitting && tray) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
 }
 
 /**
@@ -373,24 +385,31 @@ app.whenReady().then(async () => {
         const logPath = path.join(userDataPath, 'startup.log');
         logStream = fs.createWriteStream(logPath, { flags: 'a' });
         
+        // Override console.log and console.error to also write to file
         const originalLog = console.log;
         const originalError = console.error;
         
         console.log = (...args: any[]) => {
           const message = args.join(' ');
+          originalLog(...args);
           if (logStream) {
             try {
               logStream.write(`[LOG ${new Date().toISOString()}] ${message}\n`);
-            } catch {}
+            } catch (e) {
+              // Ignore write errors
+            }
           }
         };
         
         console.error = (...args: any[]) => {
           const message = args.join(' ');
+          originalError(...args);
           if (logStream) {
             try {
               logStream.write(`[ERROR ${new Date().toISOString()}] ${message}\n`);
-            } catch {}
+            } catch (e) {
+              // Ignore write errors
+            }
           }
         };
       } catch (error) {

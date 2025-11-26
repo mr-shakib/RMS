@@ -49,19 +49,14 @@ try {
 }
 
 // Prepare Next.js for packaging
-console.log('\n📦 Verifying Next.js build...');
+console.log('\n📦 Preparing Next.js for packaging...');
 try {
-  const nextDir = path.join(__dirname, '..');
-  const nextBuildDir = path.join(nextDir, '.next');
-  const fs = require('fs');
-  if (!fs.existsSync(nextBuildDir)) {
-    console.log('ℹ️ .next not found, running Next.js build...');
-    execSync('npm run build:next', { stdio: 'inherit', cwd: nextDir });
-  } else {
-    console.log('✓ Next.js build present');
-  }
+  execSync(`node ${path.join(__dirname, 'prepare-next.js')}`, { 
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '..')
+  });
 } catch (error) {
-  console.error('✗ Next.js verification failed');
+  console.error('✗ Next.js preparation failed');
   process.exit(1);
 }
 
