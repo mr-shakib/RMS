@@ -5,6 +5,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useTables } from '@/hooks/useTables';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { OrderStatus, PaymentMethod } from '@rms/shared';
@@ -32,6 +33,7 @@ interface ManualBillReceiptModalProps {
 }
 
 function ManualBillReceiptModal({ receipt, onClose }: ManualBillReceiptModalProps) {
+  const { formatCurrency } = useCurrency();
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -81,7 +83,7 @@ function ManualBillReceiptModal({ receipt, onClose }: ManualBillReceiptModalProp
                   {item.quantity}x {item.name}
                 </span>
                 <span className="text-gray-900 dark:text-white">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  {formatCurrency(Number(item.price) * item.quantity)}
                 </span>
               </div>
             ))}
@@ -91,12 +93,12 @@ function ManualBillReceiptModal({ receipt, onClose }: ManualBillReceiptModalProp
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
               <span>Subtotal:</span>
-              <span>${receipt.totals.subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(Number(receipt.totals.subtotal))}</span>
             </div>
             <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
               <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white">
                 <span>Total:</span>
-                <span>${receipt.totals.total.toFixed(2)}</span>
+                <span>{formatCurrency(Number(receipt.totals.total))}</span>
               </div>
             </div>
           </div>
@@ -114,13 +116,13 @@ function ManualBillReceiptModal({ receipt, onClose }: ManualBillReceiptModalProp
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">Cash Received:</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    ${receipt.cashReceived.toFixed(2)}
+                    {formatCurrency(Number(receipt.cashReceived))}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">Change:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    ${receipt.change.toFixed(2)}
+                    {formatCurrency(Number(receipt.change))}
                   </span>
                 </div>
               </>
@@ -151,6 +153,7 @@ export default function BillingPage() {
   const { tables } = useTables();
   const { menuItems, isLoading: menuLoading } = useMenu();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { formatCurrency } = useCurrency();
   const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
@@ -640,9 +643,9 @@ export default function BillingPage() {
                     className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white 
                              rounded-lg font-semibold transition-colors"
                   >
-                    Add Buffet ($
-                    {selectedCategory.buffetPrice 
-                      ? (selectedCategory.buffetPrice * buffetCount).toFixed(2)
+                    Add Buffet (
+                    {selectedCategory.buffetPrice
+                      ? formatCurrency(Number(selectedCategory.buffetPrice) * buffetCount)
                       : 'Price not set'
                     })
                   </button>
@@ -716,7 +719,7 @@ export default function BillingPage() {
                             {item.name}
                           </h3>
                           <p className="text-sm sm:text-base md:text-lg lg:text-xl text-yellow-400 font-bold text-center">
-                            ${Number(item.price).toFixed(2)}
+                            {formatCurrency(Number(item.price))}
                           </p>
                         </div>
                       </button>
@@ -758,7 +761,7 @@ export default function BillingPage() {
                             {item.name}
                           </h4>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            ${item.price.toFixed(2)} each
+                            {formatCurrency(Number(item.price))} each
                           </p>
                         </div>
                         <button
@@ -791,7 +794,7 @@ export default function BillingPage() {
                           </button>
                         </div>
                         <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatCurrency(Number(item.price) * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -886,19 +889,19 @@ export default function BillingPage() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                     <span>Subtotal:</span>
-                    <span>${manualBillTotals.subtotal.toFixed(2)}</span>
+                    <span>{formatCurrency(Number(manualBillTotals.subtotal))}</span>
                   </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                      <span>Discount ({discount}%):</span>
-                      <span>-${manualBillTotals.discount.toFixed(2)}</span>
-                    </div>
-                  )}
+                    {discount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                        <span>Discount ({discount}%):</span>
+                        <span>-{formatCurrency(Number(manualBillTotals.discount))}</span>
+                      </div>
+                    )}
                   <div className="pt-1 border-t border-gray-300 dark:border-gray-600">
                     <div className="flex justify-between">
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Grand Total:</span>
                       <span className="text-xl font-bold text-gray-900 dark:text-white">
-                        ${manualBillTotals.total.toFixed(2)}
+                        {formatCurrency(Number(manualBillTotals.total))}
                       </span>
                     </div>
                   </div>

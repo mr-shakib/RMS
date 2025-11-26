@@ -16,7 +16,8 @@ export function useCategories() {
     queryKey: ['categories'],
     queryFn: async () => {
       const response = await apiClient.get<{ status: string; data: { categories: CategoryWithCount[] } }>('/categories');
-      return response.data?.categories || [];
+      const list = response.data?.categories || [];
+      return [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     },
   });
 
@@ -28,8 +29,8 @@ export function useCategories() {
     },
     onSuccess: (newCategory) => {
       queryClient.setQueryData<CategoryWithCount[]>(['categories'], (old) => {
-        if (!old) return [newCategory];
-        return [...old, newCategory];
+        const updated = [...(old || []), newCategory];
+        return updated.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       });
     },
   });
@@ -42,8 +43,8 @@ export function useCategories() {
     },
     onSuccess: (updatedCategory) => {
       queryClient.setQueryData<CategoryWithCount[]>(['categories'], (old) => {
-        if (!old) return [updatedCategory];
-        return old.map((cat) => (cat.id === updatedCategory.id ? updatedCategory : cat));
+        const updated = (old || []).map((cat) => (cat.id === updatedCategory.id ? updatedCategory : cat));
+        return updated.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       });
     },
   });

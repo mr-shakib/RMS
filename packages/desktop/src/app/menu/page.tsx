@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { PlusIcon, MagnifyingGlassIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function MenuPage() {
   const router = useRouter();
   const { menuItems, isLoading, toggleAvailability } = useMenu();
   const { categories, isLoading: categoriesLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
+  const { formatCurrency, symbol } = useCurrency();
   
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'BUFFET' | 'ALL_ITEMS'>('ALL_ITEMS');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -22,7 +24,7 @@ export default function MenuPage() {
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false, buffetPrice: 0 });
+  const [categoryFormData, setCategoryFormData] = useState({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // Get buffet and regular categories
@@ -135,8 +137,9 @@ export default function MenuPage() {
         name: categoryFormData.name.trim(),
         isBuffet: categoryFormData.isBuffet,
         buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
+        sortOrder: categoryFormData.sortOrder,
       });
-      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
       setShowAddCategoryModal(false);
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to create category');
@@ -159,11 +162,12 @@ export default function MenuPage() {
           name: categoryFormData.name.trim(),
           isBuffet: categoryFormData.isBuffet,
           buffetPrice: categoryFormData.isBuffet ? categoryFormData.buffetPrice : undefined,
+          sortOrder: categoryFormData.sortOrder,
         },
       });
       setShowEditCategoryModal(false);
       setSelectedCategory(null);
-      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+      setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to update category');
     }
@@ -187,7 +191,8 @@ export default function MenuPage() {
     setCategoryFormData({ 
       name: category.name, 
       isBuffet: category.isBuffet,
-      buffetPrice: category.buffetPrice || 0
+      buffetPrice: category.buffetPrice || 0,
+      sortOrder: category.sortOrder ?? 0,
     });
     setCategoryError(null);
     setShowEditCategoryModal(true);
@@ -345,7 +350,7 @@ export default function MenuPage() {
                   >
                     {categoryName}
                     {category?.isBuffet && category.buffetPrice && (
-                      <span className="ml-1 text-xs font-bold">${category.buffetPrice.toFixed(2)}</span>
+                      <span className="ml-1 text-xs font-bold">{formatCurrency(category.buffetPrice)}</span>
                     )}
                     <span className="ml-2 text-xs opacity-75">({count})</span>
                   </button>
@@ -399,7 +404,7 @@ export default function MenuPage() {
           onClose={() => setShowCategoryModal(false)}
           onAdd={() => {
             setShowCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
             setShowAddCategoryModal(true);
           }}
@@ -419,7 +424,7 @@ export default function MenuPage() {
           onSubmit={handleAddCategory}
           onClose={() => {
             setShowAddCategoryModal(false);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
           }}
         />
@@ -437,7 +442,7 @@ export default function MenuPage() {
           onClose={() => {
             setShowEditCategoryModal(false);
             setSelectedCategory(null);
-            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0 });
+            setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
             setCategoryError(null);
           }}
         />
@@ -471,6 +476,7 @@ interface MenuItemCardProps {
 }
 
 function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
+  const { formatCurrency } = useCurrency();
   return (
     <div
       className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg 
@@ -528,7 +534,7 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
         {/* Price */}
         <div>
           <span className="text-xl font-bold text-gray-900 dark:text-white">
-            ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+            {typeof item.price === 'number' ? formatCurrency(item.price) : item.price}
           </span>
         </div>
       </div>
@@ -624,15 +630,16 @@ function CategoryManagementModal({ categories, onClose, onAdd, onEdit, onDelete 
 // Category Form Modal Component
 interface CategoryFormModalProps {
   title: string;
-  formData: { name: string; isBuffet: boolean; buffetPrice: number };
+  formData: { name: string; isBuffet: boolean; buffetPrice: number; sortOrder: number };
   error: string | null;
   isSubmitting: boolean;
-  onChange: (data: { name: string; isBuffet: boolean; buffetPrice: number }) => void;
+  onChange: (data: { name: string; isBuffet: boolean; buffetPrice: number; sortOrder: number }) => void;
   onSubmit: () => void;
   onClose: () => void;
 }
 
 function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onSubmit, onClose }: CategoryFormModalProps) {
+  const { symbol } = useCurrency();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
@@ -695,7 +702,7 @@ function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onS
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                  $
+                  {symbol}
                 </span>
                 <input
                   type="number"
@@ -714,6 +721,26 @@ function CategoryFormModal({ title, formData, error, isSubmitting, onChange, onS
               </p>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Priority Number
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formData.sortOrder}
+              onChange={(e) => onChange({ ...formData, sortOrder: parseInt(e.target.value || '0', 10) })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                       focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Lower numbers show earlier. Use unique numbers to define order.
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
@@ -765,7 +792,7 @@ function DeleteCategoryModal({ category, error, isDeleting, onConfirm, onClose }
             Are you sure you want to delete the category <strong>{category.name}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            This action cannot be undone. Categories with menu items cannot be deleted.
+            Deleting this category will also delete all items in it. This cannot be undone.
           </p>
 
           <div className="flex gap-3 justify-end pt-4">

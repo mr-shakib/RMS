@@ -81,6 +81,10 @@ export class SelectionPage {
               <div class="selection-card-badge">Per Item</div>
             </div>
           </div>
+
+          <div class="selection-image">
+            <img src="/r_n_r.jpg" alt="Restaurant" />
+          </div>
         </div>
 
         <!-- Buffet Category Modal -->

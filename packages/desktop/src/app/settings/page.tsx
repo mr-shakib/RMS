@@ -19,6 +19,7 @@ import {
   DocumentArrowDownIcon,
   DocumentArrowUpIcon,
   LanguageIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import { SUPPORTED_LOCALES, LOCALE_NAMES, Locale } from '@/i18n';
 
@@ -1211,6 +1212,30 @@ function BackupThemeSettings({ settings, onSuccess, onError }: SettingsTabProps)
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
           Resets all settings to their default values
         </p>
+      </div>
+
+      {/* Logout Section */}
+      <div className="pt-6 border-t-2 border-gray-300 dark:border-gray-600">
+        <div className="p-6 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+          <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+            <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+            Logout
+          </h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Sign out of your account and return to the login screen
+          </p>
+          <button
+            onClick={() => {
+              localStorage.removeItem('token');
+              window.location.href = '/login';
+            }}
+            className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg
+                     font-semibold transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+          >
+            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            Logout from Account
+          </button>
+        </div>
       </div>
     </div>
   );

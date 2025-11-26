@@ -131,13 +131,15 @@ export class StatusPage {
           <div class="order-time">Placed at ${new Date(this.order.createdAt).toLocaleTimeString()}</div>
         </div>
 
+        ${this.renderKitchenInstructions()}
+
         ${this.renderOrderItems()}
 
         <div class="order-summary">
           <div class="order-summary-header">Order Summary</div>
           <div class="order-total">
             <span>Total Amount</span>
-            <span class="order-total-value">$${this.order.total.toFixed(2)}</span>
+            <span class="order-total-value">€${this.order.total.toFixed(2)}</span>
           </div>
         </div>
 
@@ -195,7 +197,7 @@ export class StatusPage {
                 </div>
                 <div class="order-selector-item-details">
                   <span class="order-selector-item-time">${new Date(order.createdAt).toLocaleTimeString()}</span>
-                  <span class="order-selector-item-total">$${order.total.toFixed(2)}</span>
+                  <span class="order-selector-item-total">€${order.total.toFixed(2)}</span>
                 </div>
               </button>
             `;
@@ -223,10 +225,34 @@ export class StatusPage {
                   ${item.notes ? `<div class="order-item-notes">Note: ${item.notes}</div>` : ''}
                 </div>
                 <div class="order-item-quantity">× ${item.quantity}</div>
-                <div class="order-item-price">$${itemTotal.toFixed(2)}</div>
+                <div class="order-item-price">€${itemTotal.toFixed(2)}</div>
               </div>
             `;
           }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderKitchenInstructions(): string {
+    const notes = (this.order?.items || [])
+      .map((i) => i.notes)
+      .filter((n): n is string => !!n && n.trim().length > 0);
+    if (notes.length === 0) return '';
+    const unique = Array.from(new Set(notes.map((n) => n.trim())));
+    if (unique.length === 1) {
+      return `
+        <div class="order-details">
+          <div class="order-details-header">Kitchen Instructions</div>
+          <div>${unique[0]}</div>
+        </div>
+      `;
+    }
+    return `
+      <div class="order-details">
+        <div class="order-details-header">Kitchen Instructions</div>
+        <div>
+          ${unique.map((n) => `<div>• ${n}</div>`).join('')}
         </div>
       </div>
     `;

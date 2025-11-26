@@ -9,7 +9,7 @@ interface CurrencySettings {
 
 const CURRENCY_MAP: Record<string, CurrencySettings> = {
   USD: { symbol: '$', code: 'USD', position: 'before' },
-  EUR: { symbol: '€', code: 'EUR', position: 'after' },
+  EUR: { symbol: '€', code: 'EUR', position: 'before' },
   GBP: { symbol: '£', code: 'GBP', position: 'before' },
   INR: { symbol: '₹', code: 'INR', position: 'before' },
   JPY: { symbol: '¥', code: 'JPY', position: 'before' },
@@ -22,7 +22,7 @@ export function useCurrency() {
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const currencyCode = settingsResponse?.data.settings.CURRENCY || 'USD';
+  const currencyCode = settingsResponse?.data.settings.CURRENCY || 'EUR';
   const currencySettings = CURRENCY_MAP[currencyCode] || CURRENCY_MAP.USD;
 
   const formatCurrency = (amount: number): string => {

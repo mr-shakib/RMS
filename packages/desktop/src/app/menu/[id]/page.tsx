@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { ArrowLeftIcon, PhotoIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from '@/store/toastStore';
 
 export default function EditMenuItemPage() {
@@ -13,6 +14,7 @@ export default function EditMenuItemPage() {
   const itemId = params.id as string;
   const { menuItems, updateMenuItem, deleteMenuItem, isUpdating, isDeleting } = useMenu();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { formatCurrency, symbol } = useCurrency();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -400,7 +402,7 @@ export default function EditMenuItemPage() {
               <optgroup label="Buffet Categories">
                 {buffetCategories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name} (${category.buffetPrice?.toFixed(2) || '0.00'})
+                    {category.name} ({formatCurrency(Number(category.buffetPrice || 0))})
                   </option>
                 ))}
               </optgroup>
@@ -458,7 +460,7 @@ export default function EditMenuItemPage() {
           )}
           <div className="relative">
             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              $
+              {symbol}
             </span>
             <input
               type="number"

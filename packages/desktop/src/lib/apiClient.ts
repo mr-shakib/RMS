@@ -3,6 +3,14 @@ declare global {
   interface Window {
     electron?: {
       getServerInfo: () => Promise<{ serverUrl?: string; url?: string; port: number }>;
+      showNotification: (title: string, body: string) => Promise<void>;
+      getAppVersion: () => Promise<string>;
+      restartServer: () => Promise<{ success: boolean; error?: string }>;
+      getAutoLaunchStatus: () => Promise<boolean>;
+      setAutoLaunch: (enable: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>;
+      checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+      installUpdate: () => Promise<{ success: boolean; error?: string }>;
+      quitApp: () => Promise<{ success: boolean }>;
     };
   }
 }

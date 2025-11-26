@@ -206,6 +206,27 @@ class MultiPrinterService {
     }
   }
 
+  async printFullOrder(orderId: string): Promise<void> {
+    const printerId = await this.getSetting('full_order_printer_id', '');
+    if (!printerId) return;
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { menuItem: { include: { category: true } } } },
+        table: true,
+      },
+    });
+    if (!order) throw new PrinterError('Order not found');
+    let connection = this.printers.get(printerId);
+    if (!connection) {
+      await this.connectPrinter(printerId);
+      connection = this.printers.get(printerId) || null as any;
+    }
+    if (!connection) throw new PrinterError('Printer not available');
+    const businessName = await this.getSetting('business_name', 'Restaurant');
+    await this.printKitchenTicketOnPrinter(connection, order, order.items, businessName);
+  }
+
   /**
    * Create a fresh printer instance for each print job
    */

@@ -15,6 +15,7 @@ import {
   ReceiptPercentIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface CalculatorState {
   display: string;
@@ -26,6 +27,7 @@ interface CalculatorState {
 export default function PaymentPage() {
   const { orders, isLoading, refetch } = useOrders();
   const queryClient = useQueryClient();
+  const { formatCurrency } = useCurrency();
   
   // State management
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -323,7 +325,7 @@ export default function PaymentPage() {
     }
     
     if (paymentMethod === PaymentMethod.CASH && cashReceived < orderTotals.total) {
-      alert(`Insufficient cash. Need at least $${orderTotals.total.toFixed(2)}`);
+      alert(`Insufficient cash. Need at least ${formatCurrency(orderTotals.total)}`);
       return;
     }
     
@@ -433,7 +435,7 @@ export default function PaymentPage() {
                       </div>
                       <div className="text-right ml-2">
                         <span className="text-sm font-bold text-gray-900 dark:text-white block">
-                          ${Number(order.total).toFixed(2)}
+                          {formatCurrency(Number(order.total))}
                         </span>
                         {isSelected && (
                           <CheckCircleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 inline-block" />
@@ -460,7 +462,7 @@ export default function PaymentPage() {
                 {/* Calculator Display */}
                 <div className="bg-gray-900 dark:bg-gray-950 rounded p-2 mb-1">
                   <div className="text-right text-xl font-mono font-bold text-green-400">
-                    ${calculator.display}
+                    {formatCurrency(parseFloat(calculator.display) || 0)}
                   </div>
                 </div>
                 
@@ -477,7 +479,7 @@ export default function PaymentPage() {
                       })}
                       className="h-7 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-semibold transition-colors"
                     >
-                      ${amount}
+                      {formatCurrency(amount)}
                     </button>
                   ))}
                 </div>
@@ -530,30 +532,30 @@ export default function PaymentPage() {
                 <div className="space-y-1.5 mb-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                    <span className="text-gray-900 dark:text-white font-medium">${orderTotals.subtotal.toFixed(2)}</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(orderTotals.subtotal)}</span>
                   </div>
                   {orderTotals.tax > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Tax:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">${orderTotals.tax.toFixed(2)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(orderTotals.tax)}</span>
                     </div>
                   )}
                   {orderTotals.discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                       <span>Discount:</span>
-                      <span className="font-medium">-${orderTotals.discount.toFixed(2)}</span>
+                      <span className="font-medium">-{formatCurrency(orderTotals.discount)}</span>
                     </div>
                   )}
                   {orderTotals.serviceCharge > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Service:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">${orderTotals.serviceCharge.toFixed(2)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(orderTotals.serviceCharge)}</span>
                     </div>
                   )}
                   {orderTotals.tip > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Tip:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">${orderTotals.tip.toFixed(2)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(orderTotals.tip)}</span>
                     </div>
                   )}
                 </div>
@@ -562,7 +564,7 @@ export default function PaymentPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Total:</span>
                     <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ${orderTotals.total.toFixed(2)}
+                      {formatCurrency(orderTotals.total)}
                     </span>
                   </div>
                 </div>
@@ -609,13 +611,13 @@ export default function PaymentPage() {
                     <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Amount Due:</span>
                       <span className="text-lg font-bold text-gray-900 dark:text-white">
-                        ${orderTotals.total.toFixed(2)}
+                        {formatCurrency(orderTotals.total)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Cash Received:</span>
                       <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                        ${cashReceived.toFixed(2)}
+                        {formatCurrency(cashReceived)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border-2 border-green-200 dark:border-green-800">
@@ -625,7 +627,7 @@ export default function PaymentPage() {
                           ? 'text-green-600 dark:text-green-400' 
                           : 'text-red-600 dark:text-red-400'
                       }`}>
-                        ${changeAmount.toFixed(2)}
+                        {formatCurrency(changeAmount)}
                       </span>
                     </div>
                   </div>
@@ -738,24 +740,24 @@ export default function PaymentPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                   <span>Subtotal:</span>
-                  <span>${successReceipt.totals.subtotal.toFixed(2)}</span>
+                  <span>{formatCurrency(successReceipt.totals.subtotal)}</span>
                 </div>
                 {successReceipt.totals.tax > 0 && (
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                     <span>Tax:</span>
-                    <span>${successReceipt.totals.tax.toFixed(2)}</span>
+                    <span>{formatCurrency(successReceipt.totals.tax)}</span>
                   </div>
                 )}
                 {successReceipt.totals.discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                     <span>Discount:</span>
-                    <span>-${successReceipt.totals.discount.toFixed(2)}</span>
+                    <span>-{formatCurrency(successReceipt.totals.discount)}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
                   <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white">
                     <span>Total Paid:</span>
-                    <span>${successReceipt.totals.total.toFixed(2)}</span>
+                    <span>{formatCurrency(successReceipt.totals.total)}</span>
                   </div>
                 </div>
               </div>
@@ -772,13 +774,13 @@ export default function PaymentPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Cash Received:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        ${successReceipt.cashReceived.toFixed(2)}
+                        {formatCurrency(successReceipt.cashReceived)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Change:</span>
                       <span className="font-semibold text-green-600 dark:text-green-400">
-                        ${successReceipt.change.toFixed(2)}
+                        {formatCurrency(successReceipt.change)}
                       </span>
                     </div>
                   </>
