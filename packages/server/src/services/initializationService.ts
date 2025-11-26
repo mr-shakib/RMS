@@ -451,6 +451,7 @@ class InitializationService {
       { key: 'theme', value: 'light' },
       { key: 'printer_type', value: '' },
       { key: 'printer_address', value: '' },
+      { key: 'full_order_printer_id', value: '' },
     ];
 
     for (const setting of defaultSettings) {

@@ -169,6 +169,12 @@ class OrderService {
       // Don't throw error - order was created successfully, just printing failed
     }
 
+    try {
+      await multiPrinterService.printFullOrder(order.id);
+    } catch (error) {
+      console.error('Failed to print full order ticket:', error);
+    }
+
     return order;
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import {
@@ -90,6 +90,32 @@ export default function PrinterManagement({ onSuccess, onError }: PrinterManagem
   });
 
   const categories = categoriesResponse?.data?.categories || [];
+
+  // Settings for Full Order Printer
+  const { data: settingsResponse } = useQuery<any>({
+    queryKey: ['settings'],
+    queryFn: () => apiClient.get('/settings'),
+  });
+
+  const settings = settingsResponse?.data?.settings || {};
+  const [fullOrderPrinterId, setFullOrderPrinterId] = useState<string>('');
+
+  useEffect(() => {
+    setFullOrderPrinterId(settings.full_order_printer_id || '');
+  }, [settings.full_order_printer_id]);
+
+  const setFullOrderPrinterMutation = useMutation({
+    mutationFn: async (printerId: string) => {
+      return apiClient.patch('/settings', { settings: { full_order_printer_id: printerId } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      onError(error.message || 'Failed to update full order printer setting');
+    },
+  });
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -216,6 +242,37 @@ export default function PrinterManagement({ onSuccess, onError }: PrinterManagem
           <strong>Multi-Printer Setup:</strong> Configure different printers for different menu categories. 
           When an order is placed, items will automatically print on the appropriate printer based on their category.
         </p>
+      </div>
+
+      {/* Full Order Printer Selection */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Full Order Printer</h4>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select a printer to print the entire order as a single kitchen ticket.</p>
+        <div className="flex items-center gap-3">
+          <select
+            value={fullOrderPrinterId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setFullOrderPrinterId(id);
+              setFullOrderPrinterMutation.mutate(id);
+            }}
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+          >
+            <option value="">None</option>
+            {printers.map((printer: Printer) => (
+              <option key={printer.id} value={printer.id}>
+                {printer.name} {printer.isActive ? '' : '(inactive)'}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setFullOrderPrinterMutation.mutate(fullOrderPrinterId)}
+            disabled={setFullOrderPrinterMutation.isPending}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-50"
+          >
+            Save
+          </button>
+        </div>
       </div>
 
       {/* Printers List */}
