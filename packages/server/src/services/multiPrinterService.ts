@@ -21,6 +21,26 @@ export interface PrinterConnection {
 class MultiPrinterService {
   private printers: Map<string, PrinterConnection> = new Map();
 
+  private extractFooterInstruction(items: any[]): string | null {
+    const counts = new Map<string, number>();
+    for (const it of items) {
+      const n = typeof it.notes === 'string' ? it.notes.trim() : '';
+      if (!n) continue;
+      counts.set(n, (counts.get(n) || 0) + 1);
+    }
+    if (counts.size === 0) return null;
+    let bestNote = '';
+    let bestCount = 0;
+    for (const [note, count] of counts.entries()) {
+      if (count > bestCount) {
+        bestNote = note;
+        bestCount = count;
+      }
+    }
+    if (!bestNote) return null;
+    return bestNote;
+  }
+
   /**
    * Initialize all active printers from database
    */
@@ -294,6 +314,7 @@ class MultiPrinterService {
       p.newLine();
 
       // Items list
+      const footerInstruction = this.extractFooterInstruction(order.items);
       for (const item of order.items) {
         const itemName = item.menuItem.name;
         const qty = item.quantity;
@@ -303,8 +324,9 @@ class MultiPrinterService {
         p.print(`${itemName}  `);
         p.println(`${qty} x ${currency} ${price.toFixed(2)} = ${currency} ${total.toFixed(2)}`);
 
-        if (item.notes) {
-          p.println(`  Note: ${item.notes}`);
+        const note = typeof item.notes === 'string' ? item.notes.trim() : '';
+        if (note && (!footerInstruction || note !== footerInstruction)) {
+          p.println(`  Note: ${note}`);
         }
       }
 
@@ -325,6 +347,10 @@ class MultiPrinterService {
       }
 
       p.drawLine();
+
+      if (footerInstruction) {
+        p.println(`Special Instructions: ${footerInstruction}`);
+      }
 
       // Total
       p.alignCenter();
@@ -383,21 +409,27 @@ class MultiPrinterService {
       p.drawLine();
 
       // Items - with moderate emphasis
+      const footerInstruction = this.extractFooterInstruction(items);
       for (const item of items) {
         p.bold(true);
         p.setTextSize(1, 0); // Wide but not tall - more readable
         p.println(`${item.quantity}x ${item.menuItem.name}`);
         p.setTextNormal();
 
-        if (item.notes) {
+        const note = typeof item.notes === 'string' ? item.notes.trim() : '';
+        if (note && (!footerInstruction || note !== footerInstruction)) {
           p.setTextSize(0, 0); // Normal size for notes
-          p.println(`  Note: ${item.notes}`);
+          p.println(`  Note: ${note}`);
         }
         p.newLine();
       }
 
       p.drawLine();
       p.newLine();
+      if (footerInstruction) {
+        p.println(`Special Instructions: ${footerInstruction}`);
+        p.newLine();
+      }
       p.cut();
 
       // Execute ONCE

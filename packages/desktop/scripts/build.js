@@ -16,6 +16,9 @@ if (!validEnvs.includes(env)) {
 
 console.log(`\n🔨 Building for ${env} environment...\n`);
 
+// IMPORTANT: Copy environment files FIRST before any builds
+// Next.js bakes environment variables at build time!
+
 // Copy environment file for desktop
 const envFile = `.env.${env}`;
 const envPath = path.join(__dirname, '..', envFile);
@@ -25,7 +28,15 @@ if (fs.existsSync(envPath)) {
   fs.copyFileSync(envPath, targetPath);
   console.log(`✓ Copied ${envFile} to .env.local`);
 } else {
-  console.warn(`⚠ Warning: ${envFile} not found, using existing .env.local`);
+  console.error(`✗ Error: ${envFile} not found!`);
+  process.exit(1);
+}
+
+// Also copy to .env (Next.js checks multiple files)
+const envTargetPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  fs.copyFileSync(envPath, envTargetPath);
+  console.log(`✓ Copied ${envFile} to .env`);
 }
 
 // Copy environment file for server
@@ -39,6 +50,10 @@ if (fs.existsSync(serverEnvPath)) {
 } else {
   console.warn(`⚠ Warning: server ${serverEnvFile} not found`);
 }
+
+console.log('\n📋 Environment variables set:');
+console.log(`   Desktop: ${envFile} → .env.local & .env`);
+console.log(`   Server: ${serverEnvFile} → .env`);
 
 // Build server first
 console.log('\n📦 Building server...');
@@ -98,6 +113,38 @@ try {
     cwd: path.join(__dirname, '..')
   });
   console.log('✓ Next.js build complete');
+  
+  // Verify standalone build was created
+  const standalonePath = path.join(__dirname, '..', '.next', 'standalone');
+  if (!fs.existsSync(standalonePath)) {
+    console.error('✗ Standalone build not created!');
+    console.error('  Expected path:', standalonePath);
+    process.exit(1);
+  }
+  
+  // Check for server.js
+  const serverJsPaths = [
+    path.join(standalonePath, 'packages', 'desktop', 'server.js'),
+    path.join(standalonePath, 'server.js')
+  ];
+  
+  let serverJsFound = false;
+  for (const serverPath of serverJsPaths) {
+    if (fs.existsSync(serverPath)) {
+      console.log(`✓ Found server.js at: ${serverPath}`);
+      serverJsFound = true;
+      break;
+    }
+  }
+  
+  if (!serverJsFound) {
+    console.error('✗ server.js not found in standalone build!');
+    console.error('  Checked paths:', serverJsPaths);
+    console.error('  Standalone contents:', fs.readdirSync(standalonePath));
+    process.exit(1);
+  }
+  
+  console.log('✓ Standalone build structure verified');
 } catch (error) {
   console.error('✗ Next.js build failed');
   process.exit(1);
@@ -117,3 +164,16 @@ try {
 }
 
 console.log('\n✅ Build complete!\n');
+
+// Verify the build
+console.log('🔍 Verifying build structure...\n');
+try {
+  execSync('npm run verify', {
+    stdio: 'inherit',
+    cwd: path.join(__dirname, '..')
+  });
+} catch (error) {
+  console.error('✗ Build verification failed!');
+  console.error('⚠ The build may have issues. Review the errors above.');
+  process.exit(1);
+}

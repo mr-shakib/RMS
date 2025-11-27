@@ -80,14 +80,17 @@ try {
       break;
   }
 
-  const outDir = `release/build-${Date.now()}`;
-  execSync(`electron-builder ${builderArgs} --config electron-builder.json -c.directories.output=${outDir}`, { 
+  const outDir = `release`;
+  // Use npx to ensure electron-builder is found
+  const isWindows = process.platform === 'win32';
+  const npxCmd = isWindows ? 'npx.cmd' : 'npx';
+  execSync(`${npxCmd} electron-builder ${builderArgs} --config electron-builder.json`, { 
     stdio: 'inherit',
     cwd: path.join(__dirname, '..')
   });
   
   console.log('\n✅ Packaging complete!');
-  console.log(`\n📁 Output directory: packages/desktop/${outDir}\n`);
+  console.log(`\n📁 Output directory: packages/desktop/release\n`);
 } catch (error) {
   console.error('✗ Packaging failed');
   process.exit(1);

@@ -50,14 +50,18 @@ class NextServerLauncher {
         return new Promise((resolve) => {
             const net = require('net');
             const server = net.createServer();
-            server.once('error', () => {
+            server.once('error', (err) => {
+                if (err.code !== 'EADDRINUSE') {
+                    console.log(`⚠️ Next.js port check error for ${port}:`, err.message);
+                }
                 resolve(false);
             });
             server.once('listening', () => {
                 server.close();
                 resolve(true);
             });
-            server.listen(port);
+            // Listen specifically on IPv4 localhost
+            server.listen(port, '127.0.0.1');
         });
     }
     /**
@@ -65,7 +69,7 @@ class NextServerLauncher {
      */
     async findAvailablePort(startPort) {
         let port = startPort;
-        while (port < startPort + 10) {
+        while (port < startPort + 50) {
             if (await this.isPortAvailable(port)) {
                 return port;
             }
@@ -144,18 +148,36 @@ class NextServerLauncher {
                 // In production, run Next.js standalone server
                 const { app } = require('electron');
                 const fs = require('fs');
-                // Get app path (no asar, all files are unpacked)
-                const nextDir = path.join(__dirname, '../../');
-                // Check for standalone server
-                const standaloneServerPath = path.join(nextDir, '.next/standalone/server.js');
-                if (!fs.existsSync(standaloneServerPath)) {
-                    throw new Error(`Next.js standalone server not found at: ${standaloneServerPath}`);
+                // In production, Next.js is in extraResources (outside ASAR)
+                // process.resourcesPath points to the 'resources' directory
+                const nextDir = path.join(process.resourcesPath, 'nextjs');
+                console.log(`📁 Looking for Next.js in: ${nextDir}`);
+                // Check if nextjs directory exists
+                if (!fs.existsSync(nextDir)) {
+                    throw new Error(`Next.js directory not found: ${nextDir}\nThis indicates the application was not packaged correctly.`);
+                }
+                // Next.js creates nested structure: standalone/packages/desktop/server.js
+                const nestedServerPath = path.join(nextDir, 'standalone', 'packages', 'desktop', 'server.js');
+                const flatServerPath = path.join(nextDir, 'standalone', 'server.js');
+                let standaloneServerPath;
+                let workingDir;
+                if (fs.existsSync(nestedServerPath)) {
+                    console.log(`✓ Found Next.js server (nested): ${nestedServerPath}`);
+                    standaloneServerPath = nestedServerPath;
+                    workingDir = path.join(nextDir, 'standalone', 'packages', 'desktop');
+                }
+                else if (fs.existsSync(flatServerPath)) {
+                    console.log(`✓ Found Next.js server (flat): ${flatServerPath}`);
+                    standaloneServerPath = flatServerPath;
+                    workingDir = path.join(nextDir, 'standalone');
+                }
+                else {
+                    throw new Error(`Next.js standalone server not found. Checked:\n  ${nestedServerPath}\n  ${flatServerPath}\n\nThis indicates a packaging error.`);
                 }
                 // Use process.execPath which points to the Electron executable
-                // Electron has Node.js built-in, so we can use it directly
                 nextCommand = process.execPath;
                 nextArgs = [standaloneServerPath];
-                cwd = path.join(nextDir, '.next/standalone');
+                cwd = workingDir;
                 console.log(`✓ Using Electron's Node.js: ${nextCommand}`);
             }
             console.log(`Running: ${nextCommand} ${nextArgs.join(' ')}`);
@@ -165,6 +187,7 @@ class NextServerLauncher {
                     ...process.env,
                     PORT: port.toString(),
                     NODE_ENV: this.isDev ? 'development' : 'production',
+                    ELECTRON_RUN_AS_NODE: '1',
                 },
                 stdio: 'pipe',
                 shell: useShell,

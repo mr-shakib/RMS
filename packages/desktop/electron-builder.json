@@ -3,6 +3,9 @@
   "productName": "Restaurant Management System",
   "copyright": "Copyright © 2024 Restaurant Management System",
   "electronVersion": "28.1.0",
+  "electronLanguages": [
+    "en-US"
+  ],
   "directories": {
     "output": "release",
     "buildResources": "build"
@@ -10,38 +13,57 @@
   "includeSubNodeModules": true,
   "files": [
     "dist/electron/**/*",
-    {
-      "from": ".next/standalone",
-      "to": ".next/standalone",
-      "filter": ["**/*"]
-    },
-    {
-      "from": ".next/static",
-      "to": ".next/static",
-      "filter": ["**/*"]
-    },
-    {
-      "from": "public",
-      "to": "public",
-      "filter": ["**/*"]
-    },
     "package.json"
   ],
   "extraResources": [
     {
+      "from": ".next/standalone",
+      "to": "nextjs/standalone",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": ".next/static",
+      "to": "nextjs/static",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": ".next/static",
+      "to": "nextjs/standalone/packages/desktop/.next/static",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "public",
+      "to": "nextjs/public",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
       "from": "../server/dist",
       "to": "server/dist",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     },
     {
       "from": "../server/prisma",
       "to": "server/prisma",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     },
     {
       "from": "../server/public",
       "to": "server/public",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     },
     {
       "from": "../server/scripts/init-production-db.js",
@@ -54,24 +76,26 @@
     {
       "from": "../server/temp-prod/node_modules",
       "to": "server/node_modules",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     }
   ],
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64", "ia32"]
-      },
-      {
-        "target": "portable",
-        "arch": ["x64"]
+        "arch": [
+          "x64",
+          "ia32"
+        ]
       }
     ],
     "icon": "build/icon.ico",
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
     "publisherName": "Restaurant Management System",
-    "verifyUpdateCodeSignature": false
+    "verifyUpdateCodeSignature": false,
+    "requestedExecutionLevel": "asInvoker"
   },
   "nsis": {
     "oneClick": false,
@@ -81,23 +105,29 @@
     "shortcutName": "Restaurant Management System",
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico",
-    "installerHeaderIcon": "build/icon.ico",
     "deleteAppDataOnUninstall": false,
-    "runAfterFinish": true,
-    "license": "LICENSE.txt"
-  },
-  "portable": {
-    "artifactName": "${productName}-${version}-portable.${ext}"
+    "runAfterFinish": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "include": null,
+    "script": null,
+    "warningsAsErrors": false
   },
   "mac": {
     "target": [
       {
         "target": "dmg",
-        "arch": ["x64", "arm64"]
+        "arch": [
+          "x64",
+          "arm64"
+        ]
       },
       {
         "target": "zip",
-        "arch": ["x64", "arm64"]
+        "arch": [
+          "x64",
+          "arm64"
+        ]
       }
     ],
     "icon": "build/icon.icns",
@@ -132,11 +162,15 @@
     "target": [
       {
         "target": "AppImage",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "deb",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "icon": "build/icons",
@@ -144,5 +178,8 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "compression": "maximum",
-  "asar": false
+  "asar": true,
+  "asarUnpack": [
+    "**/*.node"
+  ]
 }

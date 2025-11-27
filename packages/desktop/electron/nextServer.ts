@@ -22,17 +22,21 @@ export class NextServerLauncher {
     return new Promise((resolve) => {
       const net = require('net');
       const server = net.createServer();
-      
-      server.once('error', () => {
+
+      server.once('error', (err: any) => {
+        if (err.code !== 'EADDRINUSE') {
+          console.log(`⚠️ Next.js port check error for ${port}:`, err.message);
+        }
         resolve(false);
       });
-      
+
       server.once('listening', () => {
         server.close();
         resolve(true);
       });
-      
-      server.listen(port);
+
+      // Listen specifically on IPv4 localhost
+      server.listen(port, '127.0.0.1');
     });
   }
 
@@ -41,14 +45,14 @@ export class NextServerLauncher {
    */
   private async findAvailablePort(startPort: number): Promise<number> {
     let port = startPort;
-    
-    while (port < startPort + 10) {
+
+    while (port < startPort + 50) {
       if (await this.isPortAvailable(port)) {
         return port;
       }
       port++;
     }
-    
+
     throw new Error(`No available ports found between ${startPort} and ${port}`);
   }
 
@@ -58,7 +62,7 @@ export class NextServerLauncher {
   private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
     const http = require('http');
     const urlObj = new URL(url);
-    
+
     for (let i = 0; i < maxAttempts; i++) {
       try {
         await new Promise<void>((resolve, reject) => {
@@ -79,19 +83,19 @@ export class NextServerLauncher {
               }
             }
           );
-          
+
           req.on('error', (error: Error) => {
             reject(error);
           });
-          
+
           req.on('timeout', () => {
             req.destroy();
             reject(new Error('Request timeout'));
           });
-          
+
           req.end();
         });
-        
+
         // Server is ready!
         return;
       } catch (error) {
@@ -101,7 +105,7 @@ export class NextServerLauncher {
         }
       }
     }
-    
+
     throw new Error('Next.js server failed to start within timeout period');
   }
 
@@ -113,15 +117,15 @@ export class NextServerLauncher {
       // Find available port
       const port = await this.findAvailablePort(defaultPort);
       const url = `http://localhost:${port}`;
-      
+
       console.log(`🚀 Starting Next.js server on port ${port}...`);
-      
+
       // Determine Next.js command
       let nextCommand: string;
       let nextArgs: string[];
       let cwd: string;
       let useShell = false; // Track if we need shell mode
-      
+
       if (this.isDev) {
         // In development, use npm to run Next.js dev server
         const isWindows = process.platform === 'win32';
@@ -133,70 +137,90 @@ export class NextServerLauncher {
         // In production, run Next.js standalone server
         const { app } = require('electron');
         const fs = require('fs');
-        
-        // Get app path (no asar, all files are unpacked)
-        const nextDir = path.join(__dirname, '../../');
-        
-        // Check for standalone server
-        const standaloneServerPath = path.join(nextDir, '.next/standalone/server.js');
-        
-        if (!fs.existsSync(standaloneServerPath)) {
-          throw new Error(`Next.js standalone server not found at: ${standaloneServerPath}`);
+
+        // In production, Next.js is in extraResources (outside ASAR)
+        // process.resourcesPath points to the 'resources' directory
+        const nextDir = path.join(process.resourcesPath, 'nextjs');
+
+        console.log(`📁 Looking for Next.js in: ${nextDir}`);
+
+        // Check if nextjs directory exists
+        if (!fs.existsSync(nextDir)) {
+          throw new Error(`Next.js directory not found: ${nextDir}\nThis indicates the application was not packaged correctly.`);
         }
-        
+
+        // Next.js creates nested structure: standalone/packages/desktop/server.js
+        const nestedServerPath = path.join(nextDir, 'standalone', 'packages', 'desktop', 'server.js');
+        const flatServerPath = path.join(nextDir, 'standalone', 'server.js');
+
+        let standaloneServerPath: string;
+        let workingDir: string;
+
+        if (fs.existsSync(nestedServerPath)) {
+          console.log(`✓ Found Next.js server (nested): ${nestedServerPath}`);
+          standaloneServerPath = nestedServerPath;
+          workingDir = path.join(nextDir, 'standalone', 'packages', 'desktop');
+        } else if (fs.existsSync(flatServerPath)) {
+          console.log(`✓ Found Next.js server (flat): ${flatServerPath}`);
+          standaloneServerPath = flatServerPath;
+          workingDir = path.join(nextDir, 'standalone');
+        } else {
+          throw new Error(`Next.js standalone server not found. Checked:\n  ${nestedServerPath}\n  ${flatServerPath}\n\nThis indicates a packaging error.`);
+        }
+
         // Use process.execPath which points to the Electron executable
-        // Electron has Node.js built-in, so we can use it directly
         nextCommand = process.execPath;
         nextArgs = [standaloneServerPath];
-        cwd = path.join(nextDir, '.next/standalone');
-        
+        cwd = workingDir;
+
         console.log(`✓ Using Electron's Node.js: ${nextCommand}`);
       }
-      
+
       console.log(`Running: ${nextCommand} ${nextArgs.join(' ')}`);
       console.log(`Working directory: ${cwd}`);
-      
+
       this.nextProcess = spawn(nextCommand, nextArgs, {
         env: {
           ...process.env,
           PORT: port.toString(),
           NODE_ENV: this.isDev ? 'development' : 'production',
+          ELECTRON_RUN_AS_NODE: '1',
         },
         stdio: 'pipe',
         shell: useShell,
         cwd,
       });
-      
+
       // Handle Next.js output
       this.nextProcess.stdout?.on('data', (data) => {
         const output = data.toString().trim();
         if (output) console.log(`[Next.js] ${output}`);
       });
-      
+
       this.nextProcess.stderr?.on('data', (data) => {
         const output = data.toString().trim();
         if (output && !output.includes('DeprecationWarning')) {
           console.error(`[Next.js Error] ${output}`);
         }
       });
-      
+
       this.nextProcess.on('error', (error) => {
         console.error('Failed to start Next.js server:', error);
         throw error;
       });
-      
+
       this.nextProcess.on('exit', (code) => {
         console.log(`Next.js server process exited with code ${code}`);
       });
-      
+
       // Wait for Next.js to be ready
       await this.waitForServer(url);
-      
+
       this.config = { port, url };
-      
+
       console.log('✅ Next.js server is ready!');
       console.log(`🌐 URL: ${url}`);
-      
+
       return this.config;
     } catch (error) {
       console.error('Error starting Next.js server:', error);
@@ -210,23 +234,23 @@ export class NextServerLauncher {
   async stop(): Promise<void> {
     if (this.nextProcess) {
       console.log('🛑 Stopping Next.js server...');
-      
+
       return new Promise((resolve) => {
         if (!this.nextProcess) {
           resolve();
           return;
         }
-        
+
         this.nextProcess.once('exit', () => {
           console.log('✅ Next.js server stopped');
           this.nextProcess = null;
           this.config = null;
           resolve();
         });
-        
+
         // Send SIGTERM for graceful shutdown
         this.nextProcess.kill('SIGTERM');
-        
+
         // Force kill after 5 seconds if not stopped
         setTimeout(() => {
           if (this.nextProcess) {

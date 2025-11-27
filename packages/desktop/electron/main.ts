@@ -63,7 +63,7 @@ function createWindow() {
   // Load from Next.js server (dev or production)
   const nextUrl = nextServerConfig?.url || 'http://localhost:3000';
   mainWindow.loadURL(nextUrl);
-  
+
   // Open DevTools in development
   if (isDev) {
     mainWindow.webContents.openDevTools();
@@ -104,14 +104,14 @@ function createWindow() {
 function createTray() {
   // Try to load tray icon, fallback to empty icon if not found
   let icon: Electron.NativeImage;
-  
+
   try {
     const iconPath = isDev
       ? path.join(__dirname, '../../public/tray-icon.png')
       : path.join(process.resourcesPath, 'public', 'tray-icon.png');
-    
+
     icon = nativeImage.createFromPath(iconPath);
-    
+
     // If icon is empty, create a simple placeholder
     if (icon.isEmpty()) {
       icon = nativeImage.createEmpty();
@@ -121,13 +121,13 @@ function createTray() {
     console.warn('Failed to load tray icon:', error);
     icon = nativeImage.createEmpty();
   }
-  
+
   tray = new Tray(icon);
-  
+
   updateTrayMenu();
-  
+
   tray.setToolTip('Restaurant Management System');
-  
+
   // Show window on tray icon click
   tray.on('click', () => {
     mainWindow?.show();
@@ -189,7 +189,7 @@ function updateTrayMenu() {
       },
     },
   ]);
-  
+
   tray.setContextMenu(contextMenu);
 }
 
@@ -249,7 +249,7 @@ function setupAutoUpdater() {
   // For now, we'll just log that it's available but not configured
   console.log('Auto-updater is available but requires configuration');
   console.log('See: https://www.electron.build/auto-update for setup instructions');
-  
+
   // Uncomment and configure when ready for production with update server:
   /*
   const { autoUpdater } = require('electron-updater');
@@ -294,12 +294,12 @@ function setupAutoUpdater() {
     });
   }, 5000);
 
-  // Check for updates every 4 hours
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch((err: Error) => {
-      console.error('Failed to check for updates:', err);
-    });
-  }, 4 * 60 * 60 * 1000);
+  // Check for updates every 4 hours (DISABLED - uncomment when auto-updater is configured)
+  // setInterval(() => {
+  //   autoUpdater.checkForUpdates().catch((err: Error) => {
+  //     console.error('Failed to check for updates:', err);
+  //   });
+  // }, 4 * 60 * 60 * 1000);
   */
 }
 
@@ -315,17 +315,17 @@ function setupIpcHandlers() {
       port: 0,
     };
   });
-  
+
   // Show notification from renderer
   ipcMain.handle('show-notification', (_event, { title, body }) => {
     showNotification(title, body);
   });
-  
+
   // Get app version
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
   });
-  
+
   // Restart server
   ipcMain.handle('restart-server', async () => {
     try {
@@ -371,7 +371,7 @@ function setupIpcHandlers() {
     }
     // Auto-updater requires electron-updater package and proper configuration
     return { success: false, error: 'Auto-updater not configured. See documentation for setup.' };
-    
+
     // Uncomment when electron-updater is configured:
     /*
     try {
@@ -391,7 +391,7 @@ function setupIpcHandlers() {
     }
     // Auto-updater requires electron-updater package and proper configuration
     return { success: false, error: 'Auto-updater not configured. See documentation for setup.' };
-    
+
     // Uncomment when electron-updater is configured:
     /*
     try {
@@ -431,11 +431,11 @@ app.whenReady().then(async () => {
         const userDataPath = app.getPath('userData');
         const logPath = path.join(userDataPath, 'startup.log');
         logStream = fs.createWriteStream(logPath, { flags: 'a' });
-        
+
         // Override console.log and console.error to also write to file
         const originalLog = console.log;
         const originalError = console.error;
-        
+
         console.log = (...args: any[]) => {
           const message = args.join(' ');
           originalLog(...args);
@@ -447,7 +447,7 @@ app.whenReady().then(async () => {
             }
           }
         };
-        
+
         console.error = (...args: any[]) => {
           const message = args.join(' ');
           originalError(...args);
@@ -464,7 +464,7 @@ app.whenReady().then(async () => {
         console.error('Failed to setup logging:', error);
       }
     }
-    
+
     console.log('🚀 Application starting...');
     console.log('📦 Is packaged:', app.isPackaged);
     console.log('📁 App path:', app.getAppPath());
@@ -472,7 +472,7 @@ app.whenReady().then(async () => {
     console.log('📁 User data:', app.getPath('userData'));
     console.log('🔧 Development mode:', isDev);
     console.log('📁 __dirname:', __dirname);
-    
+
     // Create user data directory if it doesn't exist
     const fs = require('fs');
     const userDataPath = app.getPath('userData');
@@ -480,7 +480,7 @@ app.whenReady().then(async () => {
       fs.mkdirSync(userDataPath, { recursive: true });
       console.log('✅ Created user data directory');
     }
-    
+
     // In development mode, skip server launchers (assumes dev servers are already running)
     if (!isDev) {
       // Initialize and start API server
@@ -493,7 +493,7 @@ app.whenReady().then(async () => {
         console.error('❌ Failed to start API server:', serverError);
         throw new Error(`API Server failed: ${serverError instanceof Error ? serverError.message : String(serverError)}`);
       }
-      
+
       // Initialize and start Next.js server
       console.log('🔧 Starting Next.js server...');
       try {
@@ -502,9 +502,51 @@ app.whenReady().then(async () => {
         console.log('✅ Next.js server started:', nextServerConfig.url);
       } catch (nextError) {
         console.error('❌ Failed to start Next.js server:', nextError);
-        throw new Error(`Next.js Server failed: ${nextError instanceof Error ? nextError.message : String(nextError)}`);
+        const errorMsg = nextError instanceof Error ? nextError.message : String(nextError);
+
+        // Provide detailed troubleshooting information
+        console.error('\n📋 Troubleshooting Information:');
+        console.error('1. Check if port 3000 is available');
+        console.error('2. Verify Next.js standalone build exists');
+        console.error('3. Check logs at:', path.join(app.getPath('userData'), 'startup.log'));
+        console.error('4. Check error log at:', path.join(app.getPath('userData'), 'error.log'));
+
+        // Write detailed error information
+        const fs = require('fs');
+        const detailedError = `
+Next.js Startup Error Details:
+==============================
+Time: ${new Date().toISOString()}
+Error: ${errorMsg}
+Stack: ${nextError instanceof Error ? nextError.stack : 'N/A'}
+
+System Information:
+- Platform: ${process.platform}
+- Arch: ${process.arch}
+- Node Version: ${process.version}
+- Electron Version: ${process.versions.electron}
+- App Path: ${app.getAppPath()}
+- Resources Path: ${process.resourcesPath}
+- User Data: ${app.getPath('userData')}
+
+Expected Paths:
+- Next.js Standalone (nested): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'packages', 'desktop', 'server.js')}
+- Next.js Standalone (flat): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'server.js')}
+
+Please check if these files exist and report this error to support.
+`;
+
+        try {
+          const errorLogPath = path.join(app.getPath('userData'), 'nextjs-error.log');
+          fs.writeFileSync(errorLogPath, detailedError);
+          console.error(`\n📝 Detailed error written to: ${errorLogPath}`);
+        } catch (writeError) {
+          console.error('Failed to write error log:', writeError);
+        }
+
+        throw new Error(`Next.js Server failed: ${errorMsg}`);
       }
-      
+
       // Show success notification
       showNotification(
         'Server Started',
@@ -523,26 +565,26 @@ app.whenReady().then(async () => {
         url: 'http://localhost:3000'
       };
     }
-    
+
     // Set up IPC handlers
     setupIpcHandlers();
-    
+
     // Create the window
     createWindow();
-    
+
     // Create system tray
     createTray();
-    
+
     // Set up auto-updater
     setupAutoUpdater();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : '';
-    
+
     console.error('❌ Failed to initialize application:');
     console.error('Error message:', errorMessage);
     console.error('Error stack:', errorStack);
-    
+
     // Write error to log file in production
     if (!isDev) {
       const fs = require('fs');
@@ -559,16 +601,38 @@ ${errorStack}
         console.error('Failed to write error log:', logError);
       }
     }
-    
-    showNotification(
-      'Startup Error',
-      `Failed to start: ${errorMessage.substring(0, 100)}`
-    );
-    
-    // Keep app open for a moment so user can see the error
-    setTimeout(() => {
+
+    // Instead of quitting, show error dialog and create window anyway
+    const { dialog } = require('electron');
+
+    // Create window first so user can see something
+    createWindow();
+
+    // Show error dialog with options
+    const choice = await dialog.showMessageBox({
+      type: 'error',
+      title: 'Server Startup Error',
+      message: 'Failed to start application servers',
+      detail: `${errorMessage}\n\nThe application may not work correctly. You can:\n\n1. Retry - Attempt to restart the servers\n2. Continue Anyway - Use the app (may have limited functionality)\n3. View Logs - Open the log file for troubleshooting\n4. Quit - Close the application`,
+      buttons: ['Retry', 'Continue Anyway', 'View Logs', 'Quit'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (choice.response === 0) {
+      // Retry - restart the app
+      app.relaunch();
       app.quit();
-    }, 5000);
+    } else if (choice.response === 2) {
+      // View Logs
+      const { shell } = require('electron');
+      const logPath = path.join(app.getPath('userData'), 'error.log');
+      shell.showItemInFolder(logPath);
+    } else if (choice.response === 3) {
+      // Quit
+      app.quit();
+    }
+    // If choice is 1 (Continue Anyway), just continue with the window already created
   }
 
   app.on('activate', () => {
@@ -586,7 +650,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', async () => {
   appWithQuitting.isQuitting = true;
-  
+
   // Stop both servers
   if (nextServerLauncher) {
     await nextServerLauncher.stop();
@@ -600,17 +664,29 @@ app.on('before-quit', async () => {
 app.on('will-quit', async (event) => {
   const isNextRunning = nextServerLauncher && nextServerLauncher.isRunning();
   const isServerRunning = serverLauncher && serverLauncher.isRunning();
-  
+
   if (isNextRunning || isServerRunning) {
     event.preventDefault();
-    
-    if (nextServerLauncher) {
-      await nextServerLauncher.stop();
+
+    try {
+      // Set a maximum timeout for cleanup
+      const cleanupPromise = Promise.all([
+        nextServerLauncher ? nextServerLauncher.stop() : Promise.resolve(),
+        serverLauncher ? serverLauncher.stop() : Promise.resolve()
+      ]);
+
+      // Wait maximum 10 seconds for graceful shutdown
+      await Promise.race([
+        cleanupPromise,
+        new Promise((resolve) => setTimeout(resolve, 10000))
+      ]);
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    } finally {
+      // Force quit after cleanup attempt
+      setTimeout(() => {
+        process.exit(0);
+      }, 100);
     }
-    if (serverLauncher) {
-      await serverLauncher.stop();
-    }
-    
-    app.quit();
   }
 });

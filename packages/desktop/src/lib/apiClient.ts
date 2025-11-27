@@ -39,29 +39,41 @@ class APIClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
+    console.log('🔧 API Client constructed with base URL:', baseURL);
   }
 
   /**
    * Initialize API client with server URL from Electron
    */
   private async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      console.log('✓ API Client already initialized with:', this.baseURL);
+      return;
+    }
+
+    console.log('🔄 Initializing API Client...');
 
     // Check if running in Electron
     if (typeof window !== 'undefined' && window.electron) {
+      console.log('🖥️  Running in Electron, getting server info...');
       try {
         const serverInfo = await window.electron.getServerInfo();
+        console.log('📡 Server info from Electron:', serverInfo);
         const serverUrl = serverInfo.serverUrl || serverInfo.url || `http://localhost:${serverInfo.port}`;
         if (serverUrl) {
           this.baseURL = `${serverUrl}/api`;
-          console.log('API Client initialized with Electron server:', this.baseURL);
+          console.log('✅ API Client initialized with Electron server:', this.baseURL);
         }
       } catch (error) {
-        console.warn('Failed to get server info from Electron, using default URL:', error);
+        console.warn('⚠️  Failed to get server info from Electron, using default URL:', this.baseURL);
+        console.error('Error details:', error);
       }
+    } else {
+      console.log('🌐 Not running in Electron, using default URL:', this.baseURL);
     }
 
     this.initialized = true;
+    console.log('✅ API Client initialization complete. Base URL:', this.baseURL);
   }
 
   private getAuthHeaders(): HeadersInit {
@@ -86,11 +98,16 @@ class APIClient {
 
     const url = `${this.baseURL}${endpoint}`;
 
+    console.log(`🌐 API Request: ${restOptions.method || 'GET'} ${url}`);
+    console.log('📋 Request headers:', requestHeaders);
+
     try {
       const response = await fetch(url, {
         ...restOptions,
         headers: requestHeaders,
       });
+
+      console.log(`📥 API Response: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({

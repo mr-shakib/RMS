@@ -68,14 +68,39 @@ class ServerLauncher {
         return new Promise((resolve) => {
             const net = require('net');
             const server = net.createServer();
-            server.once('error', () => {
+            let resolved = false;
+            const cleanup = () => {
+                if (!resolved) {
+                    resolved = true;
+                    try {
+                        server.close();
+                    }
+                    catch (e) {
+                        // Ignore close errors
+                    }
+                }
+            };
+            // Timeout after 2 seconds
+            const timeout = setTimeout(() => {
+                cleanup();
+                console.log(`⚠️ Port check timed out for ${port}`);
+                resolve(false);
+            }, 2000);
+            server.once('error', (err) => {
+                clearTimeout(timeout);
+                cleanup();
+                if (err.code !== 'EADDRINUSE') {
+                    console.log(`⚠️ Port check error for ${port}:`, err.message);
+                }
                 resolve(false);
             });
             server.once('listening', () => {
-                server.close();
+                clearTimeout(timeout);
+                cleanup();
                 resolve(true);
             });
-            server.listen(port);
+            // Listen specifically on IPv4 localhost to avoid IPv6 issues
+            server.listen(port, '127.0.0.1');
         });
     }
     /**
@@ -83,33 +108,48 @@ class ServerLauncher {
      */
     async findAvailablePort(startPort) {
         let port = startPort;
-        while (port < startPort + 10) {
+        const maxAttempts = 50;
+        let attempts = 0;
+        while (attempts < maxAttempts) {
             if (await this.isPortAvailable(port)) {
                 return port;
             }
             port++;
+            attempts++;
         }
-        throw new Error(`No available ports found between ${startPort} and ${port}`);
+        throw new Error(`No available ports found between ${startPort} and ${startPort + maxAttempts}`);
     }
     /**
      * Wait for server to be ready by polling health endpoint
      */
-    async waitForServer(url, maxAttempts = 30) {
+    async waitForServer(url, maxAttempts = 60) {
         const healthUrl = `${url}/api/health`;
+        console.log(`🔍 Checking if API server is ready at ${healthUrl}...`);
+        console.log(`⏱️  Will wait up to ${maxAttempts} seconds for API server to start`);
         for (let i = 0; i < maxAttempts; i++) {
             try {
                 const response = await fetch(healthUrl);
                 if (response.ok) {
+                    console.log(`✓ Server health check passed after ${i + 1} attempt(s) (${i + 1}s)`);
                     return;
+                }
+                else {
+                    console.log(`⚠️  Health check returned status ${response.status}`);
                 }
             }
             catch (error) {
                 // Server not ready yet, continue waiting
+                if (i < 5 || i % 10 === 0) {
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    console.log(`⏳ Waiting for API server... (attempt ${i + 1}/${maxAttempts}, ${i + 1}s elapsed) [${errorMsg}]`);
+                }
             }
             // Wait 1 second before next attempt
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        throw new Error('Server failed to start within timeout period');
+        console.error(`❌ API server failed to respond to health checks`);
+        console.error('Check the server process output above for errors');
+        throw new Error(`Server failed to start within ${maxAttempts} seconds. Check logs for details.`);
     }
     /**
      * Start the Express server as a child process
@@ -149,10 +189,9 @@ class ServerLauncher {
                     fs.mkdirSync(dbDir, { recursive: true });
                     console.log(`📁 Created database directory: ${dbDir}`);
                 }
-                // Use the current Node.js executable path
                 serverCommand = process.execPath;
                 serverArgs = [serverPath];
-                cwd = serverDir; // Set working directory to server folder
+                cwd = serverDir;
                 // Set DATABASE_URL environment variable to user data path
                 process.env.DATABASE_URL = `file:${dbPath}`;
                 console.log(`📊 Database path: ${dbPath}`);
@@ -165,6 +204,7 @@ class ServerLauncher {
                     ...process.env,
                     SERVER_PORT: port.toString(),
                     NODE_ENV: this.isDev ? 'development' : 'production',
+                    ELECTRON_RUN_AS_NODE: '1'
                 },
                 stdio: 'pipe',
                 shell: this.isDev, // Use shell in dev mode for npm command
@@ -181,8 +221,10 @@ class ServerLauncher {
                 console.error('Failed to start server:', error);
                 throw error;
             });
-            this.serverProcess.on('exit', (code) => {
-                console.log(`Server process exited with code ${code}`);
+            this.serverProcess.on('exit', (code, signal) => {
+                console.log(`Server process exited with code ${code}, signal ${signal}`);
+                this.serverProcess = null;
+                this.config = null;
             });
             // Wait for server to be ready
             await this.waitForServer(url);
@@ -193,7 +235,13 @@ class ServerLauncher {
             return this.config;
         }
         catch (error) {
-            console.error('Error starting server:', error);
+            console.error('❌ Error starting API server:', error);
+            console.error('\n📋 Troubleshooting:');
+            console.error('1. Check if server files exist in resources/server directory');
+            console.error('2. Verify port 5000 is available');
+            console.error('3. Check database initialization (should be in user data directory)');
+            console.error('4. Check server process output above for specific errors');
+            console.error('5. Try restarting the application');
             throw error;
         }
     }
@@ -201,33 +249,53 @@ class ServerLauncher {
      * Stop the Express server gracefully
      */
     async stop() {
-        if (this.serverProcess) {
-            console.log('🛑 Stopping server...');
-            return new Promise((resolve) => {
-                if (!this.serverProcess) {
-                    resolve();
-                    return;
-                }
-                this.serverProcess.once('exit', () => {
+        if (!this.serverProcess || this.serverProcess.killed) {
+            console.log('Server already stopped');
+            this.serverProcess = null;
+            this.config = null;
+            return;
+        }
+        console.log('🛑 Stopping server...');
+        return new Promise((resolve) => {
+            const process = this.serverProcess;
+            if (!process) {
+                resolve();
+                return;
+            }
+            let exitHandled = false;
+            const handleExit = () => {
+                if (!exitHandled) {
+                    exitHandled = true;
                     console.log('✅ Server stopped');
                     this.serverProcess = null;
                     this.config = null;
                     resolve();
-                });
-                // Send SIGTERM for graceful shutdown
-                this.serverProcess.kill('SIGTERM');
-                // Force kill after 5 seconds if not stopped
-                setTimeout(() => {
-                    if (this.serverProcess) {
-                        console.log('⚠️ Force killing server...');
-                        this.serverProcess.kill('SIGKILL');
-                        this.serverProcess = null;
-                        this.config = null;
-                        resolve();
+                }
+            };
+            process.once('exit', handleExit);
+            // Send SIGTERM for graceful shutdown
+            try {
+                process.kill('SIGTERM');
+            }
+            catch (error) {
+                console.error('Error sending SIGTERM:', error);
+                handleExit();
+                return;
+            }
+            // Force kill after 5 seconds if not stopped
+            setTimeout(() => {
+                if (!exitHandled && process && !process.killed) {
+                    console.log('⚠️ Force killing server...');
+                    try {
+                        process.kill('SIGKILL');
                     }
-                }, 5000);
-            });
-        }
+                    catch (error) {
+                        console.error('Error force killing:', error);
+                    }
+                    handleExit();
+                }
+            }, 5000);
+        });
     }
     /**
      * Restart the server

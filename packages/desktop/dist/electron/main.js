@@ -291,12 +291,12 @@ function setupAutoUpdater() {
       });
     }, 5000);
   
-    // Check for updates every 4 hours
-    setInterval(() => {
-      autoUpdater.checkForUpdates().catch((err: Error) => {
-        console.error('Failed to check for updates:', err);
-      });
-    }, 4 * 60 * 60 * 1000);
+    // Check for updates every 4 hours (DISABLED - uncomment when auto-updater is configured)
+    // setInterval(() => {
+    //   autoUpdater.checkForUpdates().catch((err: Error) => {
+    //     console.error('Failed to check for updates:', err);
+    //   });
+    // }, 4 * 60 * 60 * 1000);
     */
 }
 /**
@@ -487,7 +487,46 @@ electron_1.app.whenReady().then(async () => {
             }
             catch (nextError) {
                 console.error('❌ Failed to start Next.js server:', nextError);
-                throw new Error(`Next.js Server failed: ${nextError instanceof Error ? nextError.message : String(nextError)}`);
+                const errorMsg = nextError instanceof Error ? nextError.message : String(nextError);
+                // Provide detailed troubleshooting information
+                console.error('\n📋 Troubleshooting Information:');
+                console.error('1. Check if port 3000 is available');
+                console.error('2. Verify Next.js standalone build exists');
+                console.error('3. Check logs at:', path.join(electron_1.app.getPath('userData'), 'startup.log'));
+                console.error('4. Check error log at:', path.join(electron_1.app.getPath('userData'), 'error.log'));
+                // Write detailed error information
+                const fs = require('fs');
+                const detailedError = `
+Next.js Startup Error Details:
+==============================
+Time: ${new Date().toISOString()}
+Error: ${errorMsg}
+Stack: ${nextError instanceof Error ? nextError.stack : 'N/A'}
+
+System Information:
+- Platform: ${process.platform}
+- Arch: ${process.arch}
+- Node Version: ${process.version}
+- Electron Version: ${process.versions.electron}
+- App Path: ${electron_1.app.getAppPath()}
+- Resources Path: ${process.resourcesPath}
+- User Data: ${electron_1.app.getPath('userData')}
+
+Expected Paths:
+- Next.js Standalone (nested): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'packages', 'desktop', 'server.js')}
+- Next.js Standalone (flat): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'server.js')}
+
+Please check if these files exist and report this error to support.
+`;
+                try {
+                    const errorLogPath = path.join(electron_1.app.getPath('userData'), 'nextjs-error.log');
+                    fs.writeFileSync(errorLogPath, detailedError);
+                    console.error(`\n📝 Detailed error written to: ${errorLogPath}`);
+                }
+                catch (writeError) {
+                    console.error('Failed to write error log:', writeError);
+                }
+                throw new Error(`Next.js Server failed: ${errorMsg}`);
             }
             // Show success notification
             showNotification('Server Started', `Restaurant Management System is running`);
@@ -537,11 +576,36 @@ ${errorStack}
                 console.error('Failed to write error log:', logError);
             }
         }
-        showNotification('Startup Error', `Failed to start: ${errorMessage.substring(0, 100)}`);
-        // Keep app open for a moment so user can see the error
-        setTimeout(() => {
+        // Instead of quitting, show error dialog and create window anyway
+        const { dialog } = require('electron');
+        // Create window first so user can see something
+        createWindow();
+        // Show error dialog with options
+        const choice = await dialog.showMessageBox({
+            type: 'error',
+            title: 'Server Startup Error',
+            message: 'Failed to start application servers',
+            detail: `${errorMessage}\n\nThe application may not work correctly. You can:\n\n1. Retry - Attempt to restart the servers\n2. Continue Anyway - Use the app (may have limited functionality)\n3. View Logs - Open the log file for troubleshooting\n4. Quit - Close the application`,
+            buttons: ['Retry', 'Continue Anyway', 'View Logs', 'Quit'],
+            defaultId: 0,
+            cancelId: 1,
+        });
+        if (choice.response === 0) {
+            // Retry - restart the app
+            electron_1.app.relaunch();
             electron_1.app.quit();
-        }, 5000);
+        }
+        else if (choice.response === 2) {
+            // View Logs
+            const { shell } = require('electron');
+            const logPath = path.join(electron_1.app.getPath('userData'), 'error.log');
+            shell.showItemInFolder(logPath);
+        }
+        else if (choice.response === 3) {
+            // Quit
+            electron_1.app.quit();
+        }
+        // If choice is 1 (Continue Anyway), just continue with the window already created
     }
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {
@@ -570,12 +634,26 @@ electron_1.app.on('will-quit', async (event) => {
     const isServerRunning = serverLauncher && serverLauncher.isRunning();
     if (isNextRunning || isServerRunning) {
         event.preventDefault();
-        if (nextServerLauncher) {
-            await nextServerLauncher.stop();
+        try {
+            // Set a maximum timeout for cleanup
+            const cleanupPromise = Promise.all([
+                nextServerLauncher ? nextServerLauncher.stop() : Promise.resolve(),
+                serverLauncher ? serverLauncher.stop() : Promise.resolve()
+            ]);
+            // Wait maximum 10 seconds for graceful shutdown
+            await Promise.race([
+                cleanupPromise,
+                new Promise((resolve) => setTimeout(resolve, 10000))
+            ]);
         }
-        if (serverLauncher) {
-            await serverLauncher.stop();
+        catch (error) {
+            console.error('Error during cleanup:', error);
         }
-        electron_1.app.quit();
+        finally {
+            // Force quit after cleanup attempt
+            setTimeout(() => {
+                process.exit(0);
+            }, 100);
+        }
     }
 });
