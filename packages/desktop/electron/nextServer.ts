@@ -59,7 +59,7 @@ export class NextServerLauncher {
   /**
    * Wait for Next.js server to be ready
    */
-  private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
+  private async waitForServer(url: string, maxAttempts = 180): Promise<void> {
     const http = require('http');
     const urlObj = new URL(url);
 
@@ -116,7 +116,7 @@ export class NextServerLauncher {
     try {
       // Find available port
       const port = await this.findAvailablePort(defaultPort);
-      const url = `http://localhost:${port}`;
+      const url = `http://127.0.0.1:${port}`;
 
       console.log(`🚀 Starting Next.js server on port ${port}...`);
 
