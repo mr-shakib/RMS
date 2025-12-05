@@ -571,40 +571,40 @@ export default function EditMenuItemPage() {
         </div>
 
         {/* Availability */}
-        <div className=\"flex items-center\">
+        <div className="flex items-center">
           <input
-            type=\"checkbox\"
-            id=\"available\"
-            name=\"available\"
+            type="checkbox"
+            id="available"
+            name="available"
             checked={formData.available}
             onChange={handleChange}
-            className=\"w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
                      focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 
-                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
+                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
           />
-          <label htmlFor=\"available\" className=\"ml-2 text-sm font-medium text-gray-700 dark:text-gray-300\">
+          <label htmlFor="available" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             Available for ordering
           </label>
         </div>
 
         {/* Always Priced */}
-        <div className=\"border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50\">
-          <div className=\"flex items-start\">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50">
+          <div className="flex items-start">
             <input
-              type=\"checkbox\"
-              id=\"alwaysPriced\"
-              name=\"alwaysPriced\"
+              type="checkbox"
+              id="alwaysPriced"
+              name="alwaysPriced"
               checked={formData.alwaysPriced}
               onChange={handleChange}
-              className=\"w-4 h-4 mt-0.5 text-purple-600 bg-gray-100 border-gray-300 rounded 
+              className="w-4 h-4 mt-0.5 text-purple-600 bg-gray-100 border-gray-300 rounded 
                        focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 
-                       focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
+                       focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
             />
-            <div className=\"ml-3\">
-              <label htmlFor=\"alwaysPriced\" className=\"text-sm font-medium text-gray-700 dark:text-gray-300\">
+            <div className="ml-3">
+              <label htmlFor="alwaysPriced" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Always price individually (even in buffet)
               </label>
-              <p className=\"text-xs text-gray-500 dark:text-gray-400 mt-1\">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Check this for beverages, desserts, or special items that should be charged separately even when customer orders a buffet.
               </p>
             </div>
@@ -612,7 +612,7 @@ export default function EditMenuItemPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className=\"flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700\">"
+        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"
             onClick={handleCancel}

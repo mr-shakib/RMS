@@ -17,14 +17,14 @@ export default function NewMenuItemPage() {
   const [formData, setFormData] = useState({
     name: '',
     itemNumber: '',
-    mainCategory: 'ALL_ITEMS' as 'ALL_ITEMS' | 'DINNER_BUFFET' | 'LAUNCH_BUFFET',
     categoryId: '', // The actual category (Main Course, Appetizer, etc.)
-    secondaryCategoryId: '', // For buffet items, this is the \"All Items\" category
     price: '',
     description: '',
     imageUrl: '',
     available: true,
     alwaysPriced: false, // If true, item is always individually priced (even in buffet)
+    addToLunchBuffet: false,
+    addToDinnerBuffet: false,
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -176,24 +176,23 @@ export default function NewMenuItemPage() {
     }
 
     try {
-      // Determine the actual categoryId based on main category selection
+      // Determine category assignments based on buffet selections
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
       
-      if (formData.mainCategory === 'DINNER_BUFFET') {
-        if (!dinnerBuffetCategory) {
-          throw new Error('Dinner Buffet category not found. Please create a buffet category with "Dinner" in the name.');
-        }
-        secondaryCategoryId = formData.categoryId; // The selected regular category
-        primaryCategoryId = dinnerBuffetCategory.id; // The buffet category
-      } else if (formData.mainCategory === 'LAUNCH_BUFFET') {
-        if (!launchBuffetCategory) {
-          throw new Error('Launch Buffet category not found. Please create a buffet category with "Launch" or "Lunch" in the name.');
-        }
-        secondaryCategoryId = formData.categoryId; // The selected regular category
-        primaryCategoryId = launchBuffetCategory.id; // The buffet category
+      // If adding to lunch buffet, make lunch buffet primary and regular category secondary
+      if (formData.addToLunchBuffet && launchBuffetCategory) {
+        primaryCategoryId = launchBuffetCategory.id;
+        secondaryCategoryId = formData.categoryId;
       }
+      // If adding to dinner buffet (and not lunch), make dinner buffet primary
+      else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
+        primaryCategoryId = dinnerBuffetCategory.id;
+        secondaryCategoryId = formData.categoryId;
+      }
+      // If adding to BOTH buffets, we'll need to create the item twice (once for each buffet)
       
+      // Create the main menu item
       await createMenuItem({
         name: formData.name.trim(),
         categoryId: primaryCategoryId,
@@ -205,6 +204,22 @@ export default function NewMenuItemPage() {
         itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
         alwaysPriced: formData.alwaysPriced,
       });
+      
+      // If both buffets are selected, create a second entry for the other buffet
+      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
+        // The first item was created with lunch buffet, now create one for dinner buffet
+        await createMenuItem({
+          name: formData.name.trim(),
+          categoryId: dinnerBuffetCategory.id,
+          secondaryCategoryId: formData.categoryId,
+          price: parseFloat(formData.price),
+          description: formData.description.trim() || undefined,
+          imageUrl: formData.imageUrl.trim() || undefined,
+          available: formData.available,
+          itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
+          alwaysPriced: formData.alwaysPriced,
+        });
+      }
 
       toast.success('Menu item created successfully!', 'Success');
       setTimeout(() => {
@@ -324,46 +339,7 @@ export default function NewMenuItemPage() {
             Category <span className="text-red-500">*</span>
           </label>
           
-          {/* Main Category Buttons */}
-          <div className="flex gap-3 mb-4">
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'ALL_ITEMS', categoryId: '' }))}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                formData.mainCategory === 'ALL_ITEMS'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              All Items
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'DINNER_BUFFET', categoryId: '' }))}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                formData.mainCategory === 'DINNER_BUFFET'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Dinner Buffet
-              {!dinnerBuffetCategory && <span className="text-xs ml-1">⚠️</span>}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, mainCategory: 'LAUNCH_BUFFET', categoryId: '' }))}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                formData.mainCategory === 'LAUNCH_BUFFET'
-                  ? 'bg-orange-600 text-white shadow-lg'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Launch Buffet
-              {!launchBuffetCategory && <span className="text-xs ml-1">⚠️</span>}
-            </button>
-          </div>
-
-          {/* Subcategory Selection */}
+          {/* Category Selection */}
           {categoriesLoading ? (
             <div className="text-sm text-gray-500 dark:text-gray-400">Loading categories...</div>
           ) : displayCategories.length === 0 ? (
@@ -372,11 +348,8 @@ export default function NewMenuItemPage() {
             </div>
           ) : (
             <div>
-              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                {formData.mainCategory === 'ALL_ITEMS' 
-                  ? 'Select subcategory' 
-                  : 'Select subcategory (also shows in All Items)'
-                }
+              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Category *
               </label>
               <select
                 id="categoryId"
@@ -398,16 +371,58 @@ export default function NewMenuItemPage() {
                   </option>
                 ))}
               </select>
-              {formData.mainCategory !== 'ALL_ITEMS' && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  This item will appear in both {formData.mainCategory === 'DINNER_BUFFET' ? 'Dinner Buffet' : 'Launch Buffet'} and All Items menu
-                </p>
-              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                This item will appear in the All Items menu and any buffets selected below
+              </p>
             </div>
           )}
           {errors.categoryId && (
             <p className="text-red-500 text-sm mt-1">{errors.categoryId}</p>
           )}
+        </div>
+          
+        {/* Buffet Options */}
+        <div>
+          <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-200 dark:border-purple-800">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Add to Buffet (Optional)
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="addToLunchBuffet"
+                  checked={formData.addToLunchBuffet}
+                  onChange={handleChange}
+                  disabled={!launchBuffetCategory}
+                  className="w-5 h-5 text-orange-600 rounded focus:ring-2 focus:ring-orange-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Add to Lunch Buffet
+                  {!launchBuffetCategory && <span className="text-xs text-red-500 ml-2">(Buffet category not found)</span>}
+                </span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="addToDinnerBuffet"
+                  checked={formData.addToDinnerBuffet}
+                  onChange={handleChange}
+                  disabled={!dinnerBuffetCategory}
+                  className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Add to Dinner Buffet
+                  {!dinnerBuffetCategory && <span className="text-xs text-red-500 ml-2">(Buffet category not found)</span>}
+                </span>
+              </label>
+            </div>
+            {(formData.addToLunchBuffet || formData.addToDinnerBuffet) && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-3 italic">
+                ✓ This item will be available in {formData.addToLunchBuffet && formData.addToDinnerBuffet ? 'both Lunch and Dinner buffets' : formData.addToLunchBuffet ? 'Lunch buffet' : 'Dinner buffet'}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Price */}
@@ -415,7 +430,7 @@ export default function NewMenuItemPage() {
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Individual Price <span className="text-red-500">*</span>
           </label>
-          {formData.mainCategory !== 'ALL_ITEMS' && (
+          {(formData.addToLunchBuffet || formData.addToDinnerBuffet) && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               This price will be shown in the All Items menu. Buffet pricing is based on the buffet category rate.
             </p>
@@ -530,40 +545,40 @@ export default function NewMenuItemPage() {
         </div>
 
         {/* Availability */}
-        <div className=\"flex items-center\">
+        <div className="flex items-center">
           <input
-            type=\"checkbox\"
-            id=\"available\"
-            name=\"available\"
+            type="checkbox"
+            id="available"
+            name="available"
             checked={formData.available}
             onChange={handleChange}
-            className=\"w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
                      focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 
-                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
+                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
           />
-          <label htmlFor=\"available\" className=\"ml-2 text-sm font-medium text-gray-700 dark:text-gray-300\">
+          <label htmlFor="available" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             Available for ordering
           </label>
         </div>
 
         {/* Always Priced */}
-        <div className=\"border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50\">
-          <div className=\"flex items-start\">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50">
+          <div className="flex items-start">
             <input
-              type=\"checkbox\"
-              id=\"alwaysPriced\"
-              name=\"alwaysPriced\"
+              type="checkbox"
+              id="alwaysPriced"
+              name="alwaysPriced"
               checked={formData.alwaysPriced}
               onChange={handleChange}
-              className=\"w-4 h-4 mt-0.5 text-purple-600 bg-gray-100 border-gray-300 rounded 
+              className="w-4 h-4 mt-0.5 text-purple-600 bg-gray-100 border-gray-300 rounded 
                        focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 
-                       focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
+                       focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
             />
-            <div className=\"ml-3\">
-              <label htmlFor=\"alwaysPriced\" className=\"text-sm font-medium text-gray-700 dark:text-gray-300\">
+            <div className="ml-3">
+              <label htmlFor="alwaysPriced" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Always price individually (even in buffet)
               </label>
-              <p className=\"text-xs text-gray-500 dark:text-gray-400 mt-1\">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Check this for beverages, desserts, or special items that should be charged separately even when customer orders a buffet. 
                 This is automatically checked for Beverage and Dessert categories.
               </p>
