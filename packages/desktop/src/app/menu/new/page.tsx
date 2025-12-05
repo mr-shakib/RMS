@@ -19,11 +19,12 @@ export default function NewMenuItemPage() {
     itemNumber: '',
     mainCategory: 'ALL_ITEMS' as 'ALL_ITEMS' | 'DINNER_BUFFET' | 'LAUNCH_BUFFET',
     categoryId: '', // The actual category (Main Course, Appetizer, etc.)
-    secondaryCategoryId: '', // For buffet items, this is the "All Items" category
+    secondaryCategoryId: '', // For buffet items, this is the \"All Items\" category
     price: '',
     description: '',
     imageUrl: '',
     available: true,
+    alwaysPriced: false, // If true, item is always individually priced (even in buffet)
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -104,7 +105,24 @@ export default function NewMenuItemPage() {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => {
+        const newData = { ...prev, [name]: value };
+        
+        // Auto-detect if item should be always priced based on category
+        if (name === 'categoryId' && value) {
+          const selectedCat = categories.find(cat => cat.id === value);
+          if (selectedCat) {
+            const categoryName = selectedCat.name.toLowerCase();
+            // Auto-check alwaysPriced for beverages, desserts, drinks, sweets
+            if (categoryName.includes('beverage') || categoryName.includes('dessert') || 
+                categoryName.includes('drink') || categoryName.includes('sweet')) {
+              newData.alwaysPriced = true;
+            }
+          }
+        }
+        
+        return newData;
+      });
     }
     
     // Clear error for this field
@@ -185,6 +203,7 @@ export default function NewMenuItemPage() {
         imageUrl: formData.imageUrl.trim() || undefined,
         available: formData.available,
         itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
+        alwaysPriced: formData.alwaysPriced,
       });
 
       toast.success('Menu item created successfully!', 'Success');
@@ -511,20 +530,45 @@ export default function NewMenuItemPage() {
         </div>
 
         {/* Availability */}
-        <div className="flex items-center">
+        <div className=\"flex items-center\">
           <input
-            type="checkbox"
-            id="available"
-            name="available"
+            type=\"checkbox\"
+            id=\"available\"
+            name=\"available\"
             checked={formData.available}
             onChange={handleChange}
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
+            className=\"w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded 
                      focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 
-                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                     focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
           />
-          <label htmlFor="available" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor=\"available\" className=\"ml-2 text-sm font-medium text-gray-700 dark:text-gray-300\">
             Available for ordering
           </label>
+        </div>
+
+        {/* Always Priced */}
+        <div className=\"border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50\">
+          <div className=\"flex items-start\">
+            <input
+              type=\"checkbox\"
+              id=\"alwaysPriced\"
+              name=\"alwaysPriced\"
+              checked={formData.alwaysPriced}
+              onChange={handleChange}
+              className=\"w-4 h-4 mt-0.5 text-purple-600 bg-gray-100 border-gray-300 rounded 
+                       focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 
+                       focus:ring-2 dark:bg-gray-700 dark:border-gray-600\"
+            />
+            <div className=\"ml-3\">
+              <label htmlFor=\"alwaysPriced\" className=\"text-sm font-medium text-gray-700 dark:text-gray-300\">
+                Always price individually (even in buffet)
+              </label>
+              <p className=\"text-xs text-gray-500 dark:text-gray-400 mt-1\">
+                Check this for beverages, desserts, or special items that should be charged separately even when customer orders a buffet. 
+                This is automatically checked for Beverage and Dessert categories.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}

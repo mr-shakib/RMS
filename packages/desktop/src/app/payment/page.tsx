@@ -31,12 +31,14 @@ export default function PaymentPage() {
   
   // State management
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successReceipt, setSuccessReceipt] = useState<any>(null);
   const [showPrintingAnimation, setShowPrintingAnimation] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'individual' | 'table'>('table');
   
   // Calculator state
   const [calculator, setCalculator] = useState<CalculatorState>({
@@ -64,6 +66,19 @@ export default function PaymentPage() {
     );
   }, [orders]);
   
+  // Group orders by table
+  const ordersByTable = useMemo(() => {
+    const grouped = new Map<number, any[]>();
+    unpaidOrders.forEach((order) => {
+      const tableId = order.tableId;
+      if (!grouped.has(tableId)) {
+        grouped.set(tableId, []);
+      }
+      grouped.get(tableId)!.push(order);
+    });
+    return grouped;
+  }, [unpaidOrders]);
+
   // Apply search filter
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return unpaidOrders;
@@ -75,35 +90,74 @@ export default function PaymentPage() {
       return orderId.includes(query) || tableName.includes(query);
     });
   }, [unpaidOrders, searchQuery]);
+
+  // Get filtered tables based on search
+  const filteredTables = useMemo(() => {
+    const tablesArray = Array.from(ordersByTable.entries()).map(([tableId, orders]) => ({
+      tableId,
+      tableName: orders[0]?.table?.name || `Table ${tableId}`,
+      orders,
+    }));
+    
+    if (!searchQuery.trim()) return tablesArray;
+    
+    const query = searchQuery.toLowerCase();
+    return tablesArray.filter(table => 
+      table.tableName.toLowerCase().includes(query)
+    );
+  }, [ordersByTable, searchQuery]);
   
   // Get selected order details
   const selectedOrder = useMemo(() => {
     if (!selectedOrderId) return null;
     return unpaidOrders.find((order) => order.id === selectedOrderId) || null;
   }, [selectedOrderId, unpaidOrders]);
+
+  // Get selected table orders
+  const selectedTableOrders = useMemo(() => {
+    if (!selectedTableId) return [];
+    return ordersByTable.get(selectedTableId) || [];
+  }, [selectedTableId, ordersByTable]);
   
   // Calculate order totals
   const orderTotals = useMemo(() => {
-    if (!selectedOrder) {
-      return {
+    if (viewMode === 'table' && selectedTableOrders.length > 0) {
+      // Calculate combined totals for all orders in the table
+      return selectedTableOrders.reduce((acc, order) => ({
+        subtotal: acc.subtotal + Number(order.subtotal || 0),
+        tax: acc.tax + Number(order.tax || 0),
+        discount: acc.discount + Number(order.discount || 0),
+        serviceCharge: acc.serviceCharge + Number(order.serviceCharge || 0),
+        tip: acc.tip + Number(order.tip || 0),
+        total: acc.total + Number(order.total || 0),
+      }), {
         subtotal: 0,
         tax: 0,
         discount: 0,
         serviceCharge: 0,
         tip: 0,
         total: 0,
+      });
+    } else if (viewMode === 'individual' && selectedOrder) {
+      return {
+        subtotal: Number(selectedOrder.subtotal || 0),
+        tax: Number(selectedOrder.tax || 0),
+        discount: Number(selectedOrder.discount || 0),
+        serviceCharge: Number(selectedOrder.serviceCharge || 0),
+        tip: Number(selectedOrder.tip || 0),
+        total: Number(selectedOrder.total || 0),
       };
     }
     
     return {
-      subtotal: Number(selectedOrder.subtotal || 0),
-      tax: Number(selectedOrder.tax || 0),
-      discount: Number(selectedOrder.discount || 0),
-      serviceCharge: Number(selectedOrder.serviceCharge || 0),
-      tip: Number(selectedOrder.tip || 0),
-      total: Number(selectedOrder.total || 0),
+      subtotal: 0,
+      tax: 0,
+      discount: 0,
+      serviceCharge: 0,
+      tip: 0,
+      total: 0,
     };
-  }, [selectedOrder]);
+  }, [viewMode, selectedOrder, selectedTableOrders]);
   
   // Calculator functions
   const handleNumberClick = (num: string) => {
@@ -243,21 +297,34 @@ export default function PaymentPage() {
   
   const processPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedOrderId) throw new Error('No order selected');
-      
       // Validate payment
       if (paymentMethod === PaymentMethod.CASH && cashReceived < orderTotals.total) {
         throw new Error('Insufficient cash received');
       }
       
-      // Process the payment directly - payment service handles status updates
-      const response = await apiClient.post('/payments', {
-        orderId: selectedOrderId,
-        amount: orderTotals.total,
-        method: paymentMethod,
-      });
+      if (viewMode === 'table' && selectedTableId) {
+        // Process batch payment for all orders in the table
+        if (selectedTableOrders.length === 0) throw new Error('No orders selected');
+        
+        const orderIds = selectedTableOrders.map(order => order.id);
+        const response = await apiClient.post('/payments/batch', {
+          orderIds,
+          method: paymentMethod,
+        });
+        
+        return response;
+      } else if (viewMode === 'individual' && selectedOrderId) {
+        // Process single order payment
+        const response = await apiClient.post('/payments', {
+          orderId: selectedOrderId,
+          amount: orderTotals.total,
+          method: paymentMethod,
+        });
+        
+        return response;
+      }
       
-      return response;
+      throw new Error('No order or table selected');
     },
     onSuccess: async (response: any) => {
       // Show printing animation
@@ -309,6 +376,7 @@ export default function PaymentPage() {
   
   const resetForm = () => {
     setSelectedOrderId(null);
+    setSelectedTableId(null);
     setPaymentMethod(PaymentMethod.CASH);
     setCalculator({
       display: '0',
@@ -319,7 +387,12 @@ export default function PaymentPage() {
   };
   
   const handleProcessPayment = () => {
-    if (!selectedOrderId) {
+    if (viewMode === 'table' && !selectedTableId) {
+      alert('Please select a table first');
+      return;
+    }
+    
+    if (viewMode === 'individual' && !selectedOrderId) {
       alert('Please select an order first');
       return;
     }
@@ -367,7 +440,7 @@ export default function PaymentPage() {
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                Select Order ({filteredOrders.length})
+                {viewMode === 'table' ? `Tables (${filteredTables.length})` : `Orders (${filteredOrders.length})`}
               </h2>
               <button
                 onClick={handleManualRefresh}
@@ -380,9 +453,40 @@ export default function PaymentPage() {
                 <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => {
+                  setViewMode('table');
+                  setSelectedOrderId(null);
+                }}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                By Table (Pay All)
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('individual');
+                  setSelectedTableId(null);
+                }}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  viewMode === 'individual'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                Individual Orders
+              </button>
+            </div>
+            
             <input
               type="text"
-              placeholder="Search order or table..."
+              placeholder={viewMode === 'table' ? "Search tables..." : "Search order or table..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
@@ -398,58 +502,128 @@ export default function PaymentPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 <span className="ml-3 text-gray-600 dark:text-gray-400">Loading orders...</span>
               </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="text-center py-12">
-                <ReceiptPercentIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {searchQuery ? 'No orders found' : 'No unpaid orders available'}
-                </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                  {searchQuery ? 'Try a different search' : 'All unpaid orders will appear here'}
-                </p>
-              </div>
+            ) : viewMode === 'table' ? (
+              // Table View - Show grouped tables with Pay All option
+              filteredTables.length === 0 ? (
+                <div className="text-center py-12">
+                  <ReceiptPercentIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {searchQuery ? 'No tables found' : 'No tables with unpaid orders'}
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    {searchQuery ? 'Try a different search' : 'All tables with unpaid orders will appear here'}
+                  </p>
+                </div>
+              ) : (
+                filteredTables.map((table) => {
+                  const isSelected = selectedTableId === table.tableId;
+                  const tableName = table.tableName;
+                  const orderCount = table.orders.length;
+                  const totalAmount = table.orders.reduce((sum, order) => sum + Number(order.total), 0);
+                  
+                  return (
+                    <button
+                      key={table.tableId}
+                      onClick={() => {
+                        setSelectedTableId(table.tableId);
+                        setSelectedOrderId(null);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all
+                                ${isSelected 
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base text-gray-900 dark:text-white truncate">
+                            {tableName}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {orderCount} {orderCount === 1 ? 'order' : 'orders'}
+                          </p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <span className="text-base font-bold text-gray-900 dark:text-white block">
+                            {formatCurrency(totalAmount)}
+                          </span>
+                          {isSelected && (
+                            <CheckCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 inline-block mt-1" />
+                          )}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Orders in this batch:</p>
+                          {table.orders.map((order, idx) => (
+                            <div key={order.id} className="text-xs text-gray-500 dark:text-gray-400 flex justify-between py-0.5">
+                              <span>#{order.id.slice(0, 8)}</span>
+                              <span>{formatCurrency(Number(order.total))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )
             ) : (
-              filteredOrders.map((order) => {
-                const isSelected = selectedOrderId === order.id;
-                const tableName = (order as any).table?.name || `Table ${order.tableId}`;
-                const orderDate = new Date(order.createdAt);
-                
-                return (
-                  <button
-                    key={order.id}
-                    onClick={() => setSelectedOrderId(order.id)}
-                    className={`w-full text-left p-2 rounded-lg border-2 transition-all
-                              ${isSelected 
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
-                              }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-xs text-gray-900 dark:text-white truncate">
-                          {tableName}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          #{order.id.slice(0, 8)}
-                        </p>
+              // Individual Order View - Show orders one by one
+              filteredOrders.length === 0 ? (
+                <div className="text-center py-12">
+                  <ReceiptPercentIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {searchQuery ? 'No orders found' : 'No unpaid orders available'}
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    {searchQuery ? 'Try a different search' : 'All unpaid orders will appear here'}
+                  </p>
+                </div>
+              ) : (
+                filteredOrders.map((order) => {
+                  const isSelected = selectedOrderId === order.id;
+                  const tableName = (order as any).table?.name || `Table ${order.tableId}`;
+                  
+                  return (
+                    <button
+                      key={order.id}
+                      onClick={() => {
+                        setSelectedOrderId(order.id);
+                        setSelectedTableId(null);
+                      }}
+                      className={`w-full text-left p-2 rounded-lg border-2 transition-all
+                                ${isSelected 
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-xs text-gray-900 dark:text-white truncate">
+                            {tableName}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            #{order.id.slice(0, 8)}
+                          </p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white block">
+                            {formatCurrency(Number(order.total))}
+                          </span>
+                          {isSelected && (
+                            <CheckCircleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 inline-block" />
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right ml-2">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white block">
-                          {formatCurrency(Number(order.total))}
-                        </span>
-                        {isSelected && (
-                          <CheckCircleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 inline-block" />
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
+                    </button>
+                  );
+                })
+              )
             )}
           </div>
           
           {/* Calculator - Lower 50% (Only for Cash) */}
-          {selectedOrder && paymentMethod === PaymentMethod.CASH && (
+          {(selectedOrder || selectedTableId) && paymentMethod === PaymentMethod.CASH && (
             <div className="h-1/2 bg-gray-50 dark:bg-gray-900 p-2">
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-2 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-1">
@@ -509,15 +683,17 @@ export default function PaymentPage() {
         
         {/* Right Side - Payment Details & Summary */}
         <div className="w-3/5 flex flex-col bg-gray-50 dark:bg-gray-900">
-          {!selectedOrder ? (
+          {!selectedOrder && !selectedTableId ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <CreditCardIcon className="w-24 h-24 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                  No Order Selected
+                  {viewMode === 'table' ? 'No Table Selected' : 'No Order Selected'}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Select an order from the left to process payment
+                  {viewMode === 'table' 
+                    ? 'Select a table from the left to process payment for all orders'
+                    : 'Select an order from the left to process payment'}
                 </p>
               </div>
             </div>
@@ -526,7 +702,9 @@ export default function PaymentPage() {
               {/* Order Summary */}
               <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
-                  Order Summary
+                  {selectedTableId 
+                    ? `Table ${selectedTableOrders[0]?.table?.name || selectedTableId} - ${selectedTableOrders.length} Orders`
+                    : 'Order Summary'}
                 </h2>
                 
                 <div className="space-y-1.5 mb-3">
@@ -562,7 +740,9 @@ export default function PaymentPage() {
                 
                 <div className="pt-2 border-t-2 border-gray-300 dark:border-gray-600">
                   <div className="flex justify-between items-center">
-                    <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Total:</span>
+                    <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
+                      {selectedTableId ? 'Combined Total:' : 'Total:'}
+                    </span>
                     <span className="text-2xl font-bold text-gray-900 dark:text-white">
                       {formatCurrency(orderTotals.total)}
                     </span>
@@ -661,7 +841,11 @@ export default function PaymentPage() {
                     ) : (
                       <>
                         <PrinterIcon className="w-5 h-5" />
-                        <span>Process Payment & Print Receipt</span>
+                        <span>
+                          {selectedTableId 
+                            ? `Pay All ${selectedTableOrders.length} Orders & Print Receipts`
+                            : 'Process Payment & Print Receipt'}
+                        </span>
                       </>
                     )}
                   </button>

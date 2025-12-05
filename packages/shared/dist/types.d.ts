@@ -25,6 +25,7 @@ export interface Category {
 }
 export interface MenuItem {
     id: string;
+    itemNumber?: number;
     name: string;
     categoryId: string;
     category?: Category;
@@ -34,6 +35,7 @@ export interface MenuItem {
     description?: string;
     imageUrl?: string;
     available: boolean;
+    alwaysPriced?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -105,6 +107,8 @@ export interface CreateMenuItemDTO {
     description?: string;
     imageUrl?: string;
     available?: boolean;
+    itemNumber?: number;
+    alwaysPriced?: boolean;
 }
 export interface CreateTableDTO {
     name: string;

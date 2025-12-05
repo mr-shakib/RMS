@@ -12,6 +12,20 @@ interface ProcessPaymentInput {
   reference?: string;
 }
 
+interface ProcessBatchPaymentInput {
+  orderIds: string[];
+  method: PaymentMethod;
+  reference?: string;
+}
+
+interface BatchPaymentResult {
+  payments: Payment[];
+  totalAmount: number;
+  successCount: number;
+  failedCount: number;
+  errors?: { orderId: string; error: string }[];
+}
+
 interface SalesReport {
   totalRevenue: number;
   totalOrders: number;
@@ -125,6 +139,137 @@ class PaymentService {
     }
 
     return payment;
+  }
+
+  /**
+   * Process payment for multiple orders (table-wise payment)
+   * All orders are processed in a single transaction
+   */
+  async processBatchPayment(input: ProcessBatchPaymentInput): Promise<BatchPaymentResult> {
+    const { orderIds, method, reference } = input;
+
+    const payments: Payment[] = [];
+    const errors: { orderId: string; error: string }[] = [];
+    let totalAmount = 0;
+
+    // Validate all orders exist and calculate total
+    const orders = await prisma.order.findMany({
+      where: {
+        id: { in: orderIds },
+      },
+      include: { payment: true },
+    });
+
+    if (orders.length !== orderIds.length) {
+      const foundIds = orders.map(o => o.id);
+      const missingIds = orderIds.filter(id => !foundIds.includes(id));
+      throw new Error(`Orders not found: ${missingIds.join(', ')}`);
+    }
+
+    // Check for already paid orders
+    const alreadyPaid = orders.filter(o => o.payment);
+    if (alreadyPaid.length > 0) {
+      throw new Error(`Some orders are already paid: ${alreadyPaid.map(o => o.id).join(', ')}`);
+    }
+
+    // Calculate total amount
+    totalAmount = orders.reduce((sum, order) => sum + order.total, 0);
+
+    // Process all payments in a transaction
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const processedPayments: Payment[] = [];
+        const tableIds = new Set<number>();
+
+        for (const order of orders) {
+          tableIds.add(order.tableId);
+
+          // Create payment
+          const payment = await tx.payment.create({
+            data: {
+              orderId: order.id,
+              amount: order.total,
+              method,
+              reference,
+            },
+            include: {
+              order: {
+                include: {
+                  items: {
+                    include: {
+                      menuItem: true,
+                    },
+                  },
+                  table: true,
+                },
+              },
+            },
+          });
+
+          // Update order status to PAID
+          await tx.order.update({
+            where: { id: order.id },
+            data: { status: 'PAID' },
+          });
+
+          processedPayments.push(payment);
+        }
+
+        // Check each table and update status if all orders are paid
+        for (const tableId of tableIds) {
+          const activeOrders = await tx.order.findMany({
+            where: {
+              tableId,
+              status: {
+                notIn: ['PAID', 'CANCELLED'],
+              },
+            },
+          });
+
+          // If no active orders, set table to FREE
+          if (activeOrders.length === 0) {
+            await tx.table.update({
+              where: { id: tableId },
+              data: { status: 'FREE' },
+            });
+          }
+        }
+
+        return processedPayments;
+      });
+
+      payments.push(...result);
+
+      // Emit WebSocket events for all payments
+      for (const payment of payments) {
+        try {
+          emitPaymentCompleted(payment);
+        } catch (error) {
+          console.error('Failed to emit payment:completed event:', error);
+        }
+      }
+
+      // Print receipts for all orders
+      for (const payment of payments) {
+        try {
+          await multiPrinterService.printCustomerReceipt(payment.orderId, payment.id);
+        } catch (error) {
+          console.error(`Failed to print receipt for order ${payment.orderId}:`, error);
+          // Don't throw - payments were processed successfully
+        }
+      }
+
+    } catch (error: any) {
+      throw new Error(`Batch payment failed: ${error.message}`);
+    }
+
+    return {
+      payments,
+      totalAmount,
+      successCount: payments.length,
+      failedCount: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
   }
 
   /**

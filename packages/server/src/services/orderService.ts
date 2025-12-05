@@ -63,7 +63,8 @@ class OrderService {
       subtotal = (category.buffetPrice || 0) * buffetQuantity;
 
       // For buffet orders, items array can be empty
-      // If items are provided, add them to order for tracking, but with 0 price
+      // If items are provided, add them to order for tracking
+      // Items with alwaysPriced=true (beverages, desserts) are charged individually
       for (const item of items) {
         const menuItem = await prisma.menuItem.findUnique({
           where: { id: item.menuItemId },
@@ -77,10 +78,19 @@ class OrderService {
           throw new Error(`Menu item ${menuItem.name} is not available`);
         }
 
+        // Check if item should always be priced (beverages, desserts, etc.)
+        const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+        const itemTotal = itemPrice * item.quantity;
+        
+        // Add to subtotal if item is always priced
+        if (menuItem.alwaysPriced) {
+          subtotal += itemTotal;
+        }
+
         orderItemsData.push({
           menuItemId: item.menuItemId,
           quantity: item.quantity,
-          price: 0, // Buffet items don't have individual prices
+          price: itemPrice, // Use actual price if alwaysPriced, otherwise 0
           notes: item.notes,
         });
       }

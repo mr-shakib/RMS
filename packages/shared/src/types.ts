@@ -43,6 +43,7 @@ export interface MenuItem {
   description?: string;
   imageUrl?: string;
   available: boolean;
+  alwaysPriced?: boolean; // If true, item is always priced individually (even in buffet)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -128,6 +129,7 @@ export interface CreateMenuItemDTO {
   imageUrl?: string;
   available?: boolean;
   itemNumber?: number;
+  alwaysPriced?: boolean; // If true, item is always priced individually (even in buffet)
 }
 
 export interface CreateTableDTO {

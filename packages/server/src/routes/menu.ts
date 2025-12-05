@@ -73,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/menu - Create new menu item
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
 
     // Validate required fields
     if (!name || !categoryId || price === undefined) {
@@ -98,6 +98,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       imageUrl: imageUrl?.trim(),
       available: available !== undefined ? available : true,
       itemNumber: itemNumber,
+      alwaysPriced: alwaysPriced || false,
     });
 
     res.status(201).json({
@@ -115,7 +116,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber } = req.body;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price <= 0)) {
@@ -136,6 +137,7 @@ router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res:
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim();
     if (available !== undefined) updateData.available = available;
     if (itemNumber !== undefined) updateData.itemNumber = itemNumber;
+    if (alwaysPriced !== undefined) updateData.alwaysPriced = alwaysPriced;
 
     if (Object.keys(updateData).length === 0) {
       throw new ValidationError('At least one field must be provided for update');
