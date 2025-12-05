@@ -11,6 +11,7 @@ interface CreateMenuItemInput {
   imageUrl?: string;
   available?: boolean;
   itemNumber?: number;
+  alwaysPriced?: boolean;
 }
 
 interface UpdateMenuItemInput {
@@ -22,6 +23,7 @@ interface UpdateMenuItemInput {
   imageUrl?: string;
   available?: boolean;
   itemNumber?: number;
+  alwaysPriced?: boolean;
 }
 
 interface MenuItemFilters {
@@ -105,7 +107,7 @@ class MenuService {
    * Create a new menu item
    */
   async createMenuItem(input: CreateMenuItemInput): Promise<MenuItem> {
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available = true } = input;
+    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available = true, alwaysPriced = false } = input;
 
     // Validate price
     if (price <= 0) {
@@ -155,6 +157,7 @@ class MenuService {
         imageUrl,
         available,
         itemNumber: assignedItemNumber,
+        alwaysPriced,
       },
       include: {
         category: true,
