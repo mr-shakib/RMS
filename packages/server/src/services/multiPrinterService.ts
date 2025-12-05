@@ -177,49 +177,81 @@ class MultiPrinterService {
 
   /**
    * Print order items on appropriate printers based on category
+   * Groups items by printer to avoid duplicate tickets
    */
   async printOrderByCategory(orderId: string): Promise<void> {
     try {
+      // Fetch the order with full details including category information
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
-          items: { include: { menuItem: { include: { category: true } } } },
           table: true,
+          items: {
+            include: {
+              menuItem: {
+                include: {
+                  category: true,
+                  secondaryCategory: true,
+                },
+              },
+            },
+          },
         },
       });
 
       if (!order) {
-        throw new PrinterError('Order not found');
+        throw new Error(`Order ${orderId} not found`);
       }
 
-      const itemsByCategory = new Map<string, typeof order.items>();
-      for (const item of order.items) {
-        const categoryId = item.menuItem.categoryId;
-        if (!itemsByCategory.has(categoryId)) itemsByCategory.set(categoryId, []);
-        itemsByCategory.get(categoryId)!.push(item);
-      }
-
+      // Get business name for printing
       const businessName = await this.getSetting('business_name', 'Restaurant');
 
-      const printPromises: Promise<void>[] = [];
+      // Group items by printer (not just by category)
+      const itemsByPrinter = new Map<string, any[]>();
 
-      for (const [categoryId, items] of itemsByCategory.entries()) {
-        const printers = this.getPrintersForCategory(categoryId);
+      for (const item of order.items) {
+        // For buffet items, use secondaryCategoryId if available, otherwise use categoryId
+        const categoryId = item.menuItem.secondaryCategoryId || item.menuItem.categoryId;
+        const categoryName = item.menuItem.secondaryCategory?.name || item.menuItem.category?.name || 'Unknown';
 
-        if (printers.length === 0) {
-          console.warn(`⚠️  No printer assigned for category ${items[0].menuItem.category.name}`);
+        console.log(`📝 Item: ${item.menuItem.name}, Category: ${categoryName} (${categoryId})`);
+
+        // Get printers assigned to this category
+        const printersForCategory = this.getPrintersForCategory(categoryId);
+
+        if (printersForCategory.length === 0) {
+          console.warn(`⚠️  No printer assigned for category ${categoryName}`);
           continue;
         }
 
-        for (const printerConnection of printers) {
-          printPromises.push(
-            this.printKitchenTicketOnPrinter(printerConnection, order, items, businessName)
-          );
+        // Use first printer for this category
+        const printer = printersForCategory[0];
+
+        if (!itemsByPrinter.has(printer.id)) {
+          itemsByPrinter.set(printer.id, []);
         }
+        itemsByPrinter.get(printer.id)!.push(item);
       }
 
-      await Promise.all(printPromises);
-      console.log(`✅ Order ${orderId} printed across ${printPromises.length} printer(s)`);
+      // Print to each printer
+      let printedCount = 0;
+
+      for (const [printerId, items] of itemsByPrinter.entries()) {
+        const connection = this.printers.get(printerId);
+
+        if (!connection) {
+          console.warn(`⚠️  Printer ${printerId} not found or disconnected`);
+          continue;
+        }
+
+        console.log(`🖨️  Printing ${items.length} items to printer ${connection.name}`);
+
+        // Print to the assigned printer
+        await this.printKitchenTicketOnPrinter(connection, order, items, businessName);
+        printedCount++;
+      }
+
+      console.log(`✅ Order ${orderId} printed across ${printedCount} printer(s)`);
     } catch (error) {
       console.error('Error printing order by category:', error);
       throw error;
@@ -286,7 +318,6 @@ class MultiPrinterService {
 
       const businessName = await this.getSetting('business_name', 'Restaurant');
       const businessAddress = await this.getSetting('business_address', '');
-      const currency = await this.getSetting('currency', 'USD');
 
       // Create fresh instance for this print job
       const p = this.createPrinterInstance(activePrinter);
@@ -294,23 +325,23 @@ class MultiPrinterService {
       // Header
       p.alignCenter();
       p.bold(true);
-      p.setTextSize(1, 1); // Use setTextSize instead of individual methods
+      p.setTextSize(1, 1);
       p.println(businessName);
-      p.setTextNormal(); // Reset to normal
+      p.setTextNormal();
 
       if (businessAddress) {
         p.println(businessAddress);
       }
       p.drawLine();
 
-      // Order details
+      // Order details - Italian labels
       p.alignLeft();
-      p.println(`Date: ${new Date().toLocaleString()}`);
-      p.println(`Order #: ${String(order.id).substring(0, 8)}`);
-      p.println(`Table: ${order.table.name}`);
-      p.println(`Payment: ${payment.method}`);
+      p.println(`Data: ${new Date().toLocaleString('it-IT')}`);
+      p.println(`Ordine #: ${String(order.id).substring(0, 8)}`);
+      p.println(`Tavolo: ${order.table.name}`);
+      p.println(`Pagamento: ${payment.method}`);
       p.drawLine();
-      p.println('Items:');
+      p.println('Articoli:');
       p.newLine();
 
       // Items list
@@ -322,45 +353,27 @@ class MultiPrinterService {
         const total = qty * price;
 
         p.print(`${itemName}  `);
-        p.println(`${qty} x ${currency} ${price.toFixed(2)} = ${currency} ${total.toFixed(2)}`);
+        p.println(`${qty} x ${price.toFixed(2)} EUR = ${total.toFixed(2)} EUR`);
 
         const note = typeof item.notes === 'string' ? item.notes.trim() : '';
         if (note && (!footerInstruction || note !== footerInstruction)) {
-          p.println(`  Note: ${note}`);
+          p.println(`  Nota: ${note}`);
         }
       }
 
-      // Totals
+      // Totals - Italian labels
       p.newLine();
       p.drawLine();
-      p.println(`Subtotal: ${currency} ${order.subtotal.toFixed(2)}`);
-      p.println(`Tax: ${currency} ${order.tax.toFixed(2)}`);
-
-      if (order.discount > 0) {
-        p.println(`Discount: -${currency} ${order.discount.toFixed(2)}`);
-      }
-      if (order.serviceCharge > 0) {
-        p.println(`Service Charge: ${currency} ${order.serviceCharge.toFixed(2)}`);
-      }
-      if (order.tip > 0) {
-        p.println(`Tip: ${currency} ${order.tip.toFixed(2)}`);
-      }
-
-      p.drawLine();
-
-      if (footerInstruction) {
-        p.println(`Special Instructions: ${footerInstruction}`);
-      }
 
       // Total
       p.alignCenter();
       p.bold(true);
       p.setTextSize(1, 1);
-      p.println(`TOTAL: ${currency} ${order.total.toFixed(2)}`);
+      p.println(`TOTALE: ${order.total.toFixed(2)} EUR`);
       p.setTextNormal();
 
       p.drawLine();
-      p.println('Thank you for your visit!');
+      p.println('Grazie per la vostra visita!');
       p.newLine();
       p.newLine();
       p.cut();
@@ -392,20 +405,19 @@ class MultiPrinterService {
     const p = this.createPrinterInstance(connection);
 
     try {
-      // Header
+      // Header - Business Name
       p.alignCenter();
       p.bold(true);
       p.setTextSize(1, 1); // Double size for header
-      p.println(businessName);
+      p.println(order.table.name);
       p.setTextNormal();
       p.drawLine();
 
-      // Order info
+      // Order info - Italian labels
       p.alignLeft();
       p.setTextSize(0, 0); // Normal size
-      p.println(`Time: ${new Date().toLocaleTimeString()}`);
-      p.println(`Order #: ${String(order.id).substring(0, 8)}`);
-      p.println(`Table: ${order.table.name}`);
+      p.println(`Ora: ${new Date().toLocaleTimeString('it-IT')}`); // "Time" in Italian
+      p.println(`Ordine #: ${String(order.id).substring(0, 8)}`); // "Order" in Italian
       p.drawLine();
 
       // Items - with moderate emphasis
@@ -419,7 +431,7 @@ class MultiPrinterService {
         const note = typeof item.notes === 'string' ? item.notes.trim() : '';
         if (note && (!footerInstruction || note !== footerInstruction)) {
           p.setTextSize(0, 0); // Normal size for notes
-          p.println(`  Note: ${note}`);
+          p.println(`  Nota: ${note}`); // "Note" in Italian
         }
         p.newLine();
       }
@@ -427,7 +439,7 @@ class MultiPrinterService {
       p.drawLine();
       p.newLine();
       if (footerInstruction) {
-        p.println(`Special Instructions: ${footerInstruction}`);
+        p.println(`Istruzioni Speciali: ${footerInstruction}`); // "Special Instructions" in Italian
         p.newLine();
       }
       p.cut();
@@ -469,13 +481,13 @@ class MultiPrinterService {
       p.println('TEST PRINT');
       p.setTextNormal();
       p.drawLine();
-      
+
       p.alignLeft();
       p.println(`Printer: ${connection.name}`);
       p.println(`Type: ${connection.type}`);
       p.println(`Time: ${new Date().toLocaleString()}`);
       p.drawLine();
-      
+
       p.alignCenter();
       p.println('If you can read this,');
       p.println('your printer is working!');
@@ -515,6 +527,154 @@ class MultiPrinterService {
       status.set(id, connection.isConnected);
     }
     return status;
+  }
+
+  /**
+   * Print merged customer receipt for multiple orders from the same table
+   */
+  async printMergedReceipt(orderIds: string[], paymentId: string, tableId: number): Promise<void> {
+    try {
+      // Get any active printer (use first available)
+      const activePrinter = Array.from(this.printers.values())[0];
+
+      if (!activePrinter) {
+        console.warn('⚠️  No printer available for merged receipt');
+        return;
+      }
+      if (!activePrinter.printerConfig) {
+        throw new PrinterError('Printer not initialized');
+      }
+
+      // Fetch all orders
+      const orders = await prisma.order.findMany({
+        where: { id: { in: orderIds } },
+        include: {
+          items: {
+            include: {
+              menuItem: true,
+            },
+          },
+          table: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (orders.length === 0) {
+        throw new Error('No orders found');
+      }
+
+      const payment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+      });
+
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      // Get business settings
+      const businessName = await this.getSetting('business_name', 'Restaurant');
+      const businessAddress = await this.getSetting('business_address', '');
+
+      // Calculate totals
+      const totalSubtotal = orders.reduce((sum, o) => sum + o.subtotal, 0);
+      const totalTax = orders.reduce((sum, o) => sum + o.tax, 0);
+      const totalDiscount = orders.reduce((sum, o) => sum + o.discount, 0);
+      const totalServiceCharge = orders.reduce((sum, o) => sum + o.serviceCharge, 0);
+      const totalTip = orders.reduce((sum, o) => sum + o.tip, 0);
+      const grandTotal = orders.reduce((sum, o) => sum + o.total, 0);
+
+      // Collect all items
+      const allItems: any[] = [];
+      orders.forEach(order => {
+        order.items.forEach(item => {
+          allItems.push(item);
+        });
+      });
+
+      // Create fresh printer instance for this print job
+      const p = this.createPrinterInstance(activePrinter);
+
+      // Header
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1);
+      p.println(businessName);
+      p.setTextNormal();
+
+      if (businessAddress) {
+        p.println(businessAddress);
+      }
+      p.drawLine();
+
+      // Order details - Italian labels
+      p.alignLeft();
+      p.println(`Data: ${new Date().toLocaleString('it-IT')}`);
+      p.println(`Tavolo: ${orders[0].table.name}`);
+      p.println(`Ordini: ${orders.length}`);
+      p.println(`Pagamento: ${payment.method}`);
+      p.drawLine();
+      p.println('Articoli:');
+      p.newLine();
+
+      // Items list
+      const footerInstruction = this.extractFooterInstruction(allItems);
+      for (const item of allItems) {
+        const itemName = item.menuItem.name;
+        const qty = item.quantity;
+        const price = item.price;
+        const total = qty * price;
+
+        p.print(`${itemName}  `);
+        p.println(`${qty} x ${price.toFixed(2)} EUR = ${total.toFixed(2)} EUR`);
+
+        const note = typeof item.notes === 'string' ? item.notes.trim() : '';
+        if (note && (!footerInstruction || note !== footerInstruction)) {
+          p.println(`  Nota: ${note}`);
+        }
+      }
+
+      // Totals - Italian labels
+      p.newLine();
+      p.drawLine();
+      p.println(`Subtotale: ${totalSubtotal.toFixed(2)} EUR`);
+
+      if (totalDiscount > 0) {
+        p.println(`Sconto: -${totalDiscount.toFixed(2)} EUR`);
+      }
+      if (totalServiceCharge > 0) {
+        p.println(`Servizio: ${totalServiceCharge.toFixed(2)} EUR`);
+      }
+      if (totalTip > 0) {
+        p.println(`Mancia: ${totalTip.toFixed(2)} EUR`);
+      }
+
+      p.drawLine();
+
+      if (footerInstruction) {
+        p.println(`Istruzioni Speciali: ${footerInstruction}`);
+      }
+
+      // Total
+      p.alignCenter();
+      p.bold(true);
+      p.setTextSize(1, 1);
+      p.println(`TOTALE: ${grandTotal.toFixed(2)} EUR`);
+      p.setTextNormal();
+
+      p.drawLine();
+      p.println('Grazie per la vostra visita!');
+      p.newLine();
+      p.newLine();
+      p.cut();
+
+      // Execute ONCE
+      await p.execute();
+
+      console.log(`✅ Merged customer receipt printed for ${orders.length} orders`);
+    } catch (error) {
+      console.error('Error printing merged receipt:', error);
+      throw error;
+    }
   }
 }
 

@@ -12,38 +12,11 @@
   },
   "includeSubNodeModules": true,
   "files": [
-    "dist/electron/**/*",
+    "dist/**/*",
+    "node_modules/**/*",
     "package.json"
   ],
   "extraResources": [
-    {
-      "from": ".next/standalone",
-      "to": "nextjs/standalone",
-      "filter": [
-        "**/*"
-      ]
-    },
-    {
-      "from": ".next/static",
-      "to": "nextjs/static",
-      "filter": [
-        "**/*"
-      ]
-    },
-    {
-      "from": ".next/static",
-      "to": "nextjs/standalone/packages/desktop/.next/static",
-      "filter": [
-        "**/*"
-      ]
-    },
-    {
-      "from": "public",
-      "to": "nextjs/public",
-      "filter": [
-        "**/*"
-      ]
-    },
     {
       "from": "../server/dist",
       "to": "server/dist",
@@ -66,20 +39,41 @@
       ]
     },
     {
-      "from": "../server/scripts/init-production-db.js",
-      "to": "server/scripts/init-production-db.js"
-    },
-    {
-      "from": "../server/temp-prod/package.json",
-      "to": "server/package.json"
-    },
-    {
-      "from": "../server/temp-prod/node_modules",
+      "from": "../../node_modules",
       "to": "server/node_modules",
+      "filter": [
+        "**/*",
+        "!electron",
+        "!electron-builder",
+        "!typescript",
+        "!@types/*"
+      ]
+    },
+    {
+      "from": ".next/standalone",
+      "to": "nextjs/standalone",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": ".next/static",
+      "to": "nextjs/standalone/.next/static",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "public",
+      "to": "nextjs/standalone/public",
       "filter": [
         "**/*"
       ]
     }
+  ],
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**/*",
+    "node_modules/@prisma/**/*"
   ],
   "win": {
     "target": [
@@ -178,8 +172,5 @@
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "compression": "maximum",
-  "asar": true,
-  "asarUnpack": [
-    "**/*.node"
-  ]
+  "asar": true
 }

@@ -1,5 +1,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as http from 'http';
 
 export interface NextServerConfig {
   port: number;
@@ -108,13 +110,17 @@ export class NextServerLauncher {
   /**
    * Start the Next.js server as a child process
    */
-  async start(defaultPort: number = 3000): Promise<NextServerConfig> {
+  async start(port: number = 3000): Promise<NextServerConfig> {
+    if (this.nextProcess) {
+      throw new Error('Next.js server is already running');
+    }
+
     try {
       // Find available port
-      const port = await this.findAvailablePort(defaultPort);
-      const url = `http://localhost:${port}`;
+      const availablePort = await this.findAvailablePort(port);
+      const url = `http://localhost:${availablePort}`;
       
-      console.log(`🚀 Starting Next.js server on port ${port}...`);
+      console.log(`🚀 Starting Next.js server on port ${availablePort}...`);
       
       // Determine Next.js command
       let nextCommand: string;
@@ -130,25 +136,35 @@ export class NextServerLauncher {
         cwd = path.join(__dirname, '../../');
         useShell = true;
       } else {
-        // In production, run Next.js standalone server
-        const { app } = require('electron');
-        const fs = require('fs');
-        
-        // Get app path (no asar, all files are unpacked)
-        const nextDir = path.join(__dirname, '../../');
-        
-        // Check for standalone server
-        const standaloneServerPath = path.join(nextDir, '.next/standalone/server.js');
-        
-        if (!fs.existsSync(standaloneServerPath)) {
-          throw new Error(`Next.js standalone server not found at: ${standaloneServerPath}`);
+        // In production, look in resources/nextjs/standalone
+        // In dev, look in .next/standalone relative to this file
+        const serverPath = this.isDev
+          ? path.join(__dirname, '../../.next/standalone/server.js')
+          : path.join(process.resourcesPath, 'nextjs', 'standalone', 'server.js');
+
+        console.log('[NextServer] Looking for server at:', serverPath);
+
+        // Check if server file exists
+        if (!fs.existsSync(serverPath)) {
+          const errorMsg = `Next.js standalone server not found at: ${serverPath}`;
+          console.error('[NextServer]', errorMsg);
+          
+          // List what actually exists in the directory
+          const parentDir = path.dirname(serverPath);
+          if (fs.existsSync(parentDir)) {
+            console.error('[NextServer] Contents of parent directory:', fs.readdirSync(parentDir));
+          } else {
+            console.error('[NextServer] Parent directory does not exist:', parentDir);
+          }
+          
+          throw new Error(errorMsg);
         }
         
         // Use process.execPath which points to the Electron executable
         // Electron has Node.js built-in, so we can use it directly
         nextCommand = process.execPath;
-        nextArgs = [standaloneServerPath];
-        cwd = path.join(nextDir, '.next/standalone');
+        nextArgs = [serverPath];
+        cwd = path.join(__dirname, '../../.next/standalone');
         
         console.log(`✓ Using Electron's Node.js: ${nextCommand}`);
       }
@@ -159,7 +175,7 @@ export class NextServerLauncher {
       this.nextProcess = spawn(nextCommand, nextArgs, {
         env: {
           ...process.env,
-          PORT: port.toString(),
+          PORT: availablePort.toString(),
           NODE_ENV: this.isDev ? 'development' : 'production',
         },
         stdio: 'pipe',
@@ -192,7 +208,7 @@ export class NextServerLauncher {
       // Wait for Next.js to be ready
       await this.waitForServer(url);
       
-      this.config = { port, url };
+      this.config = { port: availablePort, url };
       
       console.log('✅ Next.js server is ready!');
       console.log(`🌐 URL: ${url}`);

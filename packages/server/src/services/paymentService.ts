@@ -53,7 +53,10 @@ class PaymentService {
     // Get order
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true },
+      include: { 
+        payment: true,
+        table: true,
+      },
     });
 
     if (!order) {
@@ -65,42 +68,90 @@ class PaymentService {
       throw new Error('Order has already been paid');
     }
 
-    // Note: No status validation - allow payment at any order status for flexibility
-    // This enables immediate payment for TakeAway orders and other scenarios
-
-    // Validate amount matches order total
-    if (Math.abs(amount - order.total) > 0.01) {
-      throw new Error(`Payment amount ${amount} does not match order total ${order.total}`);
-    }
-
-    // Create payment and update order status in a transaction
-    const payment = await prisma.$transaction(async (tx) => {
-      const newPayment = await tx.payment.create({
-        data: {
-          orderId,
-          amount,
-          method,
-          reference,
+    // Get all unpaid orders from the same table
+    const tableOrders = await prisma.order.findMany({
+      where: {
+        tableId: order.tableId,
+        payment: null,
+        status: {
+          notIn: ['CANCELLED'],
         },
-        include: {
-          order: {
-            include: {
-              items: {
-                include: {
-                  menuItem: true,
-                },
-              },
-              table: true,
-            },
+      },
+      include: {
+        items: {
+          include: {
+            menuItem: true,
           },
         },
-      });
+        table: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
-      // Update order status to PAID
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'PAID' },
-      });
+    // Calculate total for all unpaid orders
+    const totalAmount = tableOrders.reduce((sum, o) => sum + o.total, 0);
+
+    // Debug logging
+    console.log('💰 Payment Processing Debug:');
+    console.log('  - Payment amount received:', amount);
+    console.log('  - Single order total:', order.total);
+    console.log('  - Table unpaid orders:', tableOrders.length);
+    console.log('  - Table total amount:', totalAmount);
+    console.log('  - Order IDs:', tableOrders.map(o => o.id.substring(0, 8)).join(', '));
+
+    // Check if payment is for all orders (merged) or just one order
+    const isMergedPayment = Math.abs(amount - totalAmount) < 0.01;
+    const isSingleOrderPayment = Math.abs(amount - order.total) < 0.01;
+
+    console.log('  - Is merged payment:', isMergedPayment);
+    console.log('  - Is single order payment:', isSingleOrderPayment);
+
+    if (!isMergedPayment && !isSingleOrderPayment) {
+      throw new Error(
+        `Payment amount ${amount} does not match order total ${order.total} or table total ${totalAmount}.`
+      );
+    }
+
+    // Determine which orders to pay
+    const ordersToPay = isMergedPayment ? tableOrders : [order];
+
+    console.log('  - Orders to pay:', ordersToPay.length);
+    console.log('  - Will print:', isMergedPayment && ordersToPay.length > 1 ? 'MERGED receipt' : 'SINGLE receipt');
+
+    // Create payments and update order status in a transaction
+    const payments = await prisma.$transaction(async (tx) => {
+      const createdPayments: any[] = [];
+
+      for (const orderToPay of ordersToPay) {
+        const newPayment = await tx.payment.create({
+          data: {
+            orderId: orderToPay.id,
+            amount: orderToPay.total,
+            method,
+            reference,
+          },
+          include: {
+            order: {
+              include: {
+                items: {
+                  include: {
+                    menuItem: true,
+                  },
+                },
+                table: true,
+              },
+            },
+          },
+        });
+
+        // Update order status to PAID
+        await tx.order.update({
+          where: { id: orderToPay.id },
+          data: { status: 'PAID' },
+        });
+
+        createdPayments.push(newPayment);
+      }
 
       // Check if table has any other active orders
       const activeOrders = await tx.order.findMany({
@@ -120,25 +171,40 @@ class PaymentService {
         });
       }
 
-      return newPayment;
+      return createdPayments;
     });
 
-    // Emit WebSocket event for payment completion
-    try {
-      emitPaymentCompleted(payment);
-    } catch (error) {
-      console.error('Failed to emit payment:completed event:', error);
+    // Emit WebSocket events for all payments
+    for (const payment of payments) {
+      try {
+        emitPaymentCompleted(payment);
+      } catch (error) {
+        console.error('Failed to emit payment:completed event:', error);
+      }
     }
 
-    // Print customer receipt - ONLY using multiPrinterService
+    // Print receipt - merged if multiple orders, single if one order
     try {
-      await multiPrinterService.printCustomerReceipt(orderId, payment.id);
+      if (isMergedPayment && ordersToPay.length > 1) {
+        console.log('🖨️  Printing MERGED receipt for', ordersToPay.length, 'orders');
+        // Print merged receipt for multiple orders
+        await multiPrinterService.printMergedReceipt(
+          ordersToPay.map(o => o.id),
+          payments[0].id,
+          order.tableId
+        );
+      } else {
+        console.log('🖨️  Printing SINGLE receipt');
+        // Print single order receipt
+        await multiPrinterService.printCustomerReceipt(orderId, payments[0].id);
+      }
     } catch (error) {
       console.error('Failed to print customer receipt:', error);
       // Don't throw error - payment was processed successfully, just printing failed
     }
 
-    return payment;
+    // Return the first payment (for the requested order)
+    return payments[0];
   }
 
   /**
@@ -157,7 +223,15 @@ class PaymentService {
       where: {
         id: { in: orderIds },
       },
-      include: { payment: true },
+      include: { 
+        payment: true,
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+        table: true,
+      },
     });
 
     if (orders.length !== orderIds.length) {
@@ -174,6 +248,12 @@ class PaymentService {
 
     // Calculate total amount
     totalAmount = orders.reduce((sum, order) => sum + order.total, 0);
+
+    console.log('💰 Batch Payment Processing:');
+    console.log('  - Number of orders:', orders.length);
+    console.log('  - Total amount:', totalAmount);
+    console.log('  - Order IDs:', orderIds.map(id => id.substring(0, 8)).join(', '));
+    console.log('  - Table:', orders[0]?.table.name);
 
     // Process all payments in a transaction
     try {
@@ -249,12 +329,26 @@ class PaymentService {
         }
       }
 
-      // Print receipts for all orders
-      for (const payment of payments) {
+      // Print ONE merged receipt for all orders (instead of individual receipts)
+      if (orders.length > 1) {
+        console.log('🖨️  Printing MERGED receipt for', orders.length, 'orders (batch payment)');
         try {
-          await multiPrinterService.printCustomerReceipt(payment.orderId, payment.id);
+          await multiPrinterService.printMergedReceipt(
+            orderIds,
+            payments[0].id,
+            orders[0].tableId
+          );
         } catch (error) {
-          console.error(`Failed to print receipt for order ${payment.orderId}:`, error);
+          console.error('Failed to print merged receipt:', error);
+          // Don't throw - payments were processed successfully
+        }
+      } else {
+        // Single order - print normal receipt
+        console.log('🖨️  Printing SINGLE receipt (batch payment with 1 order)');
+        try {
+          await multiPrinterService.printCustomerReceipt(payments[0].orderId, payments[0].id);
+        } catch (error) {
+          console.error(`Failed to print receipt for order ${payments[0].orderId}:`, error);
           // Don't throw - payments were processed successfully
         }
       }

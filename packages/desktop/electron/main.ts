@@ -82,14 +82,6 @@ function createWindow() {
     console.log('Entered fullscreen mode');
   });
 
-  // Handle window minimize to tray
-  mainWindow.on('minimize', (event: Electron.Event) => {
-    if (tray) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
-  });
-
   mainWindow.on('close', (event: Electron.Event) => {
     if (!appWithQuitting.isQuitting && tray) {
       event.preventDefault();

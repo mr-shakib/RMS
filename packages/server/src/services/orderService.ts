@@ -41,83 +41,166 @@ class OrderService {
       throw new Error(`Table with id ${tableId} not found`);
     }
 
+    // Check for existing active buffet orders on this table
+    const existingBuffetOrder = await prisma.order.findFirst({
+      where: {
+        tableId,
+        isBuffet: true,
+        status: {
+          notIn: ['PAID', 'CANCELLED'],
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
     // Fetch menu items and calculate subtotal
     let subtotal = 0;
     const orderItemsData: Array<{ menuItemId: string; quantity: number; price: number; notes?: string }> = [];
 
     if (isBuffet && buffetCategoryId) {
-      // For buffet orders, get the buffet price from the category
-      const category = await prisma.category.findUnique({
-        where: { id: buffetCategoryId },
-      });
-
-      if (!category) {
-        throw new Error(`Category with id ${buffetCategoryId} not found`);
-      }
-
-      if (!category.isBuffet) {
-        throw new Error(`Category ${category.name} is not a buffet category`);
-      }
-
-      // Use buffet price as subtotal, multiplied by quantity (number of people)
-      subtotal = (category.buffetPrice || 0) * buffetQuantity;
-
-      // For buffet orders, items array can be empty
-      // If items are provided, add them to order for tracking
-      // Items with alwaysPriced=true (beverages, desserts) are charged individually
-      for (const item of items) {
-        const menuItem = await prisma.menuItem.findUnique({
-          where: { id: item.menuItemId },
-        });
-
-        if (!menuItem) {
-          throw new Error(`Menu item with id ${item.menuItemId} not found`);
-        }
-
-        if (!menuItem.available) {
-          throw new Error(`Menu item ${menuItem.name} is not available`);
-        }
-
-        // Check if item should always be priced (beverages, desserts, etc.)
-        const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
-        const itemTotal = itemPrice * item.quantity;
+      // Check if buffet already exists for this table
+      if (existingBuffetOrder) {
+        // Buffet already charged - only charge for alwaysPriced items
+        console.log(`ℹ️  Table ${tableId} already has an active buffet order. Only charging for additional priced items.`);
         
-        // Add to subtotal if item is always priced
-        if (menuItem.alwaysPriced) {
-          subtotal += itemTotal;
+        for (const item of items) {
+          const menuItem = await prisma.menuItem.findUnique({
+            where: { id: item.menuItemId },
+            include: { category: true },
+          });
+
+          if (!menuItem) {
+            throw new Error(`Menu item with id ${item.menuItemId} not found`);
+          }
+
+          if (!menuItem.available) {
+            throw new Error(`Menu item ${menuItem.name} is not available`);
+          }
+
+          // Only charge for items that are always priced (beverages, desserts)
+          const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+          const itemTotal = itemPrice * item.quantity;
+          
+          if (menuItem.alwaysPriced) {
+            subtotal += itemTotal;
+          }
+
+          orderItemsData.push({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: itemPrice,
+            notes: item.notes,
+          });
+        }
+      } else {
+        // First buffet order - charge buffet price
+        const category = await prisma.category.findUnique({
+          where: { id: buffetCategoryId },
+        });
+
+        if (!category) {
+          throw new Error(`Category with id ${buffetCategoryId} not found`);
         }
 
-        orderItemsData.push({
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          price: itemPrice, // Use actual price if alwaysPriced, otherwise 0
-          notes: item.notes,
-        });
+        if (!category.isBuffet) {
+          throw new Error(`Category ${category.name} is not a buffet category`);
+        }
+
+        // Charge buffet price multiplied by quantity (number of people)
+        subtotal = (category.buffetPrice || 0) * buffetQuantity;
+
+        for (const item of items) {
+          const menuItem = await prisma.menuItem.findUnique({
+            where: { id: item.menuItemId },
+            include: { category: true },
+          });
+
+          if (!menuItem) {
+            throw new Error(`Menu item with id ${item.menuItemId} not found`);
+          }
+
+          if (!menuItem.available) {
+            throw new Error(`Menu item ${menuItem.name} is not available`);
+          }
+
+          // Check if item should always be priced
+          const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+          const itemTotal = itemPrice * item.quantity;
+          
+          if (menuItem.alwaysPriced) {
+            subtotal += itemTotal;
+          }
+
+          orderItemsData.push({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: itemPrice,
+            notes: item.notes,
+          });
+        }
       }
     } else {
-      // Regular order - calculate from individual items
-      for (const item of items) {
-        const menuItem = await prisma.menuItem.findUnique({
-          where: { id: item.menuItemId },
-        });
+      // Regular order (non-buffet)
+      // If there's an active buffet, check if regular items should be free
+      if (existingBuffetOrder) {
+        console.log(`ℹ️  Table ${tableId} has active buffet. Regular items may be included in buffet.`);
+        
+        for (const item of items) {
+          const menuItem = await prisma.menuItem.findUnique({
+            where: { id: item.menuItemId },
+            include: { category: true },
+          });
 
-        if (!menuItem) {
-          throw new Error(`Menu item with id ${item.menuItemId} not found`);
+          if (!menuItem) {
+            throw new Error(`Menu item with id ${item.menuItemId} not found`);
+          }
+
+          if (!menuItem.available) {
+            throw new Error(`Menu item ${menuItem.name} is not available`);
+          }
+
+          // Only charge for items that are always priced (beverages, desserts, etc.)
+          const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+          const itemTotal = itemPrice * item.quantity;
+          
+          if (menuItem.alwaysPriced) {
+            subtotal += itemTotal;
+          }
+
+          orderItemsData.push({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: itemPrice, // 0 for buffet items, actual price for always-priced items
+            notes: item.notes,
+          });
         }
+      } else {
+        // No active buffet - regular pricing
+        for (const item of items) {
+          const menuItem = await prisma.menuItem.findUnique({
+            where: { id: item.menuItemId },
+          });
 
-        if (!menuItem.available) {
-          throw new Error(`Menu item ${menuItem.name} is not available`);
+          if (!menuItem) {
+            throw new Error(`Menu item with id ${item.menuItemId} not found`);
+          }
+
+          if (!menuItem.available) {
+            throw new Error(`Menu item ${menuItem.name} is not available`);
+          }
+
+          const itemTotal = menuItem.price * item.quantity;
+          subtotal += itemTotal;
+
+          orderItemsData.push({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: menuItem.price,
+            notes: item.notes,
+          });
         }
-
-        const itemTotal = menuItem.price * item.quantity;
-        subtotal += itemTotal;
-
-        orderItemsData.push({
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          price: menuItem.price,
-          notes: item.notes,
-        });
       }
     }
 
@@ -134,7 +217,7 @@ class OrderService {
           tableId,
           status: 'PENDING',
           isBuffet,
-          buffetCategoryId,
+          buffetCategoryId: isBuffet ? buffetCategoryId : null,
           subtotal,
           tax,
           discount,
@@ -148,7 +231,11 @@ class OrderService {
         include: {
           items: {
             include: {
-              menuItem: true,
+              menuItem: {
+                include: {
+                  category: true,
+                },
+              },
             },
           },
           table: true,
@@ -171,18 +258,13 @@ class OrderService {
       console.error('Failed to emit order:created event:', error);
     }
 
-    // Print kitchen ticket automatically using multi-printer service (category-based)
+    // Print kitchen ticket automatically using multi-printer service
     try {
-      await multiPrinterService.printOrderByCategory(order.id);
+      if (items.length > 0) {
+        await multiPrinterService.printOrderByCategory(order.id);
+      }
     } catch (error) {
       console.error('Failed to print kitchen ticket:', error);
-      // Don't throw error - order was created successfully, just printing failed
-    }
-
-    try {
-      await multiPrinterService.printFullOrder(order.id);
-    } catch (error) {
-      console.error('Failed to print full order ticket:', error);
     }
 
     return order;
