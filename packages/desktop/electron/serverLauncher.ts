@@ -79,6 +79,46 @@ export class ServerLauncher {
   }
 
   /**
+   * Kill process on a specific port (Windows)
+   */
+  private async killProcessOnPort(port: number): Promise<void> {
+    try {
+      const { execSync } = require('child_process');
+      
+      if (process.platform === 'win32') {
+        // Find process using the port
+        try {
+          const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
+          const lines = output.trim().split('\n');
+          
+          const pids = new Set<string>();
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0' && !isNaN(Number(pid))) {
+              pids.add(pid);
+            }
+          }
+          
+          // Kill each PID
+          for (const pid of pids) {
+            try {
+              execSync(`taskkill /F /PID ${pid}`, { encoding: 'utf8' });
+              console.log(`✓ Killed process ${pid} using port ${port}`);
+            } catch (killError) {
+              console.log(`⚠️  Could not kill process ${pid}`);
+            }
+          }
+        } catch (findError) {
+          // No process found on port
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️  Error cleaning up port ${port}:`, error);
+    }
+  }
+
+  /**
    * Check if a port is available
    */
   private async isPortAvailable(port: number): Promise<boolean> {
@@ -147,7 +187,7 @@ export class ServerLauncher {
   /**
    * Wait for server to be ready by polling health endpoint
    */
-  private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
+  private async waitForServer(url: string, maxAttempts = 90): Promise<void> {
     const healthUrl = `${url}/api/health`;
 
     console.log(`🔍 Checking if API server is ready at ${healthUrl}...`);
@@ -164,8 +204,9 @@ export class ServerLauncher {
         }
       } catch (error) {
         // Server not ready yet, continue waiting
-        if (i < 5 || i % 10 === 0) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+        // Show progress every 5 seconds, or always during first 10 seconds
+        if (i < 10 || i % 5 === 0) {
+          const errorMsg = error instanceof Error ? 'fetch failed' : String(error);
           console.log(`⏳ Waiting for API server... (attempt ${i + 1}/${maxAttempts}, ${i + 1}s elapsed) [${errorMsg}]`);
         }
       }
@@ -239,6 +280,12 @@ export class ServerLauncher {
    */
   async start(defaultPort: number = 5000): Promise<ServerConfig> {
     try {
+      // Try to clean up any existing process on the default port
+      await this.killProcessOnPort(defaultPort);
+      
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Find available port
       const port = await this.findAvailablePort(defaultPort);
       const lanIp = this.getLanIpAddress();

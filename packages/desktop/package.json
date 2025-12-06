@@ -14,7 +14,8 @@
     "package": "electron-builder --config electron-builder.json --win --x64",
     "package:dir": "electron-builder --config electron-builder.json --dir",
     "build:all": "npm run build && npm run package",
-    "clean": "rimraf .next dist release temp-prod"
+    "clean": "rimraf .next dist release temp-prod",
+    "verify": "node scripts/verify-package.js"
   },
   "devDependencies": {
     "@electron/notarize": "^2.2.1",

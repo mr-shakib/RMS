@@ -893,14 +893,14 @@ app.whenReady().then(async () => {
           (async () => {
             try {
               nextServerLauncher = new NextServerLauncher(isDev);
-              const config = await nextServerLauncher.start(3000);
+              const config = await nextServerLauncher.start(3001);
               console.log('✅ Next.js server started:', config.url);
               return config;
             } catch (error) {
               console.error('❌ Failed to start Next.js server:', error);
               // Log error but don't throw - use fallback
               console.log('⚠️  Next.js server reported errors, using fallback config...');
-              return { port: 3000, url: 'http://localhost:3000' };
+              return { port: 3001, url: 'http://localhost:3001' };
             }
           })()
         ]);
@@ -917,7 +917,7 @@ app.whenReady().then(async () => {
           nextServerConfig = nextConfig.value;
         } else {
           // Use fallback config if Next.js failed
-          nextServerConfig = { port: 3000, url: 'http://localhost:3000' };
+          nextServerConfig = { port: 3001, url: 'http://localhost:3001' };
         }
       };
 

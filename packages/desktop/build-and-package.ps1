@@ -113,7 +113,7 @@ try {
     Write-Host "This may take several minutes..." -ForegroundColor Gray
     Write-Host ""
     
-    npm run package:win
+    npm run package
     Test-LastCommand "Packaging failed"
     
     Write-Host "Packaging complete" -ForegroundColor Green

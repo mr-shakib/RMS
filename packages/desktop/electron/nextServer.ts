@@ -16,6 +16,46 @@ export class NextServerLauncher {
   }
 
   /**
+   * Kill process on a specific port (Windows)
+   */
+  private async killProcessOnPort(port: number): Promise<void> {
+    try {
+      const { execSync } = require('child_process');
+      
+      if (process.platform === 'win32') {
+        // Find process using the port
+        try {
+          const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
+          const lines = output.trim().split('\n');
+          
+          const pids = new Set<string>();
+          for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0' && !isNaN(Number(pid))) {
+              pids.add(pid);
+            }
+          }
+          
+          // Kill each PID
+          for (const pid of pids) {
+            try {
+              execSync(`taskkill /F /PID ${pid}`, { encoding: 'utf8' });
+              console.log(`✓ Killed process ${pid} using port ${port}`);
+            } catch (killError) {
+              console.log(`⚠️  Could not kill process ${pid}`);
+            }
+          }
+        } catch (findError) {
+          // No process found on port
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️  Error cleaning up port ${port}:`, error);
+    }
+  }
+
+  /**
    * Check if a port is available
    */
   private async isPortAvailable(port: number): Promise<boolean> {
@@ -55,7 +95,7 @@ export class NextServerLauncher {
   /**
    * Wait for Next.js server to be ready
    */
-  private async waitForServer(url: string, maxAttempts = 30): Promise<void> {
+  private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
     const http = require('http');
     const urlObj = new URL(url);
     
@@ -147,8 +187,14 @@ export class NextServerLauncher {
   /**
    * Start the Next.js server
    */
-  async start(defaultPort: number = 3000): Promise<NextServerConfig> {
+  async start(defaultPort: number = 3001): Promise<NextServerConfig> {
     try {
+      // Try to clean up any existing process on the default port
+      await this.killProcessOnPort(defaultPort);
+      
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const port = await this.findAvailablePort(defaultPort);
       const url = `http://localhost:${port}`;
 
