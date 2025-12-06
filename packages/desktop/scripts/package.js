@@ -1,97 +1,25 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process');
+const builder = require('electron-builder');
 const path = require('path');
 
-// Get platform and environment from command line args
-const platform = process.argv[2] || 'win';
-const env = process.argv[3] || 'production';
+const Platform = builder.Platform;
 
-const validPlatforms = ['win', 'mac', 'linux', 'all'];
-const validEnvs = ['development', 'staging', 'production'];
+console.log('📦 Packaging application for Windows x64...\n');
 
-if (!validPlatforms.includes(platform)) {
-  console.error(`Invalid platform: ${platform}`);
-  console.error(`Valid platforms: ${validPlatforms.join(', ')}`);
-  process.exit(1);
-}
-
-if (!validEnvs.includes(env)) {
-  console.error(`Invalid environment: ${env}`);
-  console.error(`Valid environments: ${validEnvs.join(', ')}`);
-  process.exit(1);
-}
-
-console.log(`\n📦 Packaging for ${platform} (${env} environment)...\n`);
-
-// Run build script first
-console.log('🔨 Running build...');
-try {
-  execSync(`node ${path.join(__dirname, 'build.js')} ${env}`, { 
-    stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
+// Package configuration
+builder.build({
+  targets: Platform.WINDOWS.createTarget(['nsis'], builder.Arch.x64),
+  config: {
+    extends: path.join(__dirname, '..', 'electron-builder.json'),
+  },
+  projectDir: path.join(__dirname, '..'),
+})
+  .then(() => {
+    console.log('\n✅ Packaging completed successfully!');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('\n❌ Packaging failed:', error);
+    process.exit(1);
   });
-} catch (error) {
-  console.error('✗ Build failed');
-  process.exit(1);
-}
-
-// Prepare server for packaging
-console.log('\n📦 Preparing server for packaging...');
-try {
-  execSync(`node ${path.join(__dirname, 'prepare-server.js')}`, { 
-    stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
-  });
-} catch (error) {
-  console.error('✗ Server preparation failed');
-  process.exit(1);
-}
-
-// Prepare Next.js for packaging
-console.log('\n📦 Preparing Next.js for packaging...');
-try {
-  execSync(`node ${path.join(__dirname, 'prepare-next.js')}`, { 
-    stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
-  });
-} catch (error) {
-  console.error('✗ Next.js preparation failed');
-  process.exit(1);
-}
-
-// Package with electron-builder
-console.log('\n📦 Creating installer packages...');
-try {
-  let builderArgs = '';
-  
-  switch (platform) {
-    case 'win':
-      builderArgs = '--win';
-      break;
-    case 'mac':
-      builderArgs = '--mac';
-      break;
-    case 'linux':
-      builderArgs = '--linux';
-      break;
-    case 'all':
-      builderArgs = '--win --mac --linux';
-      break;
-  }
-
-  const outDir = `release`;
-  // Use npx to ensure electron-builder is found
-  const isWindows = process.platform === 'win32';
-  const npxCmd = isWindows ? 'npx.cmd' : 'npx';
-  execSync(`${npxCmd} electron-builder ${builderArgs} --config electron-builder.json`, { 
-    stdio: 'inherit',
-    cwd: path.join(__dirname, '..')
-  });
-  
-  console.log('\n✅ Packaging complete!');
-  console.log(`\n📁 Output directory: packages/desktop/release\n`);
-} catch (error) {
-  console.error('✗ Packaging failed');
-  process.exit(1);
-}

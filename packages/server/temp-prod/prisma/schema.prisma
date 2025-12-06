@@ -1,21 +1,17 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite" // Can be switched to "postgresql" by changing this value
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// Models
 model User {
   id        String   @id @default(uuid())
-  username  String   @unique
-  password  String   // bcrypt hashed
-  role      String   @default("WAITER") // ADMIN, WAITER, CHEF
+  username  String   @unique(map: "sqlite_autoindex_User_2")
+  password  String
+  role      String   @default("WAITER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -24,43 +20,44 @@ model Table {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   qrCodeUrl String
-  status    String   @default("FREE") // FREE, OCCUPIED, RESERVED
-  orders    Order[]
+  status    String   @default("FREE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  orders     Order[]
 }
 
 model Category {
-  id                    String            @id @default(uuid())
-  name                  String            @unique
-  isBuffet              Boolean           @default(false) // Special flag for buffet categories
-  buffetPrice           Float?            // Price for buffet (if isBuffet is true)
-  sortOrder             Int               @default(0) // For custom ordering
-  primaryMenuItems      MenuItem[]        @relation("PrimaryCategory")
-  secondaryMenuItems    MenuItem[]        @relation("SecondaryCategory")
-  orders                Order[]           // Orders that selected this buffet category
-  printerMappings       PrinterCategory[]
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  id                 String            @id @default(uuid())
+  name               String            @unique
+  isBuffet           Boolean           @default(false)
+  buffetPrice        Float?
+  sortOrder          Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  secondaryMenuItems MenuItem[]        @relation("SecondaryCategory")
+  primaryMenuItems   MenuItem[]        @relation("PrimaryCategory")
+  orders             Order[]
+  printerMappings    PrinterCategory[]
 
   @@index([sortOrder])
 }
 
 model MenuItem {
   id                  String      @id @default(uuid())
-  itemNumber          Int?        @unique // Unique sequential number for easy searching (nullable for migration)
+  itemNumber          Int?        @unique
   name                String
   categoryId          String
-  category            Category    @relation("PrimaryCategory", fields: [categoryId], references: [id])
-  secondaryCategoryId String?     // For buffet items that also appear in All Items menu
-  secondaryCategory   Category?   @relation("SecondaryCategory", fields: [secondaryCategoryId], references: [id])
-  price               Float       // Stored as Float for SQLite compatibility
+  secondaryCategoryId String?
+  price               Float
   description         String?
   imageUrl            String?
   available           Boolean     @default(true)
-  orderItems          OrderItem[]
+  alwaysPriced        Boolean     @default(false)
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
+  secondaryCategory   Category?   @relation("SecondaryCategory", fields: [secondaryCategoryId], references: [id])
+  category            Category    @relation("PrimaryCategory", fields: [categoryId], references: [id])
+  orderItems          OrderItem[]
 
   @@index([itemNumber])
   @@index([categoryId])
@@ -71,21 +68,21 @@ model MenuItem {
 model Order {
   id               String      @id @default(uuid())
   tableId          Int
-  table            Table       @relation(fields: [tableId], references: [id])
-  status           String      @default("PENDING") // PENDING, PREPARING, READY, SERVED, PAID, CANCELLED
-  isBuffet         Boolean     @default(false) // Flag for buffet orders
-  buffetCategoryId String?     // Reference to buffet category if isBuffet is true
-  buffetCategory   Category?   @relation(fields: [buffetCategoryId], references: [id])
+  status           String      @default("PENDING")
+  isBuffet         Boolean     @default(false)
+  buffetCategoryId String?
   subtotal         Float
   tax              Float
   discount         Float       @default(0)
   serviceCharge    Float       @default(0)
   tip              Float       @default(0)
   total            Float
-  items            OrderItem[]
-  payment          Payment?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+  buffetCategory   Category?   @relation(fields: [buffetCategoryId], references: [id])
+  items            OrderItem[]
+  payment          Payment?
+  table            Table         @relation(fields: [tableId], references: [id])
 
   @@index([tableId])
   @@index([status])
@@ -96,13 +93,13 @@ model Order {
 model OrderItem {
   id         String   @id @default(uuid())
   orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   quantity   Int
   price      Float
   notes      String?
   createdAt  DateTime @default(now())
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }
@@ -110,11 +107,11 @@ model OrderItem {
 model Payment {
   id        String   @id @default(uuid())
   orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id])
   amount    Float
-  method    String   // CASH, CARD, WALLET
+  method    String
   reference String?
   createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id])
 
   @@index([createdAt])
 }
@@ -126,19 +123,19 @@ model Setting {
 }
 
 model Printer {
-  id                String            @id @default(uuid())
-  name              String            // User-friendly name like "Kitchen Printer", "Bar Printer"
-  type              String            // network, usb, serial
-  address           String?           // IP address for network printers
-  port              String?           // Port for network printers (default 9100)
-  vendorId          String?           // Vendor ID for USB printers
-  productId         String?           // Product ID for USB printers
-  serialPath        String?           // Path for serial printers
-  isActive          Boolean           @default(true)
-  sortOrder         Int               @default(0)
-  categoryMappings  PrinterCategory[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id               String            @id @default(uuid())
+  name             String
+  type             String
+  address          String?
+  port             String?
+  vendorId         String?
+  productId        String?
+  serialPath       String?
+  isActive         Boolean           @default(true)
+  sortOrder        Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  categoryMappings PrinterCategory[]
 
   @@index([isActive])
   @@index([sortOrder])
@@ -147,10 +144,10 @@ model Printer {
 model PrinterCategory {
   id         String   @id @default(uuid())
   printerId  String
-  printer    Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
   categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+  category   Category? @relation(fields: [categoryId], references: [id])
+  printer    Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
 
   @@unique([printerId, categoryId])
   @@index([printerId])

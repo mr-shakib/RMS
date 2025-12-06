@@ -70,7 +70,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
-    const printer = await (prisma as any).printer?.findUnique({
+    const printer = await (prisma as any).printer.findUnique({
       where: { id },
       include: {
         categoryMappings: {

@@ -11,6 +11,7 @@ interface AppWithQuitting extends Electron.App {
 const appWithQuitting = app as AppWithQuitting;
 
 let mainWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 let serverLauncher: ServerLauncher | null = null;
 let serverConfig: ServerConfig | null = null;
 let nextServerLauncher: NextServerLauncher | null = null;
@@ -30,6 +31,371 @@ let autoLaunchEnabled = false;
 let logStream: any = null;
 
 /**
+ * Create splash/loading window
+ */
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 600,
+    height: 400,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    center: true,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  // Create a modern, professional loading HTML
+  const loadingHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+          }
+          
+          .splash-container {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 50px;
+            position: relative;
+            overflow: hidden;
+          }
+          
+          /* Animated gradient overlay */
+          .gradient-overlay {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+          }
+          
+          @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          /* Floating particles */
+          .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            animation: float 8s ease-in-out infinite;
+          }
+          
+          .particle:nth-child(1) {
+            width: 60px;
+            height: 60px;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+            animation-duration: 8s;
+          }
+          
+          .particle:nth-child(2) {
+            width: 40px;
+            height: 40px;
+            top: 60%;
+            right: 15%;
+            animation-delay: 2s;
+            animation-duration: 10s;
+          }
+          
+          .particle:nth-child(3) {
+            width: 30px;
+            height: 30px;
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 4s;
+            animation-duration: 12s;
+          }
+          
+          .particle:nth-child(4) {
+            width: 50px;
+            height: 50px;
+            top: 30%;
+            right: 25%;
+            animation-delay: 1s;
+            animation-duration: 9s;
+          }
+          
+          @keyframes float {
+            0%, 100% {
+              transform: translateY(0) translateX(0) scale(1);
+              opacity: 0.3;
+            }
+            33% {
+              transform: translateY(-30px) translateX(20px) scale(1.1);
+              opacity: 0.6;
+            }
+            66% {
+              transform: translateY(20px) translateX(-20px) scale(0.9);
+              opacity: 0.4;
+            }
+          }
+          
+          .content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+          }
+          
+          .icon-wrapper {
+            position: relative;
+            margin-bottom: 30px;
+          }
+          
+          .logo {
+            font-size: 80px;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
+            animation: bounce 2.5s ease-in-out infinite;
+          }
+          
+          @keyframes bounce {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+            }
+            50% {
+              transform: translateY(-15px) scale(1.05);
+            }
+          }
+          
+          .logo-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+          }
+          
+          @keyframes pulse {
+            0%, 100% {
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.5;
+            }
+            50% {
+              transform: translate(-50%, -50%) scale(1.3);
+              opacity: 0.8;
+            }
+          }
+          
+          h1 {
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+          }
+          
+          .subtitle {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 50px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          }
+          
+          .loading-container {
+            width: 100%;
+            max-width: 240px;
+            margin: 0 auto;
+          }
+          
+          .progress-wrapper {
+            position: relative;
+            margin-bottom: 25px;
+          }
+          
+          .progress-bar {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          
+          .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, 
+              rgba(255,255,255,0.6) 0%, 
+              rgba(255,255,255,1) 50%, 
+              rgba(255,255,255,0.6) 100%
+            );
+            background-size: 200% 100%;
+            border-radius: 10px;
+            animation: shimmer 2s ease-in-out infinite;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+          }
+          
+          @keyframes shimmer {
+            0% {
+              width: 0%;
+              background-position: -200% 0;
+            }
+            50% {
+              width: 80%;
+              background-position: 0% 0;
+            }
+            100% {
+              width: 100%;
+              background-position: 200% 0;
+            }
+          }
+          
+          .status-text {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 14px;
+            font-weight: 600;
+            animation: fadeInOut 2.5s ease-in-out infinite;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          }
+          
+          @keyframes fadeInOut {
+            0%, 100% {
+              opacity: 0.6;
+            }
+            50% {
+              opacity: 1;
+            }
+          }
+          
+          .dots {
+            display: inline-flex;
+            gap: 5px;
+            margin-left: 5px;
+          }
+          
+          .dot {
+            width: 5px;
+            height: 5px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(255,255,255,0.5);
+            animation: dotBounce 1.4s ease-in-out infinite;
+          }
+          
+          .dot:nth-child(1) { animation-delay: 0s; }
+          .dot:nth-child(2) { animation-delay: 0.2s; }
+          .dot:nth-child(3) { animation-delay: 0.4s; }
+          
+          @keyframes dotBounce {
+            0%, 60%, 100% {
+              opacity: 0.4;
+              transform: scale(0.8);
+            }
+            30% {
+              opacity: 1;
+              transform: scale(1.3);
+            }
+          }
+          
+          .version {
+            position: absolute;
+            bottom: 25px;
+            right: 30px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+          }
+          
+          .powered-by {
+            position: absolute;
+            bottom: 25px;
+            left: 30px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="splash-container">
+          <div class="gradient-overlay"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          
+          <div class="content">
+            <div class="icon-wrapper">
+              <div class="logo-glow"></div>
+              <div class="logo">🍽️</div>
+            </div>
+            <h1>Restaurant POS</h1>
+            <div class="subtitle">Management System</div>
+            
+            <div class="loading-container">
+              <div class="progress-wrapper">
+                <div class="progress-bar">
+                  <div class="progress-fill"></div>
+                </div>
+              </div>
+              <div class="status-text">
+                Initializing<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="powered-by">Powered by Electron</div>
+          <div class="version">v1.0.0</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHTML)}`);
+}
+
+/**
+ * Close splash window
+ */
+function closeSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+}
+
+/**
  * Create the main application window
  */
 function createWindow() {
@@ -47,7 +413,9 @@ function createWindow() {
       devTools: isDev,
     },
     show: false, // Don't show until ready
-    autoHideMenuBar: true, // Hide menu bar (Alt key to show temporarily)
+    autoHideMenuBar: true,
+    // Start fullscreen
+    fullscreen: !isDev, // Fullscreen in production, normal in dev
   });
 
   // Hide the menu bar completely
@@ -55,9 +423,14 @@ function createWindow() {
 
   // Show window when ready to avoid flickering
   mainWindow.once('ready-to-show', () => {
+    closeSplashWindow();
     mainWindow?.show();
-    // Maximize the window to fill the entire screen after showing
-    mainWindow?.maximize();
+    // Set fullscreen after showing in production
+    if (!isDev) {
+      mainWindow?.setFullScreen(true);
+    } else {
+      mainWindow?.maximize();
+    }
   });
 
   // Load from Next.js server (dev or production)
@@ -80,14 +453,6 @@ function createWindow() {
 
   mainWindow.on('enter-full-screen', () => {
     console.log('Entered fullscreen mode');
-  });
-
-  // Handle window minimize to tray
-  mainWindow.on('minimize', (event: Electron.Event) => {
-    if (tray) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
   });
 
   mainWindow.on('close', (event: Electron.Event) => {
@@ -424,6 +789,11 @@ function setupIpcHandlers() {
 // Application lifecycle
 app.whenReady().then(async () => {
   try {
+    // Show splash window immediately
+    if (!isDev) {
+      createSplashWindow();
+    }
+
     // Setup logging to file for production debugging  
     if (!isDev) {
       const fs = require('fs');
@@ -481,80 +851,85 @@ app.whenReady().then(async () => {
       console.log('✅ Created user data directory');
     }
 
+    // Create database directory in user data path
+    const databaseDir = path.join(userDataPath, 'database');
+    if (!fs.existsSync(databaseDir)) {
+      fs.mkdirSync(databaseDir, { recursive: true });
+      console.log('✅ Created database directory:', databaseDir);
+    }
+
+    // Verify we can write to the database directory
+    const testFile = path.join(databaseDir, '.write-test');
+    try {
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      console.log('✅ Database directory is writable');
+    } catch (writeError) {
+      console.error('❌ Cannot write to database directory:', writeError);
+      throw new Error(`Database directory is not writable: ${databaseDir}`);
+    }
+
     // In development mode, skip server launchers (assumes dev servers are already running)
     if (!isDev) {
-      // Initialize and start API server
-      console.log('🔧 Starting API server...');
-      try {
-        serverLauncher = new ServerLauncher(isDev);
-        serverConfig = await serverLauncher.start(DEFAULT_SERVER_PORT);
-        console.log('✅ API server started:', serverConfig.url);
-      } catch (serverError) {
-        console.error('❌ Failed to start API server:', serverError);
-        throw new Error(`API Server failed: ${serverError instanceof Error ? serverError.message : String(serverError)}`);
-      }
+      // Start servers in parallel for faster startup
+      console.log('🔧 Starting servers in parallel...');
+      
+      const startServers = async () => {
+        const [apiConfig, nextConfig] = await Promise.allSettled([
+          // API Server
+          (async () => {
+            try {
+              serverLauncher = new ServerLauncher(isDev);
+              const config = await serverLauncher.start(DEFAULT_SERVER_PORT);
+              console.log('✅ API server started:', config.url);
+              return config;
+            } catch (error) {
+              console.error('❌ Failed to start API server:', error);
+              throw new Error(`API Server failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          })(),
+          
+          // Next.js Server (can start in parallel)
+          (async () => {
+            try {
+              nextServerLauncher = new NextServerLauncher(isDev);
+              const config = await nextServerLauncher.start(3000);
+              console.log('✅ Next.js server started:', config.url);
+              return config;
+            } catch (error) {
+              console.error('❌ Failed to start Next.js server:', error);
+              // Log error but don't throw - use fallback
+              console.log('⚠️  Next.js server reported errors, using fallback config...');
+              return { port: 3000, url: 'http://localhost:3000' };
+            }
+          })()
+        ]);
 
-      // Initialize and start Next.js server
-      console.log('🔧 Starting Next.js server...');
-      try {
-        nextServerLauncher = new NextServerLauncher(isDev);
-        nextServerConfig = await nextServerLauncher.start(3000);
-        console.log('✅ Next.js server started:', nextServerConfig.url);
-      } catch (nextError) {
-        console.error('❌ Failed to start Next.js server:', nextError);
-        const errorMsg = nextError instanceof Error ? nextError.message : String(nextError);
-
-        // Provide detailed troubleshooting information
-        console.error('\n📋 Troubleshooting Information:');
-        console.error('1. Check if port 3000 is available');
-        console.error('2. Verify Next.js standalone build exists');
-        console.error('3. Check logs at:', path.join(app.getPath('userData'), 'startup.log'));
-        console.error('4. Check error log at:', path.join(app.getPath('userData'), 'error.log'));
-
-        // Write detailed error information
-        const fs = require('fs');
-        const detailedError = `
-Next.js Startup Error Details:
-==============================
-Time: ${new Date().toISOString()}
-Error: ${errorMsg}
-Stack: ${nextError instanceof Error ? nextError.stack : 'N/A'}
-
-System Information:
-- Platform: ${process.platform}
-- Arch: ${process.arch}
-- Node Version: ${process.version}
-- Electron Version: ${process.versions.electron}
-- App Path: ${app.getAppPath()}
-- Resources Path: ${process.resourcesPath}
-- User Data: ${app.getPath('userData')}
-
-Expected Paths:
-- Next.js Standalone (nested): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'packages', 'desktop', 'server.js')}
-- Next.js Standalone (flat): ${path.join(process.resourcesPath, 'nextjs', 'standalone', 'server.js')}
-
-Please check if these files exist and report this error to support.
-`;
-
-        try {
-          const errorLogPath = path.join(app.getPath('userData'), 'nextjs-error.log');
-          fs.writeFileSync(errorLogPath, detailedError);
-          console.error(`\n📝 Detailed error written to: ${errorLogPath}`);
-        } catch (writeError) {
-          console.error('Failed to write error log:', writeError);
+        // Handle API server result
+        if (apiConfig.status === 'fulfilled') {
+          serverConfig = apiConfig.value;
+        } else {
+          throw apiConfig.reason;
         }
 
-        throw new Error(`Next.js Server failed: ${errorMsg}`);
-      }
+        // Handle Next.js server result
+        if (nextConfig.status === 'fulfilled') {
+          nextServerConfig = nextConfig.value;
+        } else {
+          // Use fallback config if Next.js failed
+          nextServerConfig = { port: 3000, url: 'http://localhost:3000' };
+        }
+      };
+
+      await startServers();
 
       // Show success notification
       showNotification(
         'Server Started',
-        `Restaurant Management System is running`
+        `Restaurant Management System is ready`
       );
     } else {
       console.log('Development mode: Using external dev servers on port 3000 and 5000');
-      // In dev mode, assume servers are running externally
       serverConfig = {
         port: DEFAULT_SERVER_PORT,
         url: `http://localhost:${DEFAULT_SERVER_PORT}`,
@@ -569,7 +944,7 @@ Please check if these files exist and report this error to support.
     // Set up IPC handlers
     setupIpcHandlers();
 
-    // Create the window
+    // Create the main window
     createWindow();
 
     // Create system tray
@@ -584,6 +959,9 @@ Please check if these files exist and report this error to support.
     console.error('❌ Failed to initialize application:');
     console.error('Error message:', errorMessage);
     console.error('Error stack:', errorStack);
+
+    // Close splash window
+    closeSplashWindow();
 
     // Write error to log file in production
     if (!isDev) {
@@ -602,91 +980,53 @@ ${errorStack}
       }
     }
 
-    // Instead of quitting, show error dialog and create window anyway
-    const { dialog } = require('electron');
-
-    // Create window first so user can see something
-    createWindow();
-
-    // Show error dialog with options
-    const choice = await dialog.showMessageBox({
-      type: 'error',
-      title: 'Server Startup Error',
-      message: 'Failed to start application servers',
-      detail: `${errorMessage}\n\nThe application may not work correctly. You can:\n\n1. Retry - Attempt to restart the servers\n2. Continue Anyway - Use the app (may have limited functionality)\n3. View Logs - Open the log file for troubleshooting\n4. Quit - Close the application`,
-      buttons: ['Retry', 'Continue Anyway', 'View Logs', 'Quit'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-
-    if (choice.response === 0) {
-      // Retry - restart the app
-      app.relaunch();
-      app.quit();
-    } else if (choice.response === 2) {
-      // View Logs
-      const { shell } = require('electron');
-      const logPath = path.join(app.getPath('userData'), 'error.log');
-      shell.showItemInFolder(logPath);
-    } else if (choice.response === 3) {
-      // Quit
-      app.quit();
-    }
-    // If choice is 1 (Continue Anyway), just continue with the window already created
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    // Only show critical errors
+    if (errorMessage.includes('API Server failed')) {
+      const { dialog } = require('electron');
+      
       createWindow();
+
+      const choice = await dialog.showMessageBox({
+        type: 'error',
+        title: 'Critical Server Error',
+        message: 'Failed to start API server',
+        detail: `${errorMessage}\n\nThe API server is required. You can:\n\n1. Retry - Restart the application\n2. View Logs - Check error logs\n3. Quit - Close the application`,
+        buttons: ['Retry', 'View Logs', 'Quit'],
+        defaultId: 0,
+        cancelId: 2,
+      });
+
+      if (choice.response === 0) {
+        // Retry
+        app.relaunch();
+        app.exit();
+      } else if (choice.response === 1) {
+        // View Logs
+        const userDataPath = app.getPath('userData');
+        const logPath = path.join(userDataPath, 'error.log');
+        const { shell } = require('electron');
+        shell.openPath(logPath);
+      } else {
+        // Quit
+        app.quit();
+      }
+    } else {
+      // For non-critical errors, just quit
+      app.quit();
     }
-  });
+  }
 });
 
+// Quit application when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('before-quit', async () => {
-  appWithQuitting.isQuitting = true;
-
-  // Stop both servers
-  if (nextServerLauncher) {
-    await nextServerLauncher.stop();
-  }
-  if (serverLauncher) {
-    await serverLauncher.stop();
-  }
-});
-
-// Handle app quit
-app.on('will-quit', async (event) => {
-  const isNextRunning = nextServerLauncher && nextServerLauncher.isRunning();
-  const isServerRunning = serverLauncher && serverLauncher.isRunning();
-
-  if (isNextRunning || isServerRunning) {
-    event.preventDefault();
-
-    try {
-      // Set a maximum timeout for cleanup
-      const cleanupPromise = Promise.all([
-        nextServerLauncher ? nextServerLauncher.stop() : Promise.resolve(),
-        serverLauncher ? serverLauncher.stop() : Promise.resolve()
-      ]);
-
-      // Wait maximum 10 seconds for graceful shutdown
-      await Promise.race([
-        cleanupPromise,
-        new Promise((resolve) => setTimeout(resolve, 10000))
-      ]);
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-    } finally {
-      // Force quit after cleanup attempt
-      setTimeout(() => {
-        process.exit(0);
-      }, 100);
-    }
+// macOS specific: re-create the window in the app when the dock icon is clicked and no other windows are open
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
   }
 });

@@ -38,6 +38,47 @@ export class ServerLauncher {
   }
 
   /**
+   * Get LAN IP (public method)
+   */
+  private getLanIp(): string {
+    return this.getLanIpAddress();
+  }
+
+  /**
+   * Get database path based on environment
+   */
+  private getDatabasePath(): string {
+    const { app } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    
+    let dbPath: string;
+    
+    if (this.isDev) {
+      // Development: use local database in project root
+      dbPath = path.join(process.cwd(), 'database', 'restaurant.db');
+    } else {
+      // Production: use database in user data directory
+      const userDataPath = app.getPath('userData');
+      dbPath = path.join(userDataPath, 'database', 'restaurant.db');
+    }
+    
+    // Ensure database directory exists
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+        console.log('✅ Created database directory:', dbDir);
+      } catch (error) {
+        console.error('❌ Failed to create database directory:', error);
+        throw new Error(`Cannot create database directory: ${dbDir}`);
+      }
+    }
+    
+    return dbPath;
+  }
+
+  /**
    * Check if a port is available
    */
   private async isPortAvailable(port: number): Promise<boolean> {
@@ -139,6 +180,61 @@ export class ServerLauncher {
   }
 
   /**
+   * Get the server command and arguments based on the environment
+   */
+  private getServerCommand(): { command: string; args: string[] } {
+    if (this.isDev) {
+      // Development: use ts-node or tsx
+      return {
+        command: 'npm',
+        args: ['run', 'dev'],
+      };
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Get the directory where the .exe is located
+    const appDir = path.dirname(process.execPath);
+    
+    // Look for node.exe in the app directory
+    const nodePath = path.join(appDir, 'node.exe');
+    
+    let nodeExecutable: string;
+    
+    if (fs.existsSync(nodePath)) {
+      nodeExecutable = nodePath;
+      console.log('✅ Using Node.js from:', nodeExecutable);
+    } else {
+      // Fallback: use Electron as Node with ELECTRON_RUN_AS_NODE
+      nodeExecutable = process.execPath;
+      console.log('⚠️  node.exe not found, using Electron as Node:', nodeExecutable);
+    }
+
+    const serverScript = path.join(
+      process.resourcesPath,
+      'server',
+      'dist',
+      'server',
+      'src',
+      'index.js'
+    );
+
+    console.log('📝 Server script:', serverScript);
+    console.log('📁 Working directory:', path.join(process.resourcesPath, 'server'));
+    
+    // Verify server script exists
+    if (!fs.existsSync(serverScript)) {
+      throw new Error(`Server script not found at: ${serverScript}`);
+    }
+
+    return {
+      command: nodeExecutable,
+      args: [serverScript],
+    };
+  }
+
+  /**
    * Start the Express server as a child process
    */
   async start(defaultPort: number = 5000): Promise<ServerConfig> {
@@ -148,61 +244,47 @@ export class ServerLauncher {
       const lanIp = this.getLanIpAddress();
       const url = `http://localhost:${port}`;
 
-      console.log(`🚀 Starting server on port ${port}...`);
-      console.log(`📱 LAN IP: http://${lanIp}:${port}`);
-
       // Determine server path and command
-      let serverCommand: string;
-      let serverArgs: string[];
-      let cwd: string | undefined;
+      const { command, args } = this.getServerCommand();
 
-      if (this.isDev) {
-        // In development, use npm to run the server from the server package
-        const isWindows = process.platform === 'win32';
-        serverCommand = isWindows ? 'npm.cmd' : 'npm';
-        serverArgs = ['run', 'dev'];
-        // Set working directory to server package
-        cwd = path.join(__dirname, '../../../server');
+      // Set working directory for production
+      const cwd = this.isDev
+        ? process.cwd()
+        : path.join(process.resourcesPath, 'server');
+
+      console.log(`🚀 Starting server on port ${port}...`);
+      console.log('📱 LAN IP:', this.getLanIp());
+      console.log('📊 Database path:', this.getDatabasePath());
+
+      const databasePath = this.getDatabasePath();
+      
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PORT: port.toString(),
+        NODE_ENV: this.isDev ? 'development' : 'production',
+        DATABASE_PATH: databasePath,
+        DATABASE_URL: `file:${databasePath}`,
+        IS_ELECTRON: 'true',
+      };
+
+      // Only set ELECTRON_RUN_AS_NODE if using Electron as Node
+      if (command === process.execPath) {
+        env.ELECTRON_RUN_AS_NODE = '1';
+        console.log('🔧 Running with ELECTRON_RUN_AS_NODE=1');
       } else {
-        // In production, run the built server directly
-        const serverDir = path.join(process.resourcesPath, 'server');
-        const serverPath = path.join(serverDir, 'dist', 'server', 'src', 'index.js');
-
-        // Set up production database path in user data directory
-        const { app } = require('electron');
-        const userDataPath = app.getPath('userData');
-        const dbDir = path.join(userDataPath, 'database');
-        const dbPath = path.join(dbDir, 'restaurant.db');
-
-        // Create database directory if it doesn't exist
-        const fs = require('fs');
-        if (!fs.existsSync(dbDir)) {
-          fs.mkdirSync(dbDir, { recursive: true });
-          console.log(`📁 Created database directory: ${dbDir}`);
-        }
-
-        serverCommand = process.execPath;
-        serverArgs = [serverPath];
-        cwd = serverDir;
-
-        // Set DATABASE_URL environment variable to user data path
-        process.env.DATABASE_URL = `file:${dbPath}`;
-        console.log(`📊 Database path: ${dbPath}`);
+        console.log('🔧 Running with standalone node.exe');
       }
 
-      console.log(`Running: ${serverCommand} ${serverArgs.join(' ')}`);
-      if (cwd) console.log(`Working directory: ${cwd}`);
+      console.log('▶️  Command:', command);
+      console.log('📋 Args:', args.join(' '));
+      console.log('📁 CWD:', cwd);
 
-      this.serverProcess = spawn(serverCommand, serverArgs, {
-        env: {
-          ...process.env,
-          SERVER_PORT: port.toString(),
-          NODE_ENV: this.isDev ? 'development' : 'production',
-          ELECTRON_RUN_AS_NODE: '1'
-        },
-        stdio: 'pipe',
-        shell: this.isDev, // Use shell in dev mode for npm command
-        cwd, // Set working directory
+      this.serverProcess = spawn(command, args, {
+        cwd,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: false,
+        windowsHide: true,
       });
 
       // Handle server output

@@ -55,9 +55,11 @@ export class NextServerLauncher {
   /**
    * Wait for Next.js server to be ready
    */
-  private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
+  private async waitForServer(url: string, maxAttempts = 30): Promise<void> {
     const http = require('http');
     const urlObj = new URL(url);
+    
+    console.log('🔍 Waiting for Next.js server to be ready...');
     
     for (let i = 0; i < maxAttempts; i++) {
       try {
@@ -68,10 +70,9 @@ export class NextServerLauncher {
               port: urlObj.port,
               path: '/',
               method: 'GET',
-              timeout: 2000,
+              timeout: 1000, // Reduced timeout
             },
             (res: any) => {
-              // Any response means server is ready
               if (res.statusCode === 200 || res.statusCode === 404 || res.statusCode === 500) {
                 resolve();
               } else {
@@ -80,10 +81,7 @@ export class NextServerLauncher {
             }
           );
           
-          req.on('error', (error: Error) => {
-            reject(error);
-          });
-          
+          req.on('error', reject);
           req.on('timeout', () => {
             req.destroy();
             reject(new Error('Request timeout'));
@@ -92,10 +90,9 @@ export class NextServerLauncher {
           req.end();
         });
         
-        // Server is ready!
+        console.log(`✅ Next.js ready after ${i + 1} attempts (${i + 1}s)`);
         return;
       } catch (error) {
-        // Server not ready yet, continue waiting
         if (i < maxAttempts - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -106,65 +103,90 @@ export class NextServerLauncher {
   }
 
   /**
-   * Start the Next.js server as a child process
+   * Get the Next.js server command and arguments
+   */
+  private getServerCommand(): { command: string; args: string[] } {
+    if (this.isDev) {
+      return {
+        command: 'npm',
+        args: ['run', 'dev'],
+      };
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Get the directory where the .exe is located
+    const appDir = path.dirname(process.execPath);
+    
+    // Look for node.exe in the app directory
+    const nodePath = path.join(appDir, 'node.exe');
+    
+    let nodeExecutable: string;
+    
+    if (fs.existsSync(nodePath)) {
+      nodeExecutable = nodePath;
+      console.log('✓ Using Node.js from:', nodeExecutable);
+    } else {
+      // Fallback: use Electron as Node with ELECTRON_RUN_AS_NODE
+      nodeExecutable = process.execPath;
+      console.log('✓ Using Electron\'s Node.js:', nodeExecutable);
+    }
+
+    const serverPath = this.getServerPath();
+    
+    console.log('Running:', nodeExecutable, serverPath);
+    console.log('Working directory:', path.dirname(serverPath));
+
+    return {
+      command: nodeExecutable,
+      args: [serverPath],
+    };
+  }
+
+  /**
+   * Start the Next.js server
    */
   async start(defaultPort: number = 3000): Promise<NextServerConfig> {
     try {
-      // Find available port
       const port = await this.findAvailablePort(defaultPort);
       const url = `http://localhost:${port}`;
-      
+
       console.log(`🚀 Starting Next.js server on port ${port}...`);
-      
-      // Determine Next.js command
-      let nextCommand: string;
-      let nextArgs: string[];
-      let cwd: string;
-      let useShell = false; // Track if we need shell mode
-      
-      if (this.isDev) {
-        // In development, use npm to run Next.js dev server
-        const isWindows = process.platform === 'win32';
-        nextCommand = isWindows ? 'npm.cmd' : 'npm';
-        nextArgs = ['run', 'dev:next'];
-        cwd = path.join(__dirname, '../../');
-        useShell = true;
+
+      const { command, args } = this.getServerCommand();
+      const serverPath = this.getServerPath();
+
+      // Set working directory to the directory containing server.js
+      const cwd = this.isDev
+        ? process.cwd()
+        : path.dirname(serverPath);
+
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PORT: port.toString(),
+        NODE_ENV: this.isDev ? 'development' : 'production',
+        HOSTNAME: '0.0.0.0',
+      };
+
+      // Only set ELECTRON_RUN_AS_NODE if using Electron as Node
+      if (command === process.execPath) {
+        env.ELECTRON_RUN_AS_NODE = '1';
+        console.log('🔧 Running with ELECTRON_RUN_AS_NODE=1');
       } else {
-        // In production, run Next.js standalone server
-        const { app } = require('electron');
-        const fs = require('fs');
-        
-        // Get app path (no asar, all files are unpacked)
-        const nextDir = path.join(__dirname, '../../');
-        
-        // Check for standalone server
-        const standaloneServerPath = path.join(nextDir, '.next/standalone/server.js');
-        
-        if (!fs.existsSync(standaloneServerPath)) {
-          throw new Error(`Next.js standalone server not found at: ${standaloneServerPath}`);
-        }
-        
-        // Use process.execPath which points to the Electron executable
-        // Electron has Node.js built-in, so we can use it directly
-        nextCommand = process.execPath;
-        nextArgs = [standaloneServerPath];
-        cwd = path.join(nextDir, '.next/standalone');
-        
-        console.log(`✓ Using Electron's Node.js: ${nextCommand}`);
+        console.log('🔧 Running with standalone node.exe');
       }
-      
-      console.log(`Running: ${nextCommand} ${nextArgs.join(' ')}`);
-      console.log(`Working directory: ${cwd}`);
-      
-      this.nextProcess = spawn(nextCommand, nextArgs, {
-        env: {
-          ...process.env,
-          PORT: port.toString(),
-          NODE_ENV: this.isDev ? 'development' : 'production',
-        },
-        stdio: 'pipe',
-        shell: useShell,
+
+      console.log('▶️  Command:', command);
+      console.log('📋 Args:', args.join(' '));
+      console.log('📁 CWD:', cwd);
+
+      this.nextProcess = spawn(command, args, {
         cwd,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: false,
+        windowsHide: true,
       });
       
       // Handle Next.js output
@@ -253,5 +275,64 @@ export class NextServerLauncher {
    */
   isRunning(): boolean {
     return this.nextProcess !== null && !this.nextProcess.killed;
+  }
+
+  // Update the getServerPath method to check both locations
+  private getServerPath(): string {
+    if (this.isDev) {
+      // In development, use the existing logic
+      return path.join(__dirname, '../../.next/standalone/server.js');
+    }
+
+    // In production, check for nested monorepo structure first
+    const nestedServerPath = path.join(
+      process.resourcesPath,
+      'nextjs',
+      'standalone',
+      'packages',
+      'desktop',
+      'server.js'
+    );
+
+    // Then check for flat structure
+    const flatServerPath = path.join(
+      process.resourcesPath,
+      'nextjs',
+      'standalone',
+      'server.js'
+    );
+
+    const fs = require('fs');
+    
+    // Check nested path first (monorepo structure)
+    if (fs.existsSync(nestedServerPath)) {
+      console.log('[NextServer] Found Next.js server at (nested):', nestedServerPath);
+      return nestedServerPath;
+    }
+    
+    // Check flat path as fallback
+    if (fs.existsSync(flatServerPath)) {
+      console.log('[NextServer] Found Next.js server at (flat):', flatServerPath);
+      return flatServerPath;
+    }
+
+    // If neither exists, throw error with helpful information
+    console.error('[NextServer] Next.js standalone server not found at:');
+    console.error('  - Nested:', nestedServerPath);
+    console.error('  - Flat:', flatServerPath);
+    
+    // List what's actually there
+    try {
+      const standaloneDir = path.join(process.resourcesPath, 'nextjs', 'standalone');
+      if (fs.existsSync(standaloneDir)) {
+        console.error('[NextServer] Contents of standalone directory:', fs.readdirSync(standaloneDir));
+      } else {
+        console.error('[NextServer] Standalone directory does not exist:', standaloneDir);
+      }
+    } catch (error) {
+      console.error('[NextServer] Error checking directory:', error);
+    }
+
+    throw new Error(`Next.js standalone server not found at: ${nestedServerPath} or ${flatServerPath}`);
   }
 }

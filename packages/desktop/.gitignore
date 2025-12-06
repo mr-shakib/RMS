@@ -1,0 +1,14 @@
+# Logs
+*.log
+npm-debug.log*
+
+# Database
+database/
+*.db
+*.db-journal
+
+# Build outputs
+.next/
+dist/
+release/
+temp-prod/

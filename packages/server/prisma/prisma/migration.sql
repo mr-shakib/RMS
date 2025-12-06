@@ -32,6 +32,7 @@ CREATE TABLE "Category" (
 -- CreateTable
 CREATE TABLE "MenuItem" (
     "id" TEXT NOT NULL PRIMARY KEY,
+    "itemNumber" INTEGER,
     "name" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
     "secondaryCategoryId" TEXT,
@@ -39,6 +40,7 @@ CREATE TABLE "MenuItem" (
     "description" TEXT,
     "imageUrl" TEXT,
     "available" BOOLEAN NOT NULL DEFAULT true,
+    "alwaysPriced" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "MenuItem_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -132,6 +134,12 @@ CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
 -- CreateIndex
 CREATE INDEX "Category_sortOrder_idx" ON "Category"("sortOrder");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MenuItem_itemNumber_key" ON "MenuItem"("itemNumber");
+
+-- CreateIndex
+CREATE INDEX "MenuItem_itemNumber_idx" ON "MenuItem"("itemNumber");
 
 -- CreateIndex
 CREATE INDEX "MenuItem_categoryId_idx" ON "MenuItem"("categoryId");

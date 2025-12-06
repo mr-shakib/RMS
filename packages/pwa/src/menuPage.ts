@@ -232,15 +232,10 @@ export class MenuPage {
         }
       }
 
-      // If regular mode, don't filter out buffet items from the data
-      // Buffet items with secondaryCategoryId should appear in regular categories
-      // We just don't show buffet categories in the UI tabs (handled in renderCategoryTabs)
-
       // Category filtering - check both primary and secondary categories
       const matchesCategory =
         this.selectedCategory === 'Tutti' ||
         item.category?.name === this.selectedCategory ||
-        // Also check secondaryCategory if it exists
         ((item as any).secondaryCategory?.name === this.selectedCategory);
       
       const matchesSearch =
@@ -254,8 +249,9 @@ export class MenuPage {
 
   private render(): void {
     const tableId = this.getTableIdFromUrl();
-    // Display table name if loaded, otherwise show loading
-    const displayName = this.tableName || `Table ${tableId || '?'}`;
+    const displayName = this.tableName || `Tavolo ${tableId || '?'}`;
+    const displayBuffetName = this.getDisplayCategoryName(this.buffetCategoryName || '');
+    const modeText = this.isBuffetMode ? displayBuffetName : 'Alla Carta';
     
     this.container.innerHTML = `
       <div class="menu-page">
@@ -269,7 +265,7 @@ export class MenuPage {
               </button>
               <div>
                 <div class="header-title">${displayName}</div>
-                <div class="header-subtitle">${this.isBuffetMode ? this.buffetCategoryName : 'Alla Carta'}</div>
+                <div class="header-subtitle">${modeText}</div>
               </div>
             </div>
           </div>
@@ -277,7 +273,7 @@ export class MenuPage {
 
         ${this.isBuffetMode ? `
           <div class="menu-banner">
-            <div class="menu-banner-title">${this.buffetCategoryName}</div>
+            <div class="menu-banner-title">${displayBuffetName}</div>
             <div class="menu-banner-subtitle">Tutto quello che puoi mangiare per €${this.buffetPrice.toFixed(2).replace('.', ',')}</div>
           </div>
         ` : ''}
@@ -302,7 +298,6 @@ export class MenuPage {
           </div>
         </div>
 
-        <!-- Bottom Cart Bar -->
         <div class="bottom-cart-bar" id="bottom-cart-bar" style="display: none;">
           <div class="bottom-cart-content">
             <div class="bottom-cart-info">
@@ -321,6 +316,27 @@ export class MenuPage {
     `;
 
     this.updateCartDisplay();
+  }
+
+  private getDisplayCategoryName(categoryName: string): string {
+    const nameMap: { [key: string]: string } = {
+      'Dinner': 'CENA',
+      'Lunch': 'PRANZO',
+      'Buffet': 'ALL YOU CAN EAT'
+    };
+    
+    if (nameMap[categoryName]) {
+      return nameMap[categoryName];
+    }
+    
+    const lowerName = categoryName.toLowerCase();
+    for (const [key, value] of Object.entries(nameMap)) {
+      if (lowerName.includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    
+    return categoryName;
   }
 
   private renderMenu(): void {
@@ -394,7 +410,6 @@ export class MenuPage {
     if (!tabsContainer) return;
 
     if (this.isBuffetMode) {
-      // In buffet mode, don't show category tabs
       const container = document.getElementById('category-tabs-container');
       if (container) container.style.display = 'none';
       return;
@@ -417,19 +432,13 @@ export class MenuPage {
   }
 
   private attachMenuItemListeners(item: MenuItem): void {
-    const addBtn = document.querySelector(
-      `[data-action="add"][data-item-id="${item.id}"]`
-    );
-    const decreaseBtn = document.querySelector(
-      `[data-action="decrease"][data-item-id="${item.id}"]`
-    );
-    const increaseBtn = document.querySelector(
-      `[data-action="increase"][data-item-id="${item.id}"]`
-    );
+    const addBtn = document.querySelector(`[data-action="add"][data-item-id="${item.id}"]`);
+    const decreaseBtn = document.querySelector(`[data-action="decrease"][data-item-id="${item.id}"]`);
+    const increaseBtn = document.querySelector(`[data-action="increase"][data-item-id="${item.id}"]`);
 
     addBtn?.addEventListener('click', () => {
       cart.addItem(item, 1);
-      this.renderMenu(); // Re-render to show quantity controls
+      this.renderMenu();
     });
 
     decreaseBtn?.addEventListener('click', () => {
@@ -440,7 +449,7 @@ export class MenuPage {
         const newQty = currentQty - 1;
         if (newQty === 0) {
           cart.removeItem(item.id);
-          this.renderMenu(); // Re-render to show add button
+          this.renderMenu();
         } else {
           cart.updateQuantity(item.id, newQty);
         }
@@ -502,7 +511,7 @@ export class MenuPage {
       menuContent.innerHTML = `
         <div class="loading-state">
           <div class="loading-spinner"></div>
-          <p>Loading menu...</p>
+          <p>Caricamento del menu...</p>
         </div>
       `;
     }

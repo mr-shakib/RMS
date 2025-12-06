@@ -358,15 +358,17 @@ export default function PrinterManagement({ onSuccess, onError }: PrinterManagem
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Assigned Categories</p>
                 {printer.categoryMappings.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {printer.categoryMappings.map((mapping) => (
-                      <span
-                        key={mapping.id}
-                        className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 
-                                 text-blue-800 dark:text-blue-400 rounded"
-                      >
-                        {mapping.category.name}
-                      </span>
-                    ))}
+                    {printer.categoryMappings
+                      .filter((mapping) => mapping.category !== null)
+                      .map((mapping) => (
+                        <span
+                          key={mapping.id}
+                          className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 
+                                   text-blue-800 dark:text-blue-400 rounded"
+                        >
+                          {mapping.category.name}
+                        </span>
+                      ))}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 dark:text-gray-500 italic">

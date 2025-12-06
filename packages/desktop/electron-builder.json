@@ -2,15 +2,11 @@
   "appId": "com.rms.desktop",
   "productName": "Restaurant Management System",
   "copyright": "Copyright © 2024 Restaurant Management System",
-  "electronVersion": "28.1.0",
-  "electronLanguages": [
-    "en-US"
-  ],
+  "electronVersion": "32.2.7",
   "directories": {
     "output": "release",
     "buildResources": "build"
   },
-  "includeSubNodeModules": true,
   "files": [
     "dist/electron/**/*",
     "package.json"
@@ -18,52 +14,27 @@
   "extraResources": [
     {
       "from": ".next/standalone",
-      "to": "nextjs/standalone",
-      "filter": [
-        "**/*"
-      ]
+      "to": "nextjs/standalone"
     },
     {
       "from": ".next/static",
-      "to": "nextjs/static",
-      "filter": [
-        "**/*"
-      ]
-    },
-    {
-      "from": ".next/static",
-      "to": "nextjs/standalone/packages/desktop/.next/static",
-      "filter": [
-        "**/*"
-      ]
+      "to": "nextjs/standalone/packages/desktop/.next/static"
     },
     {
       "from": "public",
-      "to": "nextjs/public",
-      "filter": [
-        "**/*"
-      ]
+      "to": "nextjs/standalone/packages/desktop/public"
     },
     {
       "from": "../server/dist",
-      "to": "server/dist",
-      "filter": [
-        "**/*"
-      ]
+      "to": "server/dist"
     },
     {
       "from": "../server/prisma",
-      "to": "server/prisma",
-      "filter": [
-        "**/*"
-      ]
+      "to": "server/prisma"
     },
     {
       "from": "../server/public",
-      "to": "server/public",
-      "filter": [
-        "**/*"
-      ]
+      "to": "server/public"
     },
     {
       "from": "../server/scripts/init-production-db.js",
@@ -75,27 +46,13 @@
     },
     {
       "from": "../server/temp-prod/node_modules",
-      "to": "server/node_modules",
-      "filter": [
-        "**/*"
-      ]
+      "to": "server/node_modules"
     }
   ],
   "win": {
-    "target": [
-      {
-        "target": "nsis",
-        "arch": [
-          "x64",
-          "ia32"
-        ]
-      }
-    ],
+    "target": "nsis",
     "icon": "build/icon.ico",
-    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
-    "publisherName": "Restaurant Management System",
-    "verifyUpdateCodeSignature": false,
-    "requestedExecutionLevel": "asInvoker"
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -106,80 +63,8 @@
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico",
     "deleteAppDataOnUninstall": false,
-    "runAfterFinish": false,
-    "perMachine": false,
-    "allowElevation": true,
-    "include": null,
-    "script": null,
-    "warningsAsErrors": false
+    "perMachine": false
   },
-  "mac": {
-    "target": [
-      {
-        "target": "dmg",
-        "arch": [
-          "x64",
-          "arm64"
-        ]
-      },
-      {
-        "target": "zip",
-        "arch": [
-          "x64",
-          "arm64"
-        ]
-      }
-    ],
-    "icon": "build/icon.icns",
-    "category": "public.app-category.business",
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "hardenedRuntime": true,
-    "gatekeeperAssess": false,
-    "entitlements": "build/entitlements.mac.plist",
-    "entitlementsInherit": "build/entitlements.mac.plist"
-  },
-  "dmg": {
-    "title": "${productName} ${version}",
-    "icon": "build/icon.icns",
-    "contents": [
-      {
-        "x": 130,
-        "y": 220
-      },
-      {
-        "x": 410,
-        "y": 220,
-        "type": "link",
-        "path": "/Applications"
-      }
-    ],
-    "window": {
-      "width": 540,
-      "height": 380
-    }
-  },
-  "linux": {
-    "target": [
-      {
-        "target": "AppImage",
-        "arch": [
-          "x64"
-        ]
-      },
-      {
-        "target": "deb",
-        "arch": [
-          "x64"
-        ]
-      }
-    ],
-    "icon": "build/icons",
-    "category": "Office",
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
-  },
-  "compression": "maximum",
-  "asar": true,
-  "asarUnpack": [
-    "**/*.node"
-  ]
+  "compression": "normal",
+  "asar": true
 }

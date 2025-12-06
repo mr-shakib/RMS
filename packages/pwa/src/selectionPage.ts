@@ -45,13 +45,38 @@ export class SelectionPage {
     }
   }
 
+  private getDisplayCategoryName(categoryName: string): string {
+    // Map English category names to Italian display names
+    const nameMap: { [key: string]: string } = {
+      'Dinner': 'CENA',
+      'Lunch': 'PRANZO',
+      'Buffet': 'ALL YOU CAN EAT'
+    };
+    
+    // Check for exact match first
+    if (nameMap[categoryName]) {
+      return nameMap[categoryName];
+    }
+    
+    // Check for partial match (case insensitive)
+    const lowerName = categoryName.toLowerCase();
+    for (const [key, value] of Object.entries(nameMap)) {
+      if (lowerName.includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    
+    // Return original if no match
+    return categoryName;
+  }
+
   private render(): void {
     this.container.innerHTML = `
       <div class="selection-page">
         <div class="selection-hero">
           <div class="selection-hero-content">
-            <h1 class="selection-title">Welcome</h1>
-            <p class="selection-subtitle">How would you like to dine today?</p>
+            <h1 class="selection-title">Benvenuti</h1>
+            <p class="selection-subtitle">Come vuoi cenare oggi?</p>
           </div>
         </div>
 
@@ -64,9 +89,9 @@ export class SelectionPage {
                   <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M7 2v20M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
                 </svg>
               </div>
-              <h2 class="selection-card-title">Buffet</h2>
-              <p class="selection-card-description">All-you-can-eat experience with unlimited servings</p>
-              <div class="selection-card-badge">Fixed Price</div>
+              <h2 class="selection-card-title">ALL YOU CAN EAT</h2>
+              <p class="selection-card-description">Tutto quello che puoi mangiare</p>
+              <div class="selection-card-badge">Prezzo Fisso</div>
             </div>
 
             <!-- Regular Menu Option -->
@@ -76,9 +101,9 @@ export class SelectionPage {
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h2 class="selection-card-title">À la Carte</h2>
-              <p class="selection-card-description">Choose individual dishes from our curated menu</p>
-              <div class="selection-card-badge">Per Item</div>
+              <h2 class="selection-card-title">Alla Carta</h2>
+              <p class="selection-card-description">Scegli i tuoi piatti preferiti dal menu</p>
+              <div class="selection-card-badge">Per Articolo</div>
             </div>
           </div>
 
@@ -92,7 +117,7 @@ export class SelectionPage {
           <div class="modal-overlay"></div>
           <div class="modal-content">
             <div class="modal-header">
-              <h2 class="modal-title">Select Buffet</h2>
+              <h2 class="modal-title">Seleziona Buffet</h2>
               <button class="modal-close" id="close-buffet-modal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -114,18 +139,18 @@ export class SelectionPage {
 
   private renderBuffetCategories(): string {
     if (this.buffetCategories.length === 0) {
-      return '<p class="empty-state">No buffet options available at the moment</p>';
+      return '<p class="empty-state">Nessuna opzione buffet disponibile al momento</p>';
     }
 
     return this.buffetCategories.map(category => {
-      const price = (category.buffetPrice || 0).toFixed(2);
-      const dollarSign = '$';
+      const displayName = this.getDisplayCategoryName(category.name);
+      const price = (category.buffetPrice || 0).toFixed(2).replace('.', ',');
       return `
         <div class="buffet-category-card" data-category-id="${category.id}">
           <div class="buffet-category-info">
-            <h3 class="buffet-category-name">${category.name}</h3>
+            <h3 class="buffet-category-name">${displayName}</h3>
           </div>
-          <div class="buffet-category-price">${dollarSign}${price}</div>
+          <div class="buffet-category-price">€${price}</div>
         </div>
       `;
     }).join('');
@@ -144,7 +169,7 @@ export class SelectionPage {
     const buffetCard = this.container.querySelector('[data-type="buffet"]');
     buffetCard?.addEventListener('click', () => {
       if (this.buffetCategories.length === 0) {
-        alert('No buffet options available at the moment');
+        alert('Nessuna opzione buffet disponibile al momento');
         return;
       }
       this.showBuffetModal();

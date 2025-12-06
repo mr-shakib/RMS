@@ -1,16 +1,11 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
-import Providers from '@/components/Providers';
-import LayoutContent from '@/components/LayoutContent';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import ToastContainer from '@/components/Toast';
-
-const inter = Inter({ subsets: ['latin'] });
+import { Providers } from './providers';
+import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 
 export const metadata: Metadata = {
   title: 'Restaurant Management System',
-  description: 'Desktop application for restaurant management',
+  description: 'A modern POS system for restaurants',
 };
 
 export default function RootLayout({
@@ -19,14 +14,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ErrorBoundary>
-          <Providers>
-            <LayoutContent>{children}</LayoutContent>
-            <ToastContainer />
-          </Providers>
-        </ErrorBoundary>
+    <html lang="en">
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>
+          <LayoutWrapper>{children}</LayoutWrapper>
+        </Providers>
       </body>
     </html>
   );
