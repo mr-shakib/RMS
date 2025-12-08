@@ -241,6 +241,7 @@ class InitializationService {
           "description" TEXT,
           "imageUrl" TEXT,
           "available" BOOLEAN NOT NULL DEFAULT 1,
+          "alwaysPriced" BOOLEAN NOT NULL DEFAULT 0,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" DATETIME NOT NULL,
           FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE,

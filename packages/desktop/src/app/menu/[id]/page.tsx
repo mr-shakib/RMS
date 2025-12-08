@@ -15,19 +15,21 @@ export default function EditMenuItemPage() {
   const { menuItems, updateMenuItem, deleteMenuItem, isUpdating, isDeleting } = useMenu();
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { formatCurrency, symbol } = useCurrency();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     itemNumber: '',
-    categoryId: '',
+    categoryId: '', // The actual category (Main Course, Appetizer, etc.)
     secondaryCategoryId: '',
     price: '',
     description: '',
     imageUrl: '',
     available: true,
     alwaysPriced: false,
+    addToLunchBuffet: false,
+    addToDinnerBuffet: false,
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imagePreview, setImagePreview] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -40,20 +42,32 @@ export default function EditMenuItemPage() {
   const regularCategories = categories.filter((cat) => !cat.isBuffet);
   const selectedCategory = categories.find((cat) => cat.id === formData.categoryId);
 
+  // Get the buffet category based on main category selection
+  const dinnerBuffetCategory = buffetCategories.find((cat) => cat.name.toLowerCase().includes('dinner'));
+  const launchBuffetCategory = buffetCategories.find((cat) => cat.name.toLowerCase().includes('launch') || cat.name.toLowerCase().includes('lunch'));
+
   // Load menu item data
   useEffect(() => {
     const item = menuItems.find((m) => m.id === itemId);
     if (item) {
+      // Determine if item is in a buffet category
+      const itemCategory = categories.find((cat) => cat.id === item.categoryId);
+      const isInLunchBuffet = itemCategory?.name.toLowerCase().includes('lunch');
+      const isInDinnerBuffet = itemCategory?.name.toLowerCase().includes('dinner');
+      const isInBuffet = itemCategory?.isBuffet;
+
       setFormData({
         name: item.name,
         itemNumber: (item as any).itemNumber?.toString() || '',
-        categoryId: item.categoryId,
+        categoryId: isInBuffet ? (item as any).secondaryCategoryId || '' : item.categoryId,
         secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
         description: item.description || '',
         imageUrl: item.imageUrl || '',
         available: item.available,
         alwaysPriced: (item as any).alwaysPriced || false,
+        addToLunchBuffet: isInLunchBuffet || false,
+        addToDinnerBuffet: isInDinnerBuffet || false,
       });
       if (item.imageUrl) {
         setImagePreview(item.imageUrl);
@@ -63,7 +77,7 @@ export default function EditMenuItemPage() {
       // Item not found and menu items are loaded
       setIsLoading(false);
     }
-  }, [itemId, menuItems]);
+  }, [itemId, menuItems, categories]);
 
   // Handle image file upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,14 +136,14 @@ export default function EditMenuItemPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    
+
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
-    
+
     // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => {
@@ -187,12 +201,27 @@ export default function EditMenuItemPage() {
     }
 
     try {
+      // Determine category assignments based on buffet selections
+      let primaryCategoryId = formData.categoryId;
+      let secondaryCategoryId = null;
+
+      // If adding to lunch buffet, make lunch buffet primary and regular category secondary
+      if (formData.addToLunchBuffet && launchBuffetCategory) {
+        primaryCategoryId = launchBuffetCategory.id;
+        secondaryCategoryId = formData.categoryId;
+      }
+      // If adding to dinner buffet (and not lunch), make dinner buffet primary
+      else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
+        primaryCategoryId = dinnerBuffetCategory.id;
+        secondaryCategoryId = formData.categoryId;
+      }
+
       await updateMenuItem({
         id: itemId,
         data: {
           name: formData.name.trim(),
-          categoryId: formData.categoryId,
-          secondaryCategoryId: formData.secondaryCategoryId || undefined,
+          categoryId: primaryCategoryId,
+          secondaryCategoryId: secondaryCategoryId || undefined,
           price: parseFloat(formData.price),
           description: formData.description.trim() || undefined,
           imageUrl: formData.imageUrl.trim() || undefined,
@@ -208,12 +237,12 @@ export default function EditMenuItemPage() {
       }, 1000);
     } catch (error: any) {
       let errorMessage = error.message || 'Failed to update menu item';
-      
+
       // Handle payload too large error
       if (error.message?.includes('too large') || error.message?.includes('PayloadTooLarge')) {
         errorMessage = 'Image file is too large. Please upload a smaller image (recommended: under 2MB).';
       }
-      
+
       toast.error(errorMessage, 'Error');
       setErrors({ submit: errorMessage });
     }
@@ -332,11 +361,10 @@ export default function EditMenuItemPage() {
             onChange={handleChange}
             className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
                      text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                     focus:border-transparent ${
-                       errors.name
-                         ? 'border-red-500 dark:border-red-500'
-                         : 'border-gray-300 dark:border-gray-600'
-                     }`}
+                     focus:border-transparent ${errors.name
+                ? 'border-red-500 dark:border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+              }`}
             placeholder="e.g., Margherita Pizza"
           />
           {errors.name && (
@@ -358,11 +386,10 @@ export default function EditMenuItemPage() {
             min="1"
             className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
                      text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                     focus:border-transparent ${
-                       errors.itemNumber
-                         ? 'border-red-500 dark:border-red-500'
-                         : 'border-gray-300 dark:border-gray-600'
-                     }`}
+                     focus:border-transparent ${errors.itemNumber
+                ? 'border-red-500 dark:border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+              }`}
             placeholder="Item number"
           />
           {errors.itemNumber && (
@@ -385,11 +412,10 @@ export default function EditMenuItemPage() {
             onChange={handleChange}
             className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
                      text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                     focus:border-transparent ${
-                       errors.categoryId
-                         ? 'border-red-500 dark:border-red-500'
-                         : 'border-gray-300 dark:border-gray-600'
-                     }`}
+                     focus:border-transparent ${errors.categoryId
+                ? 'border-red-500 dark:border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+              }`}
           >
             <option value="">Select a category</option>
             {regularCategories.length > 0 && (
@@ -429,11 +455,10 @@ export default function EditMenuItemPage() {
               onChange={handleChange}
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
                        text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                       focus:border-transparent ${
-                         errors.secondaryCategoryId
-                           ? 'border-red-500 dark:border-red-500'
-                           : 'border-gray-300 dark:border-gray-600'
-                       }`}
+                       focus:border-transparent ${errors.secondaryCategoryId
+                  ? 'border-red-500 dark:border-red-500'
+                  : 'border-gray-300 dark:border-gray-600'
+                }`}
             >
               <option value="">Select category for All Items menu</option>
               {regularCategories.map((category) => (
@@ -450,6 +475,50 @@ export default function EditMenuItemPage() {
             )}
           </div>
         )}
+
+        {/* Buffet Options */}
+        <div>
+          <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-200 dark:border-purple-800">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Add to Buffet (Optional)
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="addToLunchBuffet"
+                  checked={formData.addToLunchBuffet}
+                  onChange={handleChange}
+                  disabled={!launchBuffetCategory}
+                  className="w-5 h-5 text-orange-600 rounded focus:ring-2 focus:ring-orange-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Add to Lunch Buffet
+                  {!launchBuffetCategory && <span className="text-xs text-red-500 ml-2">(Buffet category not found)</span>}
+                </span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="addToDinnerBuffet"
+                  checked={formData.addToDinnerBuffet}
+                  onChange={handleChange}
+                  disabled={!dinnerBuffetCategory}
+                  className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Add to Dinner Buffet
+                  {!dinnerBuffetCategory && <span className="text-xs text-red-500 ml-2">(Buffet category not found)</span>}
+                </span>
+              </label>
+            </div>
+            {(formData.addToLunchBuffet || formData.addToDinnerBuffet) && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-3 italic">
+                ✓ This item will be available in {formData.addToLunchBuffet && formData.addToDinnerBuffet ? 'both Lunch and Dinner buffets' : formData.addToLunchBuffet ? 'Lunch buffet' : 'Dinner buffet'}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Price */}
         <div>
@@ -475,11 +544,10 @@ export default function EditMenuItemPage() {
               min="0"
               className={`w-full pl-8 pr-4 py-2 border rounded-lg bg-white dark:bg-gray-700 
                        text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 
-                       focus:border-transparent ${
-                         errors.price
-                           ? 'border-red-500 dark:border-red-500'
-                           : 'border-gray-300 dark:border-gray-600'
-                       }`}
+                       focus:border-transparent ${errors.price
+                  ? 'border-red-500 dark:border-red-500'
+                  : 'border-gray-300 dark:border-gray-600'
+                }`}
               placeholder="0.00"
             />
           </div>
@@ -511,7 +579,7 @@ export default function EditMenuItemPage() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Image
           </label>
-          
+
           {!imagePreview ? (
             <div>
               <label

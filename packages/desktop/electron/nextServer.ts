@@ -21,13 +21,13 @@ export class NextServerLauncher {
   private async killProcessOnPort(port: number): Promise<void> {
     try {
       const { execSync } = require('child_process');
-      
+
       if (process.platform === 'win32') {
         // Find process using the port
         try {
           const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
           const lines = output.trim().split('\n');
-          
+
           const pids = new Set<string>();
           for (const line of lines) {
             const parts = line.trim().split(/\s+/);
@@ -36,7 +36,7 @@ export class NextServerLauncher {
               pids.add(pid);
             }
           }
-          
+
           // Kill each PID
           for (const pid of pids) {
             try {
@@ -62,16 +62,16 @@ export class NextServerLauncher {
     return new Promise((resolve) => {
       const net = require('net');
       const server = net.createServer();
-      
+
       server.once('error', () => {
         resolve(false);
       });
-      
+
       server.once('listening', () => {
         server.close();
         resolve(true);
       });
-      
+
       server.listen(port);
     });
   }
@@ -81,26 +81,27 @@ export class NextServerLauncher {
    */
   private async findAvailablePort(startPort: number): Promise<number> {
     let port = startPort;
-    
+
     while (port < startPort + 10) {
       if (await this.isPortAvailable(port)) {
         return port;
       }
       port++;
     }
-    
+
     throw new Error(`No available ports found between ${startPort} and ${port}`);
   }
 
   /**
    * Wait for Next.js server to be ready
    */
-  private async waitForServer(url: string, maxAttempts = 60): Promise<void> {
+  private async waitForServer(url: string, maxAttempts = 30): Promise<void> {
     const http = require('http');
     const urlObj = new URL(url);
-    
+
     console.log('🔍 Waiting for Next.js server to be ready...');
-    
+    console.log(`⏱️  Will wait up to ${maxAttempts} seconds for Next.js to start`);
+
     for (let i = 0; i < maxAttempts; i++) {
       try {
         await new Promise<void>((resolve, reject) => {
@@ -109,28 +110,39 @@ export class NextServerLauncher {
               hostname: urlObj.hostname,
               port: urlObj.port,
               path: '/',
-              method: 'GET',
-              timeout: 1000, // Reduced timeout
+              method: 'HEAD', // Use HEAD instead of GET for faster response
+              timeout: 2000, // Increased timeout to 2s for slower systems
             },
             (res: any) => {
-              if (res.statusCode === 200 || res.statusCode === 404 || res.statusCode === 500) {
+              // Accept any response - if server responds, it's alive
+              // Next.js might return 404 initially before routes are ready
+              if (res.statusCode) {
                 resolve();
               } else {
-                reject(new Error(`Unexpected status: ${res.statusCode}`));
+                reject(new Error(`No status code received`));
               }
             }
           );
-          
-          req.on('error', reject);
+
+          req.on('error', (err: any) => {
+            // Only log connection errors occasionally to reduce noise
+            if (i % 5 === 0 || i < 3) {
+              console.log(`⏳ Attempt ${i + 1}/${maxAttempts}: ${err.code || 'Connection failed'}`);
+            }
+            reject(err);
+          });
+
           req.on('timeout', () => {
             req.destroy();
             reject(new Error('Request timeout'));
           });
-          
+
           req.end();
         });
-        
-        console.log(`✅ Next.js ready after ${i + 1} attempts (${i + 1}s)`);
+
+        console.log(`✅ Next.js server ready after ${i + 1} attempt(s) (${i + 1}s)`);
+        // Give it one more second to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return;
       } catch (error) {
         if (i < maxAttempts - 1) {
@@ -138,8 +150,8 @@ export class NextServerLauncher {
         }
       }
     }
-    
-    throw new Error('Next.js server failed to start within timeout period');
+
+    throw new Error(`Next.js server failed to respond within ${maxAttempts} seconds`);
   }
 
   /**
@@ -155,15 +167,15 @@ export class NextServerLauncher {
 
     const fs = require('fs');
     const path = require('path');
-    
+
     // Get the directory where the .exe is located
     const appDir = path.dirname(process.execPath);
-    
+
     // Look for node.exe in the app directory
     const nodePath = path.join(appDir, 'node.exe');
-    
+
     let nodeExecutable: string;
-    
+
     if (fs.existsSync(nodePath)) {
       nodeExecutable = nodePath;
       console.log('✓ Using Node.js from:', nodeExecutable);
@@ -174,7 +186,7 @@ export class NextServerLauncher {
     }
 
     const serverPath = this.getServerPath();
-    
+
     console.log('Running:', nodeExecutable, serverPath);
     console.log('Working directory:', path.dirname(serverPath));
 
@@ -191,10 +203,10 @@ export class NextServerLauncher {
     try {
       // Try to clean up any existing process on the default port
       await this.killProcessOnPort(defaultPort);
-      
+
       // Wait a bit for cleanup
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       const port = await this.findAvailablePort(defaultPort);
       const url = `http://localhost:${port}`;
 
@@ -234,37 +246,56 @@ export class NextServerLauncher {
         shell: false,
         windowsHide: true,
       });
-      
+
       // Handle Next.js output
       this.nextProcess.stdout?.on('data', (data) => {
         const output = data.toString().trim();
         if (output) console.log(`[Next.js] ${output}`);
       });
-      
+
+      // Capture stderr to file for debugging
+      const fs = require('fs');
+      const errorLogPath = path.join(process.cwd(), 'nextjs-error.log');
+      let errorBuffer = '';
+
       this.nextProcess.stderr?.on('data', (data) => {
         const output = data.toString().trim();
-        if (output && !output.includes('DeprecationWarning')) {
+        errorBuffer += output + '\n';
+
+        // Log to console (skip deprecation warnings)
+        if (output && !output.includes('DeprecationWarning') && !output.includes('ExperimentalWarning')) {
           console.error(`[Next.js Error] ${output}`);
         }
+
+        // Write errors to file for debugging
+        try {
+          fs.appendFileSync(errorLogPath, `[${new Date().toISOString()}] ${output}\n`);
+        } catch (e) {
+          // Ignore file write errors
+        }
       });
-      
+
       this.nextProcess.on('error', (error) => {
-        console.error('Failed to start Next.js server:', error);
+        console.error('❌ Failed to start Next.js server process:', error);
         throw error;
       });
-      
-      this.nextProcess.on('exit', (code) => {
-        console.log(`Next.js server process exited with code ${code}`);
+
+      this.nextProcess.on('exit', (code, signal) => {
+        console.log(`Next.js server process exited with code ${code}, signal ${signal}`);
+        if (code !== 0 && code !== null) {
+          console.error('⚠️  Next.js exited with error. Last stderr output:');
+          console.error(errorBuffer.slice(-500)); // Last 500 chars
+        }
       });
-      
+
       // Wait for Next.js to be ready
       await this.waitForServer(url);
-      
+
       this.config = { port, url };
-      
+
       console.log('✅ Next.js server is ready!');
       console.log(`🌐 URL: ${url}`);
-      
+
       return this.config;
     } catch (error) {
       console.error('Error starting Next.js server:', error);
@@ -278,23 +309,23 @@ export class NextServerLauncher {
   async stop(): Promise<void> {
     if (this.nextProcess) {
       console.log('🛑 Stopping Next.js server...');
-      
+
       return new Promise((resolve) => {
         if (!this.nextProcess) {
           resolve();
           return;
         }
-        
+
         this.nextProcess.once('exit', () => {
           console.log('✅ Next.js server stopped');
           this.nextProcess = null;
           this.config = null;
           resolve();
         });
-        
+
         // Send SIGTERM for graceful shutdown
         this.nextProcess.kill('SIGTERM');
-        
+
         // Force kill after 5 seconds if not stopped
         setTimeout(() => {
           if (this.nextProcess) {
@@ -349,13 +380,13 @@ export class NextServerLauncher {
     );
 
     const fs = require('fs');
-    
+
     // Check nested path first (monorepo structure)
     if (fs.existsSync(nestedServerPath)) {
       console.log('[NextServer] Found Next.js server at (nested):', nestedServerPath);
       return nestedServerPath;
     }
-    
+
     // Check flat path as fallback
     if (fs.existsSync(flatServerPath)) {
       console.log('[NextServer] Found Next.js server at (flat):', flatServerPath);
@@ -366,7 +397,7 @@ export class NextServerLauncher {
     console.error('[NextServer] Next.js standalone server not found at:');
     console.error('  - Nested:', nestedServerPath);
     console.error('  - Flat:', flatServerPath);
-    
+
     // List what's actually there
     try {
       const standaloneDir = path.join(process.resourcesPath, 'nextjs', 'standalone');

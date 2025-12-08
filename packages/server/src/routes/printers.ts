@@ -19,6 +19,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
           include: {
             category: true,
           },
+          where: {
+            category: {
+              isNot: null,
+            },
+          },
         },
       },
       orderBy: {
