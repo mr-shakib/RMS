@@ -9,6 +9,7 @@ export class MenuPage {
   private categories: Category[] = [];
   private selectedCategory: string = 'Tutti';
   private searchQuery: string = '';
+  private priceFilter: 'all' | 'incluso' | 'priced' = 'all'; // Filter by price type
   private container: HTMLElement;
   private isBuffetMode: boolean = false;
   private buffetCategoryId: string | null = null;
@@ -243,7 +244,18 @@ export class MenuPage {
         item.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
         item.description?.toLowerCase().includes(this.searchQuery.toLowerCase());
 
-      return matchesCategory && matchesSearch && item.available;
+      // Price filter (only applies in buffet mode)
+      let matchesPriceFilter = true;
+      if (this.isBuffetMode && this.priceFilter !== 'all') {
+        const isIncluso = !item.alwaysPriced; // Items without alwaysPriced are incluso
+        if (this.priceFilter === 'incluso') {
+          matchesPriceFilter = isIncluso;
+        } else if (this.priceFilter === 'priced') {
+          matchesPriceFilter = !isIncluso;
+        }
+      }
+
+      return matchesCategory && matchesSearch && matchesPriceFilter && item.available;
     });
   }
 
@@ -286,6 +298,14 @@ export class MenuPage {
             placeholder="Cerca nel menu..."
           />
         </div>
+
+        ${this.isBuffetMode ? `
+          <div class="price-filter-container">
+            <button class="price-filter-btn ${this.priceFilter === 'all' ? 'active' : ''}" data-filter="all">Tutti</button>
+            <button class="price-filter-btn ${this.priceFilter === 'incluso' ? 'active' : ''}" data-filter="incluso">Incluso</button>
+            <button class="price-filter-btn ${this.priceFilter === 'priced' ? 'active' : ''}" data-filter="priced">A Pagamento</button>
+          </div>
+        ` : ''}
 
         <div class="menu-categories" id="category-tabs-container">
           <div class="category-tabs" id="category-tabs"></div>
@@ -344,6 +364,7 @@ export class MenuPage {
     if (!menuContent) return;
 
     this.renderCategoryTabs();
+    this.renderPriceFilters();
 
     if (this.filteredItems.length === 0) {
       menuContent.innerHTML = `
@@ -368,8 +389,26 @@ export class MenuPage {
   }
 
   private renderMenuItem(item: MenuItem): string {
+    // Debug log to check alwaysPriced field
+    if (this.isBuffetMode) {
+      console.log('[MenuPage] Item:', item.name);
+      console.log('  alwaysPriced:', item.alwaysPriced);
+      console.log('  typeof alwaysPriced:', typeof item.alwaysPriced);
+      console.log('  !item.alwaysPriced:', !item.alwaysPriced);
+      console.log('  isBuffetMode && !item.alwaysPriced:', this.isBuffetMode && !item.alwaysPriced);
+    }
     const imageUrl = item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop';
-    const price = this.isBuffetMode ? 'Incluso' : `€${(typeof item.price === 'number' ? item.price : 0).toFixed(2).replace('.', ',')}`;
+    // Show price if not buffet mode, OR if item is marked as alwaysPriced
+    // Explicitly check if alwaysPriced is true (handle undefined/null as false)
+    const isAlwaysPriced = item.alwaysPriced === true;
+    const showIncluso = (this.isBuffetMode && !isAlwaysPriced);
+    const priceValue = (typeof item.price === 'number' ? item.price : 0).toFixed(2).replace('.', ',');
+    const price = showIncluso ? 'Incluso' : `€${priceValue}`;
+    
+    if (this.isBuffetMode) {
+      console.log('  isAlwaysPriced:', isAlwaysPriced, '- Will show:', showIncluso ? 'Incluso' : `€${priceValue}`);
+    }
+    
     const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
     const quantity = cartItem?.quantity || 0;
     
@@ -431,6 +470,17 @@ export class MenuPage {
       .join('');
   }
 
+  private renderPriceFilters(): void {
+    const filterContainer = document.querySelector('.price-filter-container');
+    if (!filterContainer) return;
+
+    filterContainer.innerHTML = `
+      <button class="price-filter-btn ${this.priceFilter === 'all' ? 'active' : ''}" data-filter="all">Tutti</button>
+      <button class="price-filter-btn ${this.priceFilter === 'incluso' ? 'active' : ''}" data-filter="incluso">Incluso</button>
+      <button class="price-filter-btn ${this.priceFilter === 'priced' ? 'active' : ''}" data-filter="priced">A Pagamento</button>
+    `;
+  }
+
   private attachMenuItemListeners(item: MenuItem): void {
     const addBtn = document.querySelector(`[data-action="add"][data-item-id="${item.id}"]`);
     const decreaseBtn = document.querySelector(`[data-action="decrease"][data-item-id="${item.id}"]`);
@@ -489,6 +539,16 @@ export class MenuPage {
         this.selectedCategory = target.dataset.category || 'Tutti';
         this.filterItems();
         this.renderMenu();
+      }
+      
+      // Handle price filter buttons
+      if (target.classList.contains('price-filter-btn')) {
+        const filter = target.dataset.filter as 'all' | 'incluso' | 'priced';
+        if (filter) {
+          this.priceFilter = filter;
+          this.filterItems();
+          this.renderMenu();
+        }
       }
     });
 

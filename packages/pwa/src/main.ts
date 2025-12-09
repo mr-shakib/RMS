@@ -128,3 +128,14 @@ if (document.readyState === 'loading') {
 }
 
 // Service worker registration is handled by vite-plugin-pwa
+// In development, service worker is disabled to see changes immediately
+// In production, it uses NetworkFirst strategy for HTML/CSS/JS to fetch updates
+
+// Force update check on page load (production only)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => {
+      registration.update();
+    });
+  });
+}

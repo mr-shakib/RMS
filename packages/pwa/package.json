@@ -5,9 +5,10 @@
   "description": "Progressive Web App for customer ordering",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "rimraf dist dev-dist && vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist dev-dist"
   },
   "dependencies": {
     "@rms/shared": "*",

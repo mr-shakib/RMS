@@ -39,6 +39,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        // Add cache busting for HTML files
+        navigateFallback: null,
+        // Prevent caching of HTML in production to ensure updates are seen
+        navigateFallbackDenylist: [/^\/(api|admin)/],
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/menu$/,
@@ -63,10 +67,37 @@ export default defineConfig({
               },
             },
           },
+          // Use NetworkFirst for CSS and JS to ensure updates are fetched
+          {
+            urlPattern: /\.(js|css)$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'assets-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              networkTimeoutSeconds: 5,
+            },
+          },
+          // Use NetworkFirst for HTML pages
+          {
+            urlPattern: /\.html$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-cache',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24, // 1 day
+              },
+              networkTimeoutSeconds: 3,
+            },
+          },
         ],
       },
       devOptions: {
-        enabled: true,
+        enabled: false, // Disable service worker in development
+        type: 'module',
       },
     }),
   ],
@@ -78,8 +109,14 @@ export default defineConfig({
         manualChunks: undefined,
       },
     },
+    // Add versioning to bust cache on updates
+    assetsInlineLimit: 0,
   },
   server: {
     port: 3001,
+    // Disable caching during development
+    headers: {
+      'Cache-Control': 'no-store',
+    },
   },
 });

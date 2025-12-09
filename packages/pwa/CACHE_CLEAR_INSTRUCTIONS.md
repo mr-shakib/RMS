@@ -1,8 +1,40 @@
-# How to Clear PWA Cache on iPhone
+# PWA Cache Management
 
-If the PWA styles are not updating on your iPhone, follow these steps:
+## Development Changes (Developers)
 
-## Method 1: Clear Safari Cache (Recommended)
+**Good news!** The PWA is now configured to disable service worker caching during development.
+
+### To see changes immediately during development:
+
+1. Run `npm run dev:clean` instead of `npm run dev` to clear all caches
+2. Or just run `npm run dev` - service worker is now disabled in dev mode
+3. Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
+
+### If changes still don't appear:
+
+1. Open DevTools → Application → Storage
+2. Click "Clear site data"
+3. Reload the page
+
+### Manual cache clearing:
+Run in browser console:
+```javascript
+// Navigate to: /clear-sw.js in your browser, or paste this in console:
+if ('serviceWorker' in navigator) {
+  caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(reg => reg.unregister()));
+  location.reload();
+}
+```
+
+## Production Updates (End Users)
+
+In production, the PWA now uses `NetworkFirst` caching strategy, which:
+- Checks for updates from the server first
+- Falls back to cache only if network is unavailable
+- Automatically updates when online
+
+## Method 1: Clear Safari Cache (iPhone - If Needed)
 
 1. Open **Settings** app on your iPhone
 2. Scroll down and tap **Safari**

@@ -70,10 +70,28 @@ class Cart {
   }
 
   getSubtotal(): number {
-    return Array.from(this.items.values()).reduce(
-      (total, item) => total + item.menuItem.price * item.quantity,
-      0
-    );
+    let subtotal = 0;
+    
+    // If buffet mode, include buffet price once
+    if (this.isBuffet && this.buffetCategory) {
+      subtotal += this.buffetCategory.buffetPrice || 0;
+    }
+    
+    // Add prices for items
+    Array.from(this.items.values()).forEach(item => {
+      // In buffet mode, only add price for alwaysPriced items
+      if (this.isBuffet) {
+        if (item.menuItem.alwaysPriced === true) {
+          subtotal += item.menuItem.price * item.quantity;
+        }
+        // Items without alwaysPriced or with false don't add to subtotal
+      } else {
+        // Regular mode: all items add to subtotal
+        subtotal += item.menuItem.price * item.quantity;
+      }
+    });
+    
+    return subtotal;
   }
 
   clear(): void {

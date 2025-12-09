@@ -498,6 +498,38 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.price-filter-container {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 0;
+  background: var(--surface);
+}
+
+.price-filter-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.price-filter-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--text);
+}
+
+.price-filter-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .search-input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 3rem;
@@ -1050,6 +1082,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.total-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.breakdown-item span:last-child {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.breakdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 0.25rem 0;
 }
 
 .cart-total-row {

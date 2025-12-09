@@ -144,13 +144,25 @@ export class CartPage {
     const price = typeof item.menuItem.price === 'number' 
       ? item.menuItem.price.toFixed(2).replace('.', ',') 
       : '0,00';
-    const itemTotal = isBuffet ? 'Incluso' : `€${(item.menuItem.price * item.quantity).toFixed(2).replace('.', ',')}`;
+    
+    // Debug logging for buffet mode
+    if (isBuffet) {
+      console.log('[CartPage] Item:', item.menuItem.name);
+      console.log('  alwaysPriced:', item.menuItem.alwaysPriced);
+      console.log('  !item.menuItem.alwaysPriced:', !item.menuItem.alwaysPriced);
+      console.log('  Will show Incluso:', isBuffet && !item.menuItem.alwaysPriced);
+    }
+    
+    // Show price if not buffet, OR if item is marked as alwaysPriced
+    // Explicitly check if alwaysPriced is true (handle undefined/null as false)
+    const isAlwaysPriced = item.menuItem.alwaysPriced === true;
+    const itemTotal = (isBuffet && !isAlwaysPriced) ? 'Incluso' : `€${(item.menuItem.price * item.quantity).toFixed(2).replace('.', ',')}`;
 
     return `
       <div class="cart-item" data-item-id="${item.menuItem.id}">
         <div class="cart-item-info">
           <div class="cart-item-name">${item.menuItem.name}</div>
-          <div class="cart-item-price">${isBuffet ? 'Articolo Buffet' : `€${price} ciascuno`}</div>
+          <div class="cart-item-price">${(isBuffet && !isAlwaysPriced) ? 'Articolo Buffet' : `€${price} ciascuno`}</div>
           ${item.notes ? `<div class="cart-item-notes">Nota: ${item.notes}</div>` : ''}
         </div>
         <div class="cart-item-controls">
@@ -228,16 +240,46 @@ export class CartPage {
 
   private updateTotals(): void {
     const buffetMode = cart.getBuffetMode();
-    let total = 0;
-
-    if (buffetMode.isBuffet && buffetMode.category) {
-      total = buffetMode.category.buffetPrice || 0;
-    } else {
-      total = cart.getSubtotal();
-    }
-
+    const subtotal = cart.getSubtotal();
+    
     const totalElement = document.getElementById('total');
-    if (totalElement) totalElement.textContent = `€${total.toFixed(2).replace('.', ',')}`;
+    if (totalElement) {
+      totalElement.textContent = `€${subtotal.toFixed(2).replace('.', ',')}`;
+    }
+    
+    // Show breakdown for buffet mode
+    const summaryContainer = document.querySelector('.cart-summary');
+    if (summaryContainer && buffetMode.isBuffet && buffetMode.category) {
+      const buffetPrice = buffetMode.category.buffetPrice || 0;
+      const additionalItems = this.cartItems.filter(item => item.menuItem.alwaysPriced === true);
+      const additionalTotal = additionalItems.reduce((sum, item) => 
+        sum + (item.menuItem.price * item.quantity), 0
+      );
+      
+      // Update or create breakdown
+      let breakdownEl = summaryContainer.querySelector('.total-breakdown');
+      if (!breakdownEl) {
+        breakdownEl = document.createElement('div');
+        breakdownEl.className = 'total-breakdown';
+        summaryContainer.insertBefore(breakdownEl, summaryContainer.querySelector('.cart-total'));
+      }
+      
+      if (additionalTotal > 0) {
+        breakdownEl.innerHTML = `
+          <div class="breakdown-item">
+            <span>Buffet ${buffetMode.category.name}</span>
+            <span>€${buffetPrice.toFixed(2).replace('.', ',')}</span>
+          </div>
+          <div class="breakdown-item">
+            <span>Articoli aggiuntivi</span>
+            <span>€${additionalTotal.toFixed(2).replace('.', ',')}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+        `;
+      } else {
+        breakdownEl.innerHTML = '';
+      }
+    }
   }
 
   private async placeOrder(): Promise<void> {

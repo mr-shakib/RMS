@@ -1,0 +1,28 @@
+// Quick test to verify what the menu API actually returns
+fetch('http://localhost:3001/api/menu')
+  .then(res => res.json())
+  .then(data => {
+    console.log('\n=== Menu API Response ===\n');
+    
+    // Find items that should have alwaysPriced
+    const alwaysPricedItems = ['Burgiiiiir', 'Burgir', 'Drink', 'Cheesecake', 'Chocolate Cake', 'Ice Cream Sundae', 'Tiramisu'];
+    
+    data.data.menuItems.forEach(item => {
+      if (alwaysPricedItems.includes(item.name)) {
+        console.log(`${item.name}:`);
+        console.log(`  alwaysPriced: ${item.alwaysPriced} (type: ${typeof item.alwaysPriced})`);
+        console.log(`  Price: €${item.price}`);
+        console.log(`  Category: ${item.category?.name}`);
+        console.log('');
+      }
+    });
+    
+    // Check if field exists at all
+    const firstItem = data.data.menuItems[0];
+    console.log('First item keys:', Object.keys(firstItem));
+    console.log('Has alwaysPriced?', 'alwaysPriced' in firstItem);
+  })
+  .catch(err => {
+    console.error('Error:', err.message);
+    console.log('Make sure server is running on port 3001');
+  });
