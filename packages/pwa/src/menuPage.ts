@@ -449,8 +449,33 @@ export class MenuPage {
     if (!tabsContainer) return;
 
     if (this.isBuffetMode) {
+      // In buffet mode, show secondary categories for filtering
       const container = document.getElementById('category-tabs-container');
-      if (container) container.style.display = 'none';
+      if (container) container.style.display = 'block';
+      
+      // Get unique secondary categories from buffet items
+      const secondaryCategories = new Map<string, string>();
+      this.menuItems.forEach(item => {
+        const secondaryCategory = (item as any).secondaryCategory;
+        if (secondaryCategory && item.categoryId === this.buffetCategoryId) {
+          secondaryCategories.set(secondaryCategory.id, secondaryCategory.name);
+        }
+      });
+      
+      const categoryNames = ['Tutti', ...Array.from(secondaryCategories.values())];
+      
+      tabsContainer.innerHTML = categoryNames
+        .map(
+          (category) => `
+          <button
+            class="category-tab ${category === this.selectedCategory ? 'active' : ''}"
+            data-category="${category}"
+          >
+            ${category}
+          </button>
+        `
+        )
+        .join('');
       return;
     }
 
