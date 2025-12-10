@@ -207,18 +207,25 @@ export default function NewMenuItemPage() {
       
       // If both buffets are selected, create a second entry for the other buffet
       if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        // The first item was created with lunch buffet, now create one for dinner buffet
-        await createMenuItem({
-          name: formData.name.trim(),
-          categoryId: dinnerBuffetCategory.id,
-          secondaryCategoryId: formData.categoryId,
-          price: parseFloat(formData.price),
-          description: formData.description.trim() || undefined,
-          imageUrl: formData.imageUrl.trim() || undefined,
-          available: formData.available,
-          itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
-          alwaysPriced: formData.alwaysPriced,
-        });
+        try {
+          // The first item was created with lunch buffet, now create one for dinner buffet
+          // Don't specify itemNumber to avoid unique constraint violation
+          await createMenuItem({
+            name: formData.name.trim(),
+            categoryId: dinnerBuffetCategory.id,
+            secondaryCategoryId: formData.categoryId,
+            price: parseFloat(formData.price),
+            description: formData.description.trim() || undefined,
+            imageUrl: formData.imageUrl.trim() || undefined,
+            available: formData.available,
+            // itemNumber is intentionally omitted to auto-assign a new unique number
+            alwaysPriced: formData.alwaysPriced,
+          });
+        } catch (createError: any) {
+          console.error('Failed to create dinner buffet item:', createError);
+          // Show warning but don't fail the whole operation
+          toast.warning('Item created in lunch buffet, but failed to add to dinner buffet. Please add it manually.', 'Warning');
+        }
       }
 
       toast.success('Menu item created successfully!', 'Success');

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
+import ToastContainer from '@/components/Toast';
 
 export const metadata: Metadata = {
   title: 'Restaurant Management System',
@@ -18,6 +19,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
           <LayoutWrapper>{children}</LayoutWrapper>
+          <ToastContainer />
         </Providers>
       </body>
     </html>

@@ -6,6 +6,7 @@ import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
 import { PlusIcon, MagnifyingGlassIcon, Cog6ToothIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useCurrency } from '@/hooks/useCurrency';
+import { toast } from '@/store/toastStore';
 
 export default function MenuPage() {
   const router = useRouter();
@@ -104,8 +105,10 @@ export default function MenuPage() {
     try {
       setTogglingItemId(itemId);
       await toggleAvailability(itemId);
-    } catch (error) {
+      toast.success('Item availability updated', 'Success');
+    } catch (error: any) {
       console.error('Failed to toggle availability:', error);
+      toast.error(error.message || 'Failed to update availability', 'Error');
     } finally {
       setTogglingItemId(null);
     }
@@ -141,8 +144,10 @@ export default function MenuPage() {
       });
       setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
       setShowAddCategoryModal(false);
+      toast.success('Category created successfully!', 'Success');
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to create category');
+      toast.error(error.message || 'Failed to create category', 'Error');
     }
   };
 
@@ -168,8 +173,10 @@ export default function MenuPage() {
       setShowEditCategoryModal(false);
       setSelectedCategory(null);
       setCategoryFormData({ name: '', isBuffet: false, buffetPrice: 0, sortOrder: 0 });
+      toast.success('Category updated successfully!', 'Success');
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to update category');
+      toast.error(error.message || 'Failed to update category', 'Error');
     }
   };
 
@@ -181,8 +188,10 @@ export default function MenuPage() {
       await deleteCategory(selectedCategory.id);
       setShowDeleteCategoryModal(false);
       setSelectedCategory(null);
+      toast.success('Category deleted successfully!', 'Success');
     } catch (error: any) {
       setCategoryError(error.message || 'Failed to delete category');
+      toast.error(error.message || 'Failed to delete category', 'Error');
     }
   };
 
