@@ -264,11 +264,29 @@ export class MenuPage {
   }
 
   private filterItems(): void {
+    // Get buffet category references
+    const lunchBuffetCategory = this.categories.find(cat => 
+      cat.isBuffet && (cat.name.toLowerCase().includes('lunch') || cat.name.toLowerCase().includes('pranzo'))
+    );
+    const dinnerBuffetCategory = this.categories.find(cat => 
+      cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
+    );
+
     let items = this.menuItems.filter((item) => {
       // If buffet mode, only show items from selected buffet category (check both primary and secondary)
       if (this.isBuffetMode && this.buffetCategoryId) {
         const secondaryCategoryId = (item as any).secondaryCategoryId;
-        const isInThisBuffet = item.categoryId === this.buffetCategoryId || secondaryCategoryId === this.buffetCategoryId;
+        let isInThisBuffet = item.categoryId === this.buffetCategoryId || secondaryCategoryId === this.buffetCategoryId;
+        
+        // Special case: If item has lunch buffet as secondary category, show it in BOTH lunch and dinner buffets
+        // This indicates the item was added to both buffets
+        if (!isInThisBuffet && lunchBuffetCategory && secondaryCategoryId === lunchBuffetCategory.id) {
+          // If current buffet is dinner and item has lunch as secondary, include it
+          if (this.buffetCategoryId === dinnerBuffetCategory?.id) {
+            isInThisBuffet = true;
+          }
+        }
+        
         if (!isInThisBuffet) {
           return false;
         }

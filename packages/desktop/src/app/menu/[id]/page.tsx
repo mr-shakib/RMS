@@ -50,42 +50,31 @@ export default function EditMenuItemPage() {
   useEffect(() => {
     const item = menuItems.find((m) => m.id === itemId);
     if (item) {
-      // Check if item is in buffet categories (primary or secondary)
-      const isInLunchBuffet = item.categoryId === launchBuffetCategory?.id || 
-                               (item as any).secondaryCategoryId === launchBuffetCategory?.id;
-      const isInDinnerBuffet = item.categoryId === dinnerBuffetCategory?.id || 
-                                (item as any).secondaryCategoryId === dinnerBuffetCategory?.id;
-      
-      // Determine the actual subcategory (non-buffet category)
-      let actualCategoryId = item.categoryId;
       const secondaryCategoryId = (item as any).secondaryCategoryId;
       
-      // If primary is buffet, check if secondary is also buffet or regular
-      const primaryIsBuffet = buffetCategories.some(cat => cat.id === item.categoryId);
-      const secondaryIsBuffet = secondaryCategoryId && buffetCategories.some(cat => cat.id === secondaryCategoryId);
+      // Check buffet membership
+      // With new approach: item always has regular category as primary
+      // If secondaryCategoryId is lunch buffet, item is in lunch (and dinner if we set the flag)
+      // If secondaryCategoryId is dinner buffet, item is only in dinner
+      const isInLunchBuffet = secondaryCategoryId === launchBuffetCategory?.id;
+      const isInDinnerBuffet = secondaryCategoryId === dinnerBuffetCategory?.id;
       
-      if (primaryIsBuffet) {
-        // If both are buffet, there's no regular category - use empty string to allow selection
-        if (secondaryIsBuffet) {
-          actualCategoryId = '';
-        } else if (secondaryCategoryId) {
-          // Secondary is the regular category
-          actualCategoryId = secondaryCategoryId;
-        }
-      }
+      // If item has lunch buffet as secondary, it's in BOTH buffets (this is our convention)
+      const addToLunchBuffet = isInLunchBuffet;
+      const addToDinnerBuffet = isInLunchBuffet || isInDinnerBuffet; // If lunch, then also dinner
       
       setFormData({
         name: item.name,
         itemNumber: (item as any).itemNumber?.toString() || '',
-        categoryId: actualCategoryId,
+        categoryId: item.categoryId, // Always the regular category now
         secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
         description: item.description || '',
         imageUrl: item.imageUrl || '',
         available: item.available,
         alwaysPriced: (item as any).alwaysPriced || false,
-        addToLunchBuffet: isInLunchBuffet,
-        addToDinnerBuffet: isInDinnerBuffet,
+        addToLunchBuffet: addToLunchBuffet,
+        addToDinnerBuffet: addToDinnerBuffet,
       });
       if (item.imageUrl) {
         setImagePreview(item.imageUrl);
@@ -188,10 +177,8 @@ export default function EditMenuItemPage() {
     }
 
     // Category validation
-    // If both buffets are selected, category is optional (will be set to buffet categories)
-    // Otherwise, category is required
-    const bothBuffetsSelected = formData.addToLunchBuffet && formData.addToDinnerBuffet;
-    if (!bothBuffetsSelected && !formData.categoryId) {
+    // Category is always required now (even when both buffets selected, we keep the regular category)
+    if (!formData.categoryId) {
       newErrors.categoryId = 'Category is required';
     }
 
@@ -227,20 +214,21 @@ export default function EditMenuItemPage() {
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
       
-      // If adding to BOTH buffets, use one as primary and one as secondary
+      // If adding to BOTH buffets, keep regular category as primary and lunch buffet as secondary
+      // Item will appear in both buffets through filtering logic
       if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        primaryCategoryId = launchBuffetCategory.id;
-        secondaryCategoryId = dinnerBuffetCategory.id;
+        primaryCategoryId = formData.categoryId; // Keep regular category
+        secondaryCategoryId = launchBuffetCategory.id; // Mark as in lunch buffet (will also show in dinner through logic)
       }
-      // If adding to lunch buffet only, make lunch buffet primary and regular category secondary
+      // If adding to lunch buffet only, make lunch buffet secondary and keep regular as primary
       else if (formData.addToLunchBuffet && launchBuffetCategory) {
-        primaryCategoryId = launchBuffetCategory.id;
-        secondaryCategoryId = formData.categoryId;
+        primaryCategoryId = formData.categoryId;
+        secondaryCategoryId = launchBuffetCategory.id;
       }
-      // If adding to dinner buffet only, make dinner buffet primary and regular category secondary
+      // If adding to dinner buffet only, make dinner buffet secondary and keep regular as primary
       else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
-        primaryCategoryId = dinnerBuffetCategory.id;
-        secondaryCategoryId = formData.categoryId;
+        primaryCategoryId = formData.categoryId;
+        secondaryCategoryId = dinnerBuffetCategory.id;
       }
       
       await updateMenuItem({

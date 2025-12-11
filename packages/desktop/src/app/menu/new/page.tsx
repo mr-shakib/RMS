@@ -180,20 +180,21 @@ export default function NewMenuItemPage() {
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
       
-      // If adding to BOTH buffets, use one as primary and one as secondary
+      // If adding to BOTH buffets, keep regular category as primary and lunch buffet as secondary
+      // Item will appear in both buffets through filtering logic
       if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        primaryCategoryId = launchBuffetCategory.id;
-        secondaryCategoryId = dinnerBuffetCategory.id;
+        primaryCategoryId = formData.categoryId; // Keep regular category
+        secondaryCategoryId = launchBuffetCategory.id; // Mark as in lunch buffet (will also show in dinner through logic)
       }
-      // If adding to lunch buffet only, make lunch buffet primary and regular category secondary
+      // If adding to lunch buffet only, make lunch buffet secondary and keep regular as primary
       else if (formData.addToLunchBuffet && launchBuffetCategory) {
-        primaryCategoryId = launchBuffetCategory.id;
-        secondaryCategoryId = formData.categoryId;
+        primaryCategoryId = formData.categoryId;
+        secondaryCategoryId = launchBuffetCategory.id;
       }
-      // If adding to dinner buffet only, make dinner buffet primary and regular category secondary
+      // If adding to dinner buffet only, make dinner buffet secondary and keep regular as primary
       else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
-        primaryCategoryId = dinnerBuffetCategory.id;
-        secondaryCategoryId = formData.categoryId;
+        primaryCategoryId = formData.categoryId;
+        secondaryCategoryId = dinnerBuffetCategory.id;
       }
       
       // Create the menu item with both categories assigned
