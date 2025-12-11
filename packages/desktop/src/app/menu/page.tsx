@@ -54,23 +54,63 @@ export default function MenuPage() {
     // Apply main category filter (Buffet vs All Items)
     if (mainCategoryFilter === 'BUFFET') {
       const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
-      // Show items where primary category is buffet
-      filtered = filtered.filter((item) => buffetCategoryIds.includes(item.categoryId));
+      // Show items where primary category is buffet OR secondary category is buffet
+      filtered = filtered.filter((item) => {
+        const isPrimaryBuffet = buffetCategoryIds.includes(item.categoryId);
+        const isSecondaryBuffet = (item as any).secondaryCategoryId && buffetCategoryIds.includes((item as any).secondaryCategoryId);
+        return isPrimaryBuffet || isSecondaryBuffet;
+      });
       
-      // Apply buffet subcategory filter (no 'All' option in buffet)
+      // Apply buffet subcategory filter
       if (categoryFilter && categoryFilter !== 'All') {
         const selectedCat = buffetCategories.find((cat) => cat.name === categoryFilter);
         if (selectedCat) {
-          filtered = filtered.filter((item) => item.categoryId === selectedCat.id);
+          filtered = filtered.filter((item) => {
+            const isPrimaryMatch = item.categoryId === selectedCat.id;
+            const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
+            return isPrimaryMatch || isSecondaryMatch;
+          });
         }
+      }
+      
+      // Deduplicate by name when showing All buffet items
+      if (categoryFilter === 'All') {
+        const itemsByName = new Map<string, any>();
+        const allInstances = new Map<string, any[]>();
+        
+        filtered.forEach((item) => {
+          const normalizedName = item.name.toLowerCase().trim();
+          if (!itemsByName.has(normalizedName)) {
+            itemsByName.set(normalizedName, item);
+            allInstances.set(normalizedName, [item]);
+          } else {
+            allInstances.get(normalizedName)!.push(item);
+          }
+        });
+        
+        // Attach all instances to the representative item for tag display
+        filtered = Array.from(itemsByName.values()).map(item => ({
+          ...item,
+          _allBuffetInstances: allInstances.get(item.name.toLowerCase().trim())
+        }));
       }
     } else {
       const regularCategoryIds = regularCategories.map((cat) => cat.id);
-      // Show items where primary category is regular OR secondary category is regular
+      const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
+      
+      // Show items where:
+      // 1. Primary category is regular OR secondary category is regular, OR
+      // 2. Item is in buffet categories (so buffet items can appear in All Items view)
       filtered = filtered.filter((item) => {
         const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
         const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
-        return isPrimaryRegular || isSecondaryRegular;
+        
+        // Also include items that are only in buffet categories (no regular category assigned)
+        const isPrimaryBuffet = buffetCategoryIds.includes(item.categoryId);
+        const isSecondaryBuffet = (item as any).secondaryCategoryId && buffetCategoryIds.includes((item as any).secondaryCategoryId);
+        const isBuffetOnly = (isPrimaryBuffet || isSecondaryBuffet) && !isPrimaryRegular && !isSecondaryRegular;
+        
+        return isPrimaryRegular || isSecondaryRegular || isBuffetOnly;
       });
       
       // Apply subcategory filter for All Items
@@ -84,6 +124,17 @@ export default function MenuPage() {
             return isPrimaryMatch || isSecondaryMatch;
           });
         }
+      }
+      
+      // Deduplicate by ID when showing All items
+      if (categoryFilter === 'All') {
+        const uniqueItems = new Map<string, any>();
+        filtered.forEach((item) => {
+          if (!uniqueItems.has(item.id)) {
+            uniqueItems.set(item.id, item);
+          }
+        });
+        filtered = Array.from(uniqueItems.values());
       }
     }
 
@@ -486,6 +537,32 @@ interface MenuItemCardProps {
 
 function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
   const { formatCurrency } = useCurrency();
+  
+  // Get all buffet categories this item belongs to (for merged duplicates)
+  const getBuffetCategories = () => {
+    const allInstances = (item as any)._allBuffetInstances;
+    if (allInstances && allInstances.length > 1) {
+      const categoryMap = new Map<string, any>();
+      allInstances.forEach((instance: any) => {
+        if (instance.category?.isBuffet) {
+          categoryMap.set(instance.category.id, instance.category);
+        }
+        if (instance.secondaryCategory?.isBuffet) {
+          categoryMap.set(instance.secondaryCategory.id, instance.secondaryCategory);
+        }
+      });
+      return Array.from(categoryMap.values());
+    }
+    
+    const categories = [];
+    if (item.category?.isBuffet) categories.push(item.category);
+    if ((item as any).secondaryCategory?.isBuffet) categories.push((item as any).secondaryCategory);
+    return categories;
+  };
+  
+  const buffetCategories = getBuffetCategories();
+  const showBuffetTags = buffetCategories.length > 0;
+  
   return (
     <div
       className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg 
@@ -513,8 +590,8 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
             </span>
           </div>
         )}
-        {/* Buffet Badge */}
-        {category?.isBuffet && (
+        {/* Buffet Badge - hide if showing tags below */}
+        {category?.isBuffet && !showBuffetTags && (
           <div className="absolute top-2 left-2">
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
               Buffet
@@ -529,6 +606,21 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
           {item.name}
         </h3>
+        
+        {/* Buffet Category Tags */}
+        {showBuffetTags && buffetCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {buffetCategories.map((cat: any) => (
+              <span
+                key={cat.id}
+                className="px-2 py-0.5 rounded text-xs font-semibold bg-gradient-to-r from-purple-500 to-purple-700 text-white uppercase tracking-wide"
+              >
+                {cat.name}
+              </span>
+            ))}
+          </div>
+        )}
+        
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
           {category?.name || 'Uncategorized'}
         </p>

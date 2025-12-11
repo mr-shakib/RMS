@@ -224,11 +224,52 @@ export class MenuPage {
     }
   }
 
+  private getItemBuffetCategories(item: MenuItem): Category[] {
+    const buffetCategories: Category[] = [];
+    
+    // Check if there are multiple instances of this item (merged duplicates)
+    const allInstances = (item as any)._allBuffetInstances as MenuItem[] | undefined;
+    
+    if (allInstances && allInstances.length > 1) {
+      // Item exists in multiple buffet categories - collect all unique buffet categories
+      const categoryMap = new Map<string, Category>();
+      
+      allInstances.forEach(instance => {
+        // Add primary category if it's buffet
+        if (instance.category && instance.category.isBuffet) {
+          categoryMap.set(instance.category.id, instance.category);
+        }
+        
+        // Add secondary category if it's buffet
+        const secondaryCategory = (instance as any).secondaryCategory;
+        if (secondaryCategory && secondaryCategory.isBuffet) {
+          categoryMap.set(secondaryCategory.id, secondaryCategory);
+        }
+      });
+      
+      return Array.from(categoryMap.values());
+    }
+    
+    // Single item - check its own categories
+    if (item.category && item.category.isBuffet) {
+      buffetCategories.push(item.category);
+    }
+    
+    const secondaryCategory = (item as any).secondaryCategory;
+    if (secondaryCategory && secondaryCategory.isBuffet) {
+      buffetCategories.push(secondaryCategory);
+    }
+    
+    return buffetCategories;
+  }
+
   private filterItems(): void {
-    this.filteredItems = this.menuItems.filter((item) => {
-      // If buffet mode, only show items from selected buffet category
+    let items = this.menuItems.filter((item) => {
+      // If buffet mode, only show items from selected buffet category (check both primary and secondary)
       if (this.isBuffetMode && this.buffetCategoryId) {
-        if (item.categoryId !== this.buffetCategoryId) {
+        const secondaryCategoryId = (item as any).secondaryCategoryId;
+        const isInThisBuffet = item.categoryId === this.buffetCategoryId || secondaryCategoryId === this.buffetCategoryId;
+        if (!isInThisBuffet) {
           return false;
         }
       }
@@ -257,6 +298,48 @@ export class MenuPage {
 
       return matchesCategory && matchesSearch && matchesPriceFilter && item.available;
     });
+
+    // Deduplicate items when showing "All" (Tutti)
+    if (this.selectedCategory === 'Tutti') {
+      const uniqueItems = new Map<string, MenuItem>();
+      
+      // In buffet mode, also track items by name to merge duplicate buffet items
+      if (this.isBuffetMode) {
+        const itemsByName = new Map<string, MenuItem[]>();
+        
+        // Group items by name
+        items.forEach(item => {
+          const normalizedName = item.name.toLowerCase().trim();
+          if (!itemsByName.has(normalizedName)) {
+            itemsByName.set(normalizedName, []);
+          }
+          itemsByName.get(normalizedName)!.push(item);
+        });
+        
+        // For each group, take the first item (this will be the one we show)
+        itemsByName.forEach((itemGroup) => {
+          if (itemGroup.length > 0) {
+            // Use the first item as the representative
+            const representativeItem = itemGroup[0];
+            uniqueItems.set(representativeItem.id, representativeItem);
+            
+            // Store all items in this group for tag display
+            (representativeItem as any)._allBuffetInstances = itemGroup;
+          }
+        });
+      } else {
+        // Regular mode: just deduplicate by ID
+        items.forEach(item => {
+          if (!uniqueItems.has(item.id)) {
+            uniqueItems.set(item.id, item);
+          }
+        });
+      }
+      
+      items = Array.from(uniqueItems.values());
+    }
+
+    this.filteredItems = items;
   }
 
   private render(): void {
@@ -412,6 +495,12 @@ export class MenuPage {
     const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
     const quantity = cartItem?.quantity || 0;
     
+    // Get buffet categories for this item (when showing All in buffet mode)
+    const buffetCategories = this.isBuffetMode && this.selectedCategory === 'Tutti' 
+      ? this.getItemBuffetCategories(item)
+      : [];
+    const showBuffetTags = buffetCategories.length > 0;
+    
     return `
       <div class="menu-item-card" data-item-id="${item.id}">
         <img
@@ -423,6 +512,14 @@ export class MenuPage {
         <div class="menu-item-content">
           <div class="menu-item-header">
             <h3 class="menu-item-name">${item.name}</h3>
+            ${showBuffetTags ? `
+              <div class="buffet-tags">
+                ${buffetCategories.map(cat => {
+                  const displayName = this.getDisplayCategoryName(cat.name);
+                  return `<span class="buffet-tag">${displayName}</span>`;
+                }).join('')}
+              </div>
+            ` : ''}
           </div>
           ${item.description ? `<p class="menu-item-description">${item.description}</p>` : ''}
           <div class="menu-item-footer">

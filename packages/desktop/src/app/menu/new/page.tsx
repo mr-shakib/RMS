@@ -180,19 +180,23 @@ export default function NewMenuItemPage() {
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
       
-      // If adding to lunch buffet, make lunch buffet primary and regular category secondary
-      if (formData.addToLunchBuffet && launchBuffetCategory) {
+      // If adding to BOTH buffets, use one as primary and one as secondary
+      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
+        primaryCategoryId = launchBuffetCategory.id;
+        secondaryCategoryId = dinnerBuffetCategory.id;
+      }
+      // If adding to lunch buffet only, make lunch buffet primary and regular category secondary
+      else if (formData.addToLunchBuffet && launchBuffetCategory) {
         primaryCategoryId = launchBuffetCategory.id;
         secondaryCategoryId = formData.categoryId;
       }
-      // If adding to dinner buffet (and not lunch), make dinner buffet primary
+      // If adding to dinner buffet only, make dinner buffet primary and regular category secondary
       else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
         primaryCategoryId = dinnerBuffetCategory.id;
         secondaryCategoryId = formData.categoryId;
       }
-      // If adding to BOTH buffets, we'll need to create the item twice (once for each buffet)
       
-      // Create the main menu item
+      // Create the menu item with both categories assigned
       await createMenuItem({
         name: formData.name.trim(),
         categoryId: primaryCategoryId,
@@ -204,29 +208,6 @@ export default function NewMenuItemPage() {
         itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
         alwaysPriced: formData.alwaysPriced,
       });
-      
-      // If both buffets are selected, create a second entry for the other buffet
-      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        try {
-          // The first item was created with lunch buffet, now create one for dinner buffet
-          // Don't specify itemNumber to avoid unique constraint violation
-          await createMenuItem({
-            name: formData.name.trim(),
-            categoryId: dinnerBuffetCategory.id,
-            secondaryCategoryId: formData.categoryId,
-            price: parseFloat(formData.price),
-            description: formData.description.trim() || undefined,
-            imageUrl: formData.imageUrl.trim() || undefined,
-            available: formData.available,
-            // itemNumber is intentionally omitted to auto-assign a new unique number
-            alwaysPriced: formData.alwaysPriced,
-          });
-        } catch (createError: any) {
-          console.error('Failed to create dinner buffet item:', createError);
-          // Show warning but don't fail the whole operation
-          toast.warning('Item created in lunch buffet, but failed to add to dinner buffet. Please add it manually.', 'Warning');
-        }
-      }
 
       toast.success('Menu item created successfully!', 'Success');
       setTimeout(() => {

@@ -50,24 +50,42 @@ export default function EditMenuItemPage() {
   useEffect(() => {
     const item = menuItems.find((m) => m.id === itemId);
     if (item) {
-      // Determine if item is in a buffet category
-      const itemCategory = categories.find((cat) => cat.id === item.categoryId);
-      const isInLunchBuffet = itemCategory?.name.toLowerCase().includes('lunch');
-      const isInDinnerBuffet = itemCategory?.name.toLowerCase().includes('dinner');
-      const isInBuffet = itemCategory?.isBuffet;
+      // Check if item is in buffet categories (primary or secondary)
+      const isInLunchBuffet = item.categoryId === launchBuffetCategory?.id || 
+                               (item as any).secondaryCategoryId === launchBuffetCategory?.id;
+      const isInDinnerBuffet = item.categoryId === dinnerBuffetCategory?.id || 
+                                (item as any).secondaryCategoryId === dinnerBuffetCategory?.id;
+      
+      // Determine the actual subcategory (non-buffet category)
+      let actualCategoryId = item.categoryId;
+      const secondaryCategoryId = (item as any).secondaryCategoryId;
+      
+      // If primary is buffet, check if secondary is also buffet or regular
+      const primaryIsBuffet = buffetCategories.some(cat => cat.id === item.categoryId);
+      const secondaryIsBuffet = secondaryCategoryId && buffetCategories.some(cat => cat.id === secondaryCategoryId);
+      
+      if (primaryIsBuffet) {
+        // If both are buffet, there's no regular category selected
+        if (secondaryIsBuffet) {
+          actualCategoryId = regularCategories[0]?.id || item.categoryId;
+        } else if (secondaryCategoryId) {
+          // Secondary is the regular category
+          actualCategoryId = secondaryCategoryId;
+        }
+      }
 
       setFormData({
         name: item.name,
         itemNumber: (item as any).itemNumber?.toString() || '',
-        categoryId: isInBuffet ? (item as any).secondaryCategoryId || '' : item.categoryId,
+        categoryId: actualCategoryId,
         secondaryCategoryId: (item as any).secondaryCategoryId || '',
         price: item.price.toString(),
         description: item.description || '',
         imageUrl: item.imageUrl || '',
         available: item.available,
         alwaysPriced: (item as any).alwaysPriced || false,
-        addToLunchBuffet: isInLunchBuffet || false,
-        addToDinnerBuffet: isInDinnerBuffet || false,
+        addToLunchBuffet: isInLunchBuffet,
+        addToDinnerBuffet: isInDinnerBuffet,
       });
       if (item.imageUrl) {
         setImagePreview(item.imageUrl);
@@ -77,7 +95,7 @@ export default function EditMenuItemPage() {
       // Item not found and menu items are loaded
       setIsLoading(false);
     }
-  }, [itemId, menuItems, categories]);
+  }, [itemId, menuItems, categories, launchBuffetCategory, dinnerBuffetCategory, buffetCategories, regularCategories]);
 
   // Handle image file upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,18 +222,23 @@ export default function EditMenuItemPage() {
       // Determine category assignments based on buffet selections
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
-
-      // If adding to lunch buffet, make lunch buffet primary and regular category secondary
-      if (formData.addToLunchBuffet && launchBuffetCategory) {
+      
+      // If adding to BOTH buffets, use one as primary and one as secondary
+      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
+        primaryCategoryId = launchBuffetCategory.id;
+        secondaryCategoryId = dinnerBuffetCategory.id;
+      }
+      // If adding to lunch buffet only, make lunch buffet primary and regular category secondary
+      else if (formData.addToLunchBuffet && launchBuffetCategory) {
         primaryCategoryId = launchBuffetCategory.id;
         secondaryCategoryId = formData.categoryId;
       }
-      // If adding to dinner buffet (and not lunch), make dinner buffet primary
+      // If adding to dinner buffet only, make dinner buffet primary and regular category secondary
       else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
         primaryCategoryId = dinnerBuffetCategory.id;
         secondaryCategoryId = formData.categoryId;
       }
-
+      
       await updateMenuItem({
         id: itemId,
         data: {
@@ -230,29 +253,6 @@ export default function EditMenuItemPage() {
           alwaysPriced: formData.alwaysPriced,
         },
       });
-
-      // If both buffets are selected, create a second entry for the other buffet
-      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        try {
-          // The first item was updated with lunch buffet, now create one for dinner buffet
-          // Don't specify itemNumber to avoid unique constraint violation
-          await createMenuItem({
-            name: formData.name.trim(),
-            categoryId: dinnerBuffetCategory.id,
-            secondaryCategoryId: formData.categoryId,
-            price: parseFloat(formData.price),
-            description: formData.description.trim() || undefined,
-            imageUrl: formData.imageUrl.trim() || undefined,
-            available: formData.available,
-            // itemNumber is intentionally omitted to auto-assign a new unique number
-            alwaysPriced: formData.alwaysPriced,
-          });
-        } catch (createError: any) {
-          console.error('Failed to create dinner buffet item:', createError);
-          // Show warning but don't fail the whole operation
-          toast.warning('Item updated in lunch buffet, but failed to add to dinner buffet. Please add it manually.', 'Warning');
-        }
-      }
 
       toast.success('Menu item updated successfully!', 'Success');
       setTimeout(() => {

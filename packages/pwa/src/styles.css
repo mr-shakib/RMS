@@ -644,6 +644,26 @@ body {
   margin-bottom: 0.25rem;
 }
 
+.buffet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.buffet-tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 4px rgba(155, 89, 182, 0.2);
+}
+
 .menu-item-description {
   font-size: 0.875rem;
   color: var(--text-secondary);
