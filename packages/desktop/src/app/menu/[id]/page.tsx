@@ -65,15 +65,15 @@ export default function EditMenuItemPage() {
       const secondaryIsBuffet = secondaryCategoryId && buffetCategories.some(cat => cat.id === secondaryCategoryId);
       
       if (primaryIsBuffet) {
-        // If both are buffet, there's no regular category selected
+        // If both are buffet, there's no regular category - use empty string to allow selection
         if (secondaryIsBuffet) {
-          actualCategoryId = regularCategories[0]?.id || item.categoryId;
+          actualCategoryId = '';
         } else if (secondaryCategoryId) {
           // Secondary is the regular category
           actualCategoryId = secondaryCategoryId;
         }
       }
-
+      
       setFormData({
         name: item.name,
         itemNumber: (item as any).itemNumber?.toString() || '',
@@ -95,7 +95,7 @@ export default function EditMenuItemPage() {
       // Item not found and menu items are loaded
       setIsLoading(false);
     }
-  }, [itemId, menuItems, categories, launchBuffetCategory, dinnerBuffetCategory, buffetCategories, regularCategories]);
+  }, [itemId, menuItems, categories, launchBuffetCategory, dinnerBuffetCategory]);
 
   // Handle image file upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,7 +187,11 @@ export default function EditMenuItemPage() {
       }
     }
 
-    if (!formData.categoryId) {
+    // Category validation
+    // If both buffets are selected, category is optional (will be set to buffet categories)
+    // Otherwise, category is required
+    const bothBuffetsSelected = formData.addToLunchBuffet && formData.addToDinnerBuffet;
+    if (!bothBuffetsSelected && !formData.categoryId) {
       newErrors.categoryId = 'Category is required';
     }
 
