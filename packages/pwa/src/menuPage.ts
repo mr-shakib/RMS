@@ -250,14 +250,27 @@ export class MenuPage {
       return Array.from(categoryMap.values());
     }
     
-    // Single item - check its own categories
-    if (item.category && item.category.isBuffet) {
-      buffetCategories.push(item.category);
-    }
-    
+    // Single item - check its secondary category
     const secondaryCategory = (item as any).secondaryCategory;
     if (secondaryCategory && secondaryCategory.isBuffet) {
-      buffetCategories.push(secondaryCategory);
+      const isLunchBuffet = secondaryCategory.name.toLowerCase().includes('lunch') || 
+                           secondaryCategory.name.toLowerCase().includes('pranzo');
+      
+      // If secondary is lunch buffet, item is in BOTH lunch and dinner buffets
+      if (isLunchBuffet) {
+        buffetCategories.push(secondaryCategory); // Add lunch buffet
+        
+        // Find and add dinner buffet
+        const dinnerBuffet = this.categories.find(cat => 
+          cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
+        );
+        if (dinnerBuffet) {
+          buffetCategories.push(dinnerBuffet);
+        }
+      } else {
+        // Just dinner buffet
+        buffetCategories.push(secondaryCategory);
+      }
     }
     
     return buffetCategories;

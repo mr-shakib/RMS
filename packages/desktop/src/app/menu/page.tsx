@@ -64,11 +64,29 @@ export default function MenuPage() {
       // Apply buffet subcategory filter
       if (categoryFilter && categoryFilter !== 'All') {
         const selectedCat = buffetCategories.find((cat) => cat.name === categoryFilter);
+        const lunchBuffet = buffetCategories.find((cat) => 
+          cat.name.toLowerCase().includes('lunch') || cat.name.toLowerCase().includes('pranzo')
+        );
+        const dinnerBuffet = buffetCategories.find((cat) => 
+          cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena')
+        );
+        
         if (selectedCat) {
           filtered = filtered.filter((item) => {
             const isPrimaryMatch = item.categoryId === selectedCat.id;
             const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
-            return isPrimaryMatch || isSecondaryMatch;
+            let matches = isPrimaryMatch || isSecondaryMatch;
+            
+            // Special case: If item has lunch buffet as secondary, show it in BOTH lunch and dinner buffets
+            // This indicates the item was added to both buffets
+            if (!matches && lunchBuffet && (item as any).secondaryCategoryId === lunchBuffet.id) {
+              // If viewing dinner buffet and item has lunch as secondary, include it
+              if (selectedCat.id === dinnerBuffet?.id) {
+                matches = true;
+              }
+            }
+            
+            return matches;
           });
         }
       }
@@ -448,6 +466,7 @@ export default function MenuPage() {
                 key={item.id}
                 item={item}
                 category={categories.find((cat) => cat.id === item.categoryId)}
+                allCategories={categories}
                 onEdit={() => router.push(`/menu/${item.id}`)}
                 onToggleAvailability={() => handleToggleAvailability(item.id)}
                 isToggling={togglingItemId === item.id}
@@ -530,12 +549,13 @@ export default function MenuPage() {
 interface MenuItemCardProps {
   item: any;
   category?: any;
+  allCategories?: any[];
   onEdit: () => void;
   onToggleAvailability: () => void;
   isToggling: boolean;
 }
 
-function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
+function MenuItemCard({ item, category, allCategories, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
   const { formatCurrency } = useCurrency();
   
   // Get all buffet categories this item belongs to (for merged duplicates)
@@ -555,8 +575,30 @@ function MenuItemCard({ item, category, onEdit, onToggleAvailability, isToggling
     }
     
     const categories = [];
-    if (item.category?.isBuffet) categories.push(item.category);
-    if ((item as any).secondaryCategory?.isBuffet) categories.push((item as any).secondaryCategory);
+    // Check if item's secondary category is a buffet
+    const secondaryCategory = (item as any).secondaryCategory;
+    
+    if (secondaryCategory?.isBuffet && allCategories) {
+      const isLunchBuffet = secondaryCategory.name.toLowerCase().includes('lunch') || 
+                           secondaryCategory.name.toLowerCase().includes('pranzo');
+      
+      // If secondary is lunch buffet, item is in BOTH lunch and dinner buffets
+      if (isLunchBuffet) {
+        categories.push(secondaryCategory); // Add lunch buffet
+        
+        // Find and add dinner buffet
+        const dinnerBuffet = allCategories.find(cat => 
+          cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
+        );
+        if (dinnerBuffet) {
+          categories.push(dinnerBuffet);
+        }
+      } else {
+        // Just dinner buffet
+        categories.push(secondaryCategory);
+      }
+    }
+    
     return categories;
   };
   
