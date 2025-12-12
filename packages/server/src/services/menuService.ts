@@ -17,7 +17,7 @@ interface CreateMenuItemInput {
 interface UpdateMenuItemInput {
   name?: string;
   categoryId?: string;
-  secondaryCategoryId?: string;
+  secondaryCategoryId?: string | null;
   price?: number;
   description?: string;
   imageUrl?: string;
@@ -130,7 +130,7 @@ class MenuService {
 
     // Use provided item number or get the next available one
     let assignedItemNumber: number | undefined = input.itemNumber;
-    
+
     if (!assignedItemNumber) {
       const maxItemNumber = await prisma.menuItem.findFirst({
         orderBy: { itemNumber: 'desc' },

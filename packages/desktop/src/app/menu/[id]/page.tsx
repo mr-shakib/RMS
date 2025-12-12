@@ -51,18 +51,18 @@ export default function EditMenuItemPage() {
     const item = menuItems.find((m) => m.id === itemId);
     if (item) {
       const secondaryCategoryId = (item as any).secondaryCategoryId;
-      
+
       // Check buffet membership
       // With new approach: item always has regular category as primary
       // If secondaryCategoryId is lunch buffet, item is in lunch (and dinner if we set the flag)
       // If secondaryCategoryId is dinner buffet, item is only in dinner
       const isInLunchBuffet = secondaryCategoryId === launchBuffetCategory?.id;
       const isInDinnerBuffet = secondaryCategoryId === dinnerBuffetCategory?.id;
-      
+
       // If item has lunch buffet as secondary, it's in BOTH buffets (this is our convention)
       const addToLunchBuffet = isInLunchBuffet;
       const addToDinnerBuffet = isInLunchBuffet || isInDinnerBuffet; // If lunch, then also dinner
-      
+
       setFormData({
         name: item.name,
         itemNumber: (item as any).itemNumber?.toString() || '',
@@ -213,7 +213,7 @@ export default function EditMenuItemPage() {
       // Determine category assignments based on buffet selections
       let primaryCategoryId = formData.categoryId;
       let secondaryCategoryId = null;
-      
+
       // If adding to BOTH buffets, keep regular category as primary and lunch buffet as secondary
       // Item will appear in both buffets through filtering logic
       if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
@@ -230,13 +230,13 @@ export default function EditMenuItemPage() {
         primaryCategoryId = formData.categoryId;
         secondaryCategoryId = dinnerBuffetCategory.id;
       }
-      
+
       await updateMenuItem({
         id: itemId,
         data: {
           name: formData.name.trim(),
           categoryId: primaryCategoryId,
-          secondaryCategoryId: secondaryCategoryId || undefined,
+          secondaryCategoryId: secondaryCategoryId,
           price: parseFloat(formData.price),
           description: formData.description.trim() || undefined,
           imageUrl: formData.imageUrl.trim() || undefined,
