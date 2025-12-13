@@ -69,8 +69,9 @@ export class MenuPage {
       });
 
       cart.subscribe(() => {
+        // Only update the cart bar at the bottom, not all quantity displays
+        // (quantity displays are updated directly in button click handlers for performance)
         this.updateCartDisplay();
-        this.updateQuantityDisplays();
       });
     } catch (error) {
       console.error('[MenuPage] Initialization failed:', error);
@@ -171,6 +172,9 @@ export class MenuPage {
       console.log('[MenuPage] Calling apiClient.getMenu()...');
       this.menuItems = await apiClient.getMenu();
       console.log('[MenuPage] Menu items loaded:', this.menuItems.length);
+      
+      // Reload cart from storage with menu items (to reconstruct cart items from IDs)
+      cart.loadFromStorage(this.menuItems);
       
       // Log items with buffet categories
       console.log('[MenuPage] Items with buffet categories:');
@@ -535,7 +539,7 @@ export class MenuPage {
           </div>
           ${item.description ? `<p class="menu-item-description">${item.description}</p>` : ''}
           <div class="menu-item-footer">
-            <div class="menu-item-price">${price}</div>
+            ${!showIncluso ? `<div class="menu-item-price">${price}</div>` : ''}
             ${quantity > 0 ? `
               <div class="menu-item-actions">
                 <div class="quantity-controls">
@@ -626,7 +630,8 @@ export class MenuPage {
 
     addBtn?.addEventListener('click', () => {
       cart.addItem(item, 1);
-      this.renderMenu();
+      // Just update the quantity display instead of re-rendering everything
+      this.updateQuantityDisplays();
     });
 
     decreaseBtn?.addEventListener('click', () => {
@@ -637,9 +642,10 @@ export class MenuPage {
         const newQty = currentQty - 1;
         if (newQty === 0) {
           cart.removeItem(item.id);
-          this.renderMenu();
+          this.updateQuantityDisplays();
         } else {
           cart.updateQuantity(item.id, newQty);
+          this.updateQuantityDisplays();
         }
       }
     });
@@ -648,6 +654,7 @@ export class MenuPage {
       const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
       const currentQty = cartItem?.quantity || 0;
       cart.updateQuantity(item.id, currentQty + 1);
+      this.updateQuantityDisplays();
     });
   }
 

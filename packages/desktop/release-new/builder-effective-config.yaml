@@ -1,0 +1,50 @@
+directories:
+  output: release-new
+  buildResources: build
+appId: com.rms.desktop
+productName: Restaurant Management System
+copyright: Copyright © 2024 Restaurant Management System
+electronVersion: 32.2.7
+files:
+  - filter:
+      - dist/electron/**/*
+      - package.json
+extraResources:
+  - from: .next/standalone
+    to: nextjs/standalone
+  - from: .next/static
+    to: nextjs/standalone/packages/desktop/.next/static
+  - from: public
+    to: nextjs/standalone/packages/desktop/public
+  - from: ../server/dist
+    to: server/dist
+  - from: ../server/prisma
+    to: server/prisma
+  - from: ../server/public
+    to: server/public
+  - from: ../server/scripts/init-production-db.js
+    to: server/scripts/init-production-db.js
+  - from: ../server/temp-prod/package.json
+    to: server/package.json
+  - from: ../server/temp-prod/node_modules
+    to: server/node_modules
+win:
+  target: nsis
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Restaurant Management System
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  deleteAppDataOnUninstall: false
+  perMachine: false
+compression: normal
+asar: true
+asarUnpack:
+  - '**/node_modules/@prisma/engines/**/*'
+  - '**/node_modules/.prisma/**/*'
+  - '**/*.node'

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Session Storage</title>
+</head>
+<body>
+  <h1>Session Storage Debug</h1>
+  <pre id="output"></pre>
+  <button onclick="testAPI()">Test API</button>
+  <pre id="apiOutput"></pre>
+  
+  <script>
+    const output = document.getElementById('output');
+    const apiOutput = document.getElementById('apiOutput');
+    
+    // Show all session storage
+    output.textContent = 'SESSION STORAGE:\n';
+    output.textContent += `menuMode: ${sessionStorage.getItem('menuMode')}\n`;
+    output.textContent += `buffetCategoryId: ${sessionStorage.getItem('buffetCategoryId')}\n`;
+    output.textContent += `buffetCategoryId type: ${typeof sessionStorage.getItem('buffetCategoryId')}\n`;
+    output.textContent += `buffetCategoryName: ${sessionStorage.getItem('buffetCategoryName')}\n`;
+    output.textContent += `buffetPrice: ${sessionStorage.getItem('buffetPrice')}\n`;
+    
+    async function testAPI() {
+      try {
+        apiOutput.textContent = 'Loading...\n';
+        const response = await fetch('http://localhost:5000/api/menu');
+        const data = await response.json();
+        const items = data.data.menuItems;
+        
+        const buffetCategoryId = sessionStorage.getItem('buffetCategoryId');
+        apiOutput.textContent = `Total items: ${items.length}\n\n`;
+        apiOutput.textContent += `Looking for buffetCategoryId: ${buffetCategoryId}\n\n`;
+        
+        const matchingItems = items.filter(item => {
+          const buffetCategories = item.buffetCategories || [];
+          return buffetCategories.some(bc => bc.buffetCategoryId === buffetCategoryId);
+        });
+        
+        apiOutput.textContent += `Matching items: ${matchingItems.length}\n\n`;
+        matchingItems.forEach(item => {
+          apiOutput.textContent += `- ${item.name}\n`;
+          item.buffetCategories.forEach(bc => {
+            apiOutput.textContent += `  * buffetCategoryId: ${bc.buffetCategoryId}\n`;
+          });
+        });
+        
+        // Show first 3 items with their buffet categories
+        apiOutput.textContent += '\n\nFirst 3 items with buffet categories:\n';
+        const itemsWithBuffet = items.filter(i => i.buffetCategories && i.buffetCategories.length > 0).slice(0, 3);
+        itemsWithBuffet.forEach(item => {
+          apiOutput.textContent += `\n${item.name}:\n`;
+          item.buffetCategories.forEach(bc => {
+            apiOutput.textContent += `  - buffetCategoryId: ${bc.buffetCategoryId}\n`;
+            apiOutput.textContent += `    Matches: ${bc.buffetCategoryId === buffetCategoryId}\n`;
+            apiOutput.textContent += `    Type match: ${typeof bc.buffetCategoryId} === ${typeof buffetCategoryId}\n`;
+          });
+        });
+        
+      } catch (error) {
+        apiOutput.textContent = 'Error: ' + error.message;
+      }
+    }
+  </script>
+</body>
+</html>

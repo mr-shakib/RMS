@@ -13,6 +13,7 @@ class Cart {
   private listeners: Set<CartChangeCallback> = new Set();
   private isBuffet: boolean = false;
   private buffetCategory: Category | null = null;
+  private saveTimeout: number | null = null;
 
   addItem(menuItem: MenuItem, quantity: number = 1): void {
     const existingItem = this.items.get(menuItem.id);
@@ -103,12 +104,19 @@ class Cart {
   }
 
   setBuffetMode(isBuffet: boolean, category: Category | null): void {
+    const wasBuffet = this.isBuffet;
+    const wasSameCategory = this.buffetCategory?.id === category?.id;
+    
     this.isBuffet = isBuffet;
     this.buffetCategory = category;
-    if (isBuffet) {
-      // Clear cart when switching to buffet mode
+    
+    // Only clear cart when switching FROM non-buffet TO buffet mode
+    // or when switching between different buffet categories
+    if (isBuffet && (!wasBuffet || !wasSameCategory)) {
+      console.log('[Cart] Switching to buffet mode or different category, clearing cart');
       this.items.clear();
     }
+    
     this.saveToStorage();
     this.notifyListeners();
   }
@@ -133,37 +141,78 @@ class Cart {
   }
 
   private saveToStorage(): void {
-    const data = {
-      items: this.getItems(),
-      isBuffet: this.isBuffet,
-      buffetCategory: this.buffetCategory
-    };
-    localStorage.setItem('rms-cart', JSON.stringify(data));
+    // Debounce saves to avoid blocking UI on rapid clicks
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    
+    this.saveTimeout = window.setTimeout(() => {
+      try {
+        // Only save IDs and quantities, not full MenuItem objects (too large/circular refs)
+        const data = {
+          items: this.getItems().map(item => ({
+            menuItemId: item.menuItem.id,
+            quantity: item.quantity,
+            notes: item.notes
+          })),
+          isBuffet: this.isBuffet,
+          buffetCategory: this.buffetCategory ? {
+            id: this.buffetCategory.id,
+            name: this.buffetCategory.name,
+            buffetPrice: this.buffetCategory.buffetPrice,
+            isBuffet: this.buffetCategory.isBuffet
+          } : null
+        };
+        localStorage.setItem('rms-cart', JSON.stringify(data));
+      } catch (error) {
+        console.error('[Cart] Failed to save to storage:', error);
+        // Don't throw - allow app to continue even if storage fails
+      }
+      this.saveTimeout = null;
+    }, 100); // Save after 100ms of no activity
   }
 
-  loadFromStorage(): void {
+  loadFromStorage(menuItems?: MenuItem[]): void {
     try {
       const stored = localStorage.getItem('rms-cart');
       if (stored) {
         const data = JSON.parse(stored);
         
-        // Handle old format (array) or new format (object)
+        // Handle old format (array with full objects) or new format (IDs only)
         if (Array.isArray(data)) {
+          // Old format - try to use it if it has full MenuItem objects
           data.forEach((item: CartItem) => {
-            this.items.set(item.menuItem.id, item);
+            if (item.menuItem && item.menuItem.id) {
+              this.items.set(item.menuItem.id, item);
+            }
           });
-        } else {
+        } else if (data.items) {
+          // New format - need to reconstruct from menu items if provided
           this.isBuffet = data.isBuffet || false;
           this.buffetCategory = data.buffetCategory || null;
-          (data.items || []).forEach((item: CartItem) => {
-            this.items.set(item.menuItem.id, item);
-          });
+          
+          if (menuItems && menuItems.length > 0) {
+            // Reconstruct cart items from IDs
+            data.items.forEach((savedItem: any) => {
+              const menuItem = menuItems.find(mi => mi.id === savedItem.menuItemId);
+              if (menuItem) {
+                this.items.set(menuItem.id, {
+                  menuItem,
+                  quantity: savedItem.quantity,
+                  notes: savedItem.notes
+                });
+              }
+            });
+          }
+          // If no menuItems provided, cart will be empty until menu loads
         }
         
         this.notifyListeners();
       }
     } catch (error) {
-      console.error('Failed to load cart from storage:', error);
+      console.error('[Cart] Failed to load from storage:', error);
+      // Clear corrupted data
+      localStorage.removeItem('rms-cart');
     }
   }
 }

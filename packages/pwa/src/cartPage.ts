@@ -162,7 +162,7 @@ export class CartPage {
       <div class="cart-item" data-item-id="${item.menuItem.id}">
         <div class="cart-item-info">
           <div class="cart-item-name">${item.menuItem.name}</div>
-          <div class="cart-item-price">${(isBuffet && !isAlwaysPriced) ? 'Articolo Buffet' : `€${price} ciascuno`}</div>
+          ${(isBuffet && !isAlwaysPriced) ? '' : `<div class="cart-item-price">€${price} ciascuno</div>`}
           ${item.notes ? `<div class="cart-item-notes">Nota: ${item.notes}</div>` : ''}
         </div>
         <div class="cart-item-controls">

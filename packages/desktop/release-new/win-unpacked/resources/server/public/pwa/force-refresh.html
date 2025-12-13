@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Force Refresh PWA</title>
+</head>
+<body>
+  <h1>Clearing PWA Cache...</h1>
+  <pre id="log"></pre>
+  
+  <script>
+    const log = document.getElementById('log');
+    
+    async function clearEverything() {
+      try {
+        // 1. Unregister all service workers
+        log.textContent += 'Unregistering service workers...\n';
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+          log.textContent += `  Unregistered: ${registration.scope}\n`;
+        }
+        
+        // 2. Clear all caches
+        log.textContent += '\nClearing caches...\n';
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+          log.textContent += `  Deleted cache: ${cacheName}\n`;
+        }
+        
+        // 3. Clear session storage
+        log.textContent += '\nClearing session storage...\n';
+        sessionStorage.clear();
+        
+        // 4. Clear local storage
+        log.textContent += 'Clearing local storage...\n';
+        localStorage.clear();
+        
+        log.textContent += '\n✅ ALL CLEARED!\n';
+        log.textContent += '\nRedirecting to menu in 2 seconds...\n';
+        
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+        
+      } catch (error) {
+        log.textContent += '\n❌ Error: ' + error.message + '\n';
+      }
+    }
+    
+    clearEverything();
+  </script>
+</body>
+</html>

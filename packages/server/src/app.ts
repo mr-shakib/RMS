@@ -73,7 +73,17 @@ export const createApp = (): Application => {
   // When running with tsx, __dirname is src/, when built it's dist/
   const publicPath = path.join(__dirname, '../public');
   console.log('📁 Serving static files from:', publicPath);
-  app.use(express.static(publicPath));
+  
+  // Disable caching for PWA files to ensure updates are always loaded
+  app.use(express.static(publicPath, {
+    maxAge: 0,
+    etag: false,
+    setHeaders: (res, filepath) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }));
 
   // Health check route
   app.use('/api', healthRouter);
