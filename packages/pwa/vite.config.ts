@@ -9,7 +9,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       strategies: 'generateSW',
-      injectRegister: 'auto',
+      injectRegister: false,
+      disable: true, // Disabled - running on local network, no need for offline caching
       manifest: {
         name: 'Restaurant Ordering System',
         short_name: 'RMS Order',

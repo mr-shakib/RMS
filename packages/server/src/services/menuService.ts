@@ -5,7 +5,7 @@ import { emitMenuUpdated } from '../websocket';
 interface CreateMenuItemInput {
   name: string;
   categoryId: string;
-  secondaryCategoryId?: string;
+  buffetCategoryIds?: string[]; // Array of buffet category IDs
   price: number;
   description?: string;
   imageUrl?: string;
@@ -17,7 +17,7 @@ interface CreateMenuItemInput {
 interface UpdateMenuItemInput {
   name?: string;
   categoryId?: string;
-  secondaryCategoryId?: string | null;
+  buffetCategoryIds?: string[]; // Array of buffet category IDs to replace current assignments
   price?: number;
   description?: string;
   imageUrl?: string;
@@ -58,7 +58,11 @@ class MenuService {
       where,
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -80,7 +84,11 @@ class MenuService {
       where,
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -96,7 +104,11 @@ class MenuService {
       where: { id },
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
     });
 
@@ -107,7 +119,7 @@ class MenuService {
    * Create a new menu item
    */
   async createMenuItem(input: CreateMenuItemInput): Promise<MenuItem> {
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available = true, alwaysPriced = false } = input;
+    const { name, categoryId, buffetCategoryIds = [], price, description, imageUrl, available = true, alwaysPriced = false } = input;
 
     // Validate price
     if (price <= 0) {
@@ -120,11 +132,13 @@ class MenuService {
       throw new Error(`Category with id ${categoryId} not found`);
     }
 
-    // Validate secondary category exists if provided
-    if (secondaryCategoryId) {
-      const secondaryCategory = await prisma.category.findUnique({ where: { id: secondaryCategoryId } });
-      if (!secondaryCategory) {
-        throw new Error(`Secondary category with id ${secondaryCategoryId} not found`);
+    // Validate buffet categories exist if provided
+    if (buffetCategoryIds.length > 0) {
+      const buffetCategories = await prisma.category.findMany({
+        where: { id: { in: buffetCategoryIds }, isBuffet: true },
+      });
+      if (buffetCategories.length !== buffetCategoryIds.length) {
+        throw new Error('One or more buffet category IDs are invalid or not buffet categories');
       }
     }
 
@@ -151,17 +165,25 @@ class MenuService {
       data: {
         name,
         categoryId,
-        secondaryCategoryId,
         price,
         description,
         imageUrl,
         available,
         itemNumber: assignedItemNumber,
         alwaysPriced,
+        buffetCategories: {
+          create: buffetCategoryIds.map(buffetCategoryId => ({
+            buffetCategoryId,
+          })),
+        },
       },
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
     });
 
@@ -212,22 +234,47 @@ class MenuService {
       }
     }
 
-    // Validate secondary category if provided
-    if (input.secondaryCategoryId) {
-      const secondaryCategory = await prisma.category.findUnique({ where: { id: input.secondaryCategoryId } });
-      if (!secondaryCategory) {
-        throw new Error(`Secondary category with id ${input.secondaryCategoryId} not found`);
+    // Validate buffet categories if provided
+    if (input.buffetCategoryIds !== undefined) {
+      if (input.buffetCategoryIds.length > 0) {
+        const buffetCategories = await prisma.category.findMany({
+          where: { id: { in: input.buffetCategoryIds }, isBuffet: true },
+        });
+        if (buffetCategories.length !== input.buffetCategoryIds.length) {
+          throw new Error('One or more buffet category IDs are invalid or not buffet categories');
+        }
       }
     }
 
-    const updatedMenuItem = await prisma.menuItem.update({
+    // Prepare update data
+    const { buffetCategoryIds, ...basicUpdateData } = input;
+
+    // Build the update operation
+    const updateOperation: any = {
       where: { id },
-      data: input,
+      data: basicUpdateData,
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
-    });
+    };
+
+    // Handle buffet category updates if provided
+    if (buffetCategoryIds !== undefined) {
+      // Delete existing associations and create new ones
+      updateOperation.data.buffetCategories = {
+        deleteMany: {}, // Remove all existing buffet category associations
+        create: buffetCategoryIds.map(buffetCategoryId => ({
+          buffetCategoryId,
+        })),
+      };
+    }
+
+    const updatedMenuItem = await prisma.menuItem.update(updateOperation);
 
     // Emit WebSocket event for menu update
     try {
@@ -285,7 +332,11 @@ class MenuService {
       data: { available: !menuItem.available },
       include: {
         category: true,
-        secondaryCategory: true,
+        buffetCategories: {
+          include: {
+            buffetCategory: true,
+          },
+        },
       },
     });
 

@@ -37,8 +37,8 @@ export interface MenuItem {
   name: string;
   categoryId: string;
   category?: Category;
-  secondaryCategoryId?: string | null;
-  secondaryCategory?: Category;
+  buffetCategoryIds?: string[]; // IDs of buffet categories this item belongs to
+  buffetCategories?: Category[]; // Full buffet category objects (when populated)
   price: number;
   description?: string;
   imageUrl?: string;
@@ -123,7 +123,7 @@ export interface CreateCategoryDTO {
 export interface CreateMenuItemDTO {
   name: string;
   categoryId: string;
-  secondaryCategoryId?: string | null;
+  buffetCategoryIds?: string[]; // Array of buffet category IDs to assign this item to
   price: number;
   description?: string;
   imageUrl?: string;

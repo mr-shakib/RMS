@@ -7,7 +7,11 @@ async function checkAlwaysPriced() {
       where: { alwaysPriced: true },
       include: { 
         category: true,
-        secondaryCategory: true 
+        buffetCategories: {
+          include: {
+            buffetCategory: true
+          }
+        }
       },
       orderBy: { name: 'asc' }
     });
@@ -22,8 +26,9 @@ async function checkAlwaysPriced() {
         console.log(`  Category: ${item.category?.name || 'N/A'}`);
         console.log(`  Price: €${item.price.toFixed(2)}`);
         console.log(`  Available: ${item.available}`);
-        if (item.secondaryCategory) {
-          console.log(`  Secondary Category: ${item.secondaryCategory.name}`);
+        if (item.buffetCategories && item.buffetCategories.length > 0) {
+          const buffetNames = item.buffetCategories.map(bc => bc.buffetCategory.name).join(', ');
+          console.log(`  Buffet Categories: ${buffetNames}`);
         }
         console.log('');
       });

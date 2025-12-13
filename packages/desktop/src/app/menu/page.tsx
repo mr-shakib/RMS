@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMenu } from '@/hooks/useMenu';
 import { useCategories } from '@/hooks/useCategories';
@@ -13,6 +13,22 @@ export default function MenuPage() {
   const { menuItems, isLoading, toggleAvailability } = useMenu();
   const { categories, isLoading: categoriesLoading, createCategory, updateCategory, deleteCategory, isCreating, isUpdating, isDeleting } = useCategories();
   const { formatCurrency, symbol } = useCurrency();
+  
+  // Debug: Log menu items with buffet categories
+  useEffect(() => {
+    if (menuItems) {
+      const itemsWithBuffet = menuItems.filter((item: any) => 
+        item.buffetCategories && item.buffetCategories.length > 0
+      );
+      console.log('[MenuPage] Items with buffet assignments:', itemsWithBuffet.length);
+      itemsWithBuffet.forEach((item: any) => {
+        const buffetNames = item.buffetCategories?.map((bc: any) => bc.buffetCategory?.name).filter(Boolean) || [];
+        console.log(`  ${item.name}:`, {
+          buffets: buffetNames
+        });
+      });
+    }
+  }, [menuItems]);
   
   const [mainCategoryFilter, setMainCategoryFilter] = useState<'BUFFET' | 'ALL_ITEMS'>('ALL_ITEMS');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -47,6 +63,17 @@ export default function MenuPage() {
     }
   }, [mainCategoryFilter, buffetCategories, regularCategories]);
 
+  // Auto-select first buffet category when in buffet mode
+  useEffect(() => {
+    if (mainCategoryFilter === 'BUFFET' && buffetCategories.length > 0) {
+      const currentIsValid = buffetCategories.some(cat => cat.name === categoryFilter);
+      if (!currentIsValid || categoryFilter === 'All') {
+        console.log('[MenuPage] Auto-selecting first buffet:', buffetCategories[0].name);
+        setCategoryFilter(buffetCategories[0].name);
+      }
+    }
+  }, [mainCategoryFilter, buffetCategories, categoryFilter]);
+
   // Filter menu items
   const filteredMenuItems = useMemo(() => {
     let filtered = menuItems;
@@ -54,11 +81,22 @@ export default function MenuPage() {
     // Apply main category filter (Buffet vs All Items)
     if (mainCategoryFilter === 'BUFFET') {
       const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
-      // Show items where primary category is buffet OR secondary category is buffet
+      console.log('[MenuPage] Buffet filter - buffet category IDs:', buffetCategoryIds);
+      
+      // Show items that are assigned to any buffet category via buffetCategories
       filtered = filtered.filter((item) => {
-        const isPrimaryBuffet = buffetCategoryIds.includes(item.categoryId);
-        const isSecondaryBuffet = (item as any).secondaryCategoryId && buffetCategoryIds.includes((item as any).secondaryCategoryId);
-        return isPrimaryBuffet || isSecondaryBuffet;
+        const buffetCats = (item as any).buffetCategories || [];
+        const isInBuffet = buffetCats.some((bc: any) => 
+          buffetCategoryIds.includes(bc.buffetCategory?.id || bc.buffetCategoryId)
+        );
+        
+        if (isInBuffet) {
+          console.log('[MenuPage] Item in buffet:', item.name, {
+            buffetCategories: buffetCats.map((bc: any) => bc.buffetCategory?.name).filter(Boolean)
+          });
+        }
+        
+        return isInBuffet;
       });
       
       // Apply buffet subcategory filter
@@ -73,20 +111,10 @@ export default function MenuPage() {
         
         if (selectedCat) {
           filtered = filtered.filter((item) => {
-            const isPrimaryMatch = item.categoryId === selectedCat.id;
-            const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
-            let matches = isPrimaryMatch || isSecondaryMatch;
-            
-            // Special case: If item has lunch buffet as secondary, show it in BOTH lunch and dinner buffets
-            // This indicates the item was added to both buffets
-            if (!matches && lunchBuffet && (item as any).secondaryCategoryId === lunchBuffet.id) {
-              // If viewing dinner buffet and item has lunch as secondary, include it
-              if (selectedCat.id === dinnerBuffet?.id) {
-                matches = true;
-              }
-            }
-            
-            return matches;
+            const buffetCats = (item as any).buffetCategories || [];
+            return buffetCats.some((bc: any) => 
+              (bc.buffetCategory?.id || bc.buffetCategoryId) === selectedCat.id
+            );
           });
         }
       }
@@ -116,30 +144,20 @@ export default function MenuPage() {
       const regularCategoryIds = regularCategories.map((cat) => cat.id);
       const buffetCategoryIds = buffetCategories.map((cat) => cat.id);
       
-      // Show items where:
-      // 1. Primary category is regular OR secondary category is regular, OR
-      // 2. Item is in buffet categories (so buffet items can appear in All Items view)
+      // Show all items - they all have a regular categoryId (for All Items)
+      // Items can also be assigned to buffet categories via buffetCategories relation
       filtered = filtered.filter((item) => {
-        const isPrimaryRegular = regularCategoryIds.includes(item.categoryId);
-        const isSecondaryRegular = (item as any).secondaryCategoryId && regularCategoryIds.includes((item as any).secondaryCategoryId);
-        
-        // Also include items that are only in buffet categories (no regular category assigned)
-        const isPrimaryBuffet = buffetCategoryIds.includes(item.categoryId);
-        const isSecondaryBuffet = (item as any).secondaryCategoryId && buffetCategoryIds.includes((item as any).secondaryCategoryId);
-        const isBuffetOnly = (isPrimaryBuffet || isSecondaryBuffet) && !isPrimaryRegular && !isSecondaryRegular;
-        
-        return isPrimaryRegular || isSecondaryRegular || isBuffetOnly;
+        // All items have a primary category which should be a regular category
+        return regularCategoryIds.includes(item.categoryId);
       });
       
       // Apply subcategory filter for All Items
       if (categoryFilter !== 'All') {
         const selectedCat = regularCategories.find((cat) => cat.name === categoryFilter);
         if (selectedCat) {
-          // Show items where either primary or secondary category matches
+          // Show items where primary category matches
           filtered = filtered.filter((item) => {
-            const isPrimaryMatch = item.categoryId === selectedCat.id;
-            const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCat.id;
-            return isPrimaryMatch || isSecondaryMatch;
+            return item.categoryId === selectedCat.id;
           });
         }
       }
@@ -189,7 +207,10 @@ export default function MenuPage() {
     // Set default category based on the view
     if (newMainCategory === 'BUFFET') {
       // Set first buffet category as default (no 'All' option)
-      setCategoryFilter(buffetCategories[0]?.name || '');
+      const firstBuffetName = buffetCategories[0]?.name;
+      if (firstBuffetName) {
+        setCategoryFilter(firstBuffetName);
+      }
     } else {
       // Reset to 'All' for All Items view
       setCategoryFilter('All');
@@ -405,12 +426,8 @@ export default function MenuPage() {
                       // In buffet view, only count by primary category
                       count = menuItems.filter((item) => item.categoryId === category.id).length;
                     } else {
-                      // In All Items view, count by either primary or secondary category
-                      count = menuItems.filter((item) => {
-                        const isPrimaryMatch = item.categoryId === category.id;
-                        const isSecondaryMatch = (item as any).secondaryCategoryId === category.id;
-                        return isPrimaryMatch || isSecondaryMatch;
-                      }).length;
+                      // In All Items view, count by primary category only
+                      count = menuItems.filter((item) => item.categoryId === category.id).length;
                     }
                   }
                 }
@@ -558,48 +575,13 @@ interface MenuItemCardProps {
 function MenuItemCard({ item, category, allCategories, onEdit, onToggleAvailability, isToggling }: MenuItemCardProps) {
   const { formatCurrency } = useCurrency();
   
-  // Get all buffet categories this item belongs to (for merged duplicates)
+  // Get all buffet categories this item belongs to
   const getBuffetCategories = () => {
-    const allInstances = (item as any)._allBuffetInstances;
-    if (allInstances && allInstances.length > 1) {
-      const categoryMap = new Map<string, any>();
-      allInstances.forEach((instance: any) => {
-        if (instance.category?.isBuffet) {
-          categoryMap.set(instance.category.id, instance.category);
-        }
-        if (instance.secondaryCategory?.isBuffet) {
-          categoryMap.set(instance.secondaryCategory.id, instance.secondaryCategory);
-        }
-      });
-      return Array.from(categoryMap.values());
-    }
-    
-    const categories = [];
-    // Check if item's secondary category is a buffet
-    const secondaryCategory = (item as any).secondaryCategory;
-    
-    if (secondaryCategory?.isBuffet && allCategories) {
-      const isLunchBuffet = secondaryCategory.name.toLowerCase().includes('lunch') || 
-                           secondaryCategory.name.toLowerCase().includes('pranzo');
-      
-      // If secondary is lunch buffet, item is in BOTH lunch and dinner buffets
-      if (isLunchBuffet) {
-        categories.push(secondaryCategory); // Add lunch buffet
-        
-        // Find and add dinner buffet
-        const dinnerBuffet = allCategories.find(cat => 
-          cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
-        );
-        if (dinnerBuffet) {
-          categories.push(dinnerBuffet);
-        }
-      } else {
-        // Just dinner buffet
-        categories.push(secondaryCategory);
-      }
-    }
-    
-    return categories;
+    // Get buffet categories from the junction table
+    const buffetCats = (item as any).buffetCategories || [];
+    return buffetCats
+      .map((bc: any) => bc.buffetCategory)
+      .filter((cat: any) => cat && cat.isBuffet);
   };
   
   const buffetCategories = getBuffetCategories();

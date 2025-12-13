@@ -163,11 +163,23 @@ export class MenuPage {
   private async loadMenu(): Promise<void> {
     try {
       console.log('[MenuPage] Starting to load menu...');
+      console.log('[MenuPage] isBuffetMode:', this.isBuffetMode);
+      console.log('[MenuPage] buffetCategoryId:', this.buffetCategoryId);
+      console.log('[MenuPage] buffetCategoryName:', this.buffetCategoryName);
       this.showLoading();
       
       console.log('[MenuPage] Calling apiClient.getMenu()...');
       this.menuItems = await apiClient.getMenu();
       console.log('[MenuPage] Menu items loaded:', this.menuItems.length);
+      
+      // Log items with buffet categories
+      console.log('[MenuPage] Items with buffet categories:');
+      this.menuItems.forEach(item => {
+        const buffetCats = (item as any).buffetCategories || [];
+        if (buffetCats.length > 0) {
+          console.log(`  ${item.name}: buffetCategoryIds =`, buffetCats.map((bc: any) => bc.buffetCategoryId));
+        }
+      });
       
       console.log('[MenuPage] Extracting categories...');
       this.extractCategories();
@@ -199,10 +211,13 @@ export class MenuPage {
       if (item.category) {
         categoryMap.set(item.category.id, item.category);
       }
-      // Also add secondary category if it exists
-      const secondaryCategory = (item as any).secondaryCategory;
-      if (secondaryCategory) {
-        categoryMap.set(secondaryCategory.id, secondaryCategory);
+      // Also add buffet categories if they exist
+      if ((item as any).buffetCategories && Array.isArray((item as any).buffetCategories)) {
+        (item as any).buffetCategories.forEach((bc: any) => {
+          if (bc.buffetCategory) {
+            categoryMap.set(bc.buffetCategory.id, bc.buffetCategory);
+          }
+        });
       }
     });
     
@@ -227,89 +242,55 @@ export class MenuPage {
   private getItemBuffetCategories(item: MenuItem): Category[] {
     const buffetCategories: Category[] = [];
     
-    // Check if there are multiple instances of this item (merged duplicates)
-    const allInstances = (item as any)._allBuffetInstances as MenuItem[] | undefined;
-    
-    if (allInstances && allInstances.length > 1) {
-      // Item exists in multiple buffet categories - collect all unique buffet categories
-      const categoryMap = new Map<string, Category>();
-      
-      allInstances.forEach(instance => {
-        // Add primary category if it's buffet
-        if (instance.category && instance.category.isBuffet) {
-          categoryMap.set(instance.category.id, instance.category);
-        }
-        
-        // Add secondary category if it's buffet
-        const secondaryCategory = (instance as any).secondaryCategory;
-        if (secondaryCategory && secondaryCategory.isBuffet) {
-          categoryMap.set(secondaryCategory.id, secondaryCategory);
+    // Get buffet categories from the junction table
+    if ((item as any).buffetCategories && Array.isArray((item as any).buffetCategories)) {
+      (item as any).buffetCategories.forEach((bc: any) => {
+        if (bc.buffetCategory && bc.buffetCategory.isBuffet) {
+          buffetCategories.push(bc.buffetCategory);
         }
       });
-      
-      return Array.from(categoryMap.values());
-    }
-    
-    // Single item - check its secondary category
-    const secondaryCategory = (item as any).secondaryCategory;
-    if (secondaryCategory && secondaryCategory.isBuffet) {
-      const isLunchBuffet = secondaryCategory.name.toLowerCase().includes('lunch') || 
-                           secondaryCategory.name.toLowerCase().includes('pranzo');
-      
-      // If secondary is lunch buffet, item is in BOTH lunch and dinner buffets
-      if (isLunchBuffet) {
-        buffetCategories.push(secondaryCategory); // Add lunch buffet
-        
-        // Find and add dinner buffet
-        const dinnerBuffet = this.categories.find(cat => 
-          cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
-        );
-        if (dinnerBuffet) {
-          buffetCategories.push(dinnerBuffet);
-        }
-      } else {
-        // Just dinner buffet
-        buffetCategories.push(secondaryCategory);
-      }
     }
     
     return buffetCategories;
   }
 
   private filterItems(): void {
-    // Get buffet category references
-    const lunchBuffetCategory = this.categories.find(cat => 
-      cat.isBuffet && (cat.name.toLowerCase().includes('lunch') || cat.name.toLowerCase().includes('pranzo'))
-    );
-    const dinnerBuffetCategory = this.categories.find(cat => 
-      cat.isBuffet && (cat.name.toLowerCase().includes('dinner') || cat.name.toLowerCase().includes('cena'))
-    );
-
+    console.log('[MenuPage] ========== FILTER ITEMS START ==========');
+    console.log('[MenuPage] isBuffetMode:', this.isBuffetMode);
+    console.log('[MenuPage] buffetCategoryId:', this.buffetCategoryId);
+    console.log('[MenuPage] buffetCategoryId type:', typeof this.buffetCategoryId);
+    console.log('[MenuPage] Total menu items:', this.menuItems.length);
+    
     let items = this.menuItems.filter((item) => {
-      // If buffet mode, only show items from selected buffet category (check both primary and secondary)
+      // If buffet mode, only show items from selected buffet category
       if (this.isBuffetMode && this.buffetCategoryId) {
-        const secondaryCategoryId = (item as any).secondaryCategoryId;
-        let isInThisBuffet = item.categoryId === this.buffetCategoryId || secondaryCategoryId === this.buffetCategoryId;
+        const buffetCategories = (item as any).buffetCategories || [];
+        console.log(`[MenuPage] Checking item: ${item.name}`);
+        console.log(`  - buffetCategories array length:`, buffetCategories.length);
+        console.log(`  - buffetCategories full data:`, JSON.stringify(buffetCategories, null, 2));
         
-        // Special case: If item has lunch buffet as secondary category, show it in BOTH lunch and dinner buffets
-        // This indicates the item was added to both buffets
-        if (!isInThisBuffet && lunchBuffetCategory && secondaryCategoryId === lunchBuffetCategory.id) {
-          // If current buffet is dinner and item has lunch as secondary, include it
-          if (this.buffetCategoryId === dinnerBuffetCategory?.id) {
-            isInThisBuffet = true;
-          }
-        }
+        // FIXED: Only check buffet junction table, not primary categoryId
+        const isInThisBuffet = buffetCategories.some((bc: any) => {
+          console.log(`    - Comparing bc.buffetCategoryId (${bc.buffetCategoryId}) === this.buffetCategoryId (${this.buffetCategoryId})`);
+          return bc.buffetCategoryId === this.buffetCategoryId;
+        });
+        
+        console.log(`  - RESULT: isInThisBuffet = ${isInThisBuffet}`);
         
         if (!isInThisBuffet) {
           return false;
         }
       }
 
-      // Category filtering - check both primary and secondary categories
-      const matchesCategory =
-        this.selectedCategory === 'Tutti' ||
-        item.category?.name === this.selectedCategory ||
-        ((item as any).secondaryCategory?.name === this.selectedCategory);
+      // Category filtering - check primary and buffet categories
+      let matchesCategory = this.selectedCategory === 'Tutti' || item.category?.name === this.selectedCategory;
+      
+      // Also check buffet categories
+      if (!matchesCategory && (item as any).buffetCategories) {
+        matchesCategory = (item as any).buffetCategories.some((bc: any) => 
+          bc.buffetCategory?.name === this.selectedCategory
+        );
+      }
       
       const matchesSearch =
         this.searchQuery === '' ||
@@ -581,12 +562,16 @@ export class MenuPage {
       const container = document.getElementById('category-tabs-container');
       if (container) container.style.display = 'block';
       
-      // Get unique secondary categories from buffet items
+      // Get unique primary categories from buffet items
       const secondaryCategories = new Map<string, string>();
       this.menuItems.forEach(item => {
-        const secondaryCategory = (item as any).secondaryCategory;
-        if (secondaryCategory && item.categoryId === this.buffetCategoryId) {
-          secondaryCategories.set(secondaryCategory.id, secondaryCategory.name);
+        const buffetCategories = (item as any).buffetCategories || [];
+        
+        // FIXED: Check if item belongs to this buffet (only via junction table)
+        const isInThisBuffet = buffetCategories.some((bc: any) => bc.buffetCategoryId === this.buffetCategoryId);
+        
+        if (item.category && isInThisBuffet && !item.category.isBuffet) {
+          secondaryCategories.set(item.category.id, item.category.name);
         }
       });
       

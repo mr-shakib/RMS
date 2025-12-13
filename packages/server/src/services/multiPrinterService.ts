@@ -191,7 +191,11 @@ class MultiPrinterService {
               menuItem: {
                 include: {
                   category: true,
-                  secondaryCategory: true,
+                  buffetCategories: {
+                    include: {
+                      buffetCategory: true
+                    }
+                  }
                 },
               },
             },
@@ -210,9 +214,9 @@ class MultiPrinterService {
       const itemsByPrinter = new Map<string, any[]>();
 
       for (const item of order.items) {
-        // For buffet items, use secondaryCategoryId if available, otherwise use categoryId
-        const categoryId = item.menuItem.secondaryCategoryId || item.menuItem.categoryId;
-        const categoryName = item.menuItem.secondaryCategory?.name || item.menuItem.category?.name || 'Unknown';
+        // Use the primary category
+        const categoryId = item.menuItem.categoryId;
+        const categoryName = item.menuItem.category?.name || 'Unknown';
 
         console.log(`📝 Item: ${item.menuItem.name}, Category: ${categoryName} (${categoryId})`);
 

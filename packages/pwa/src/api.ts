@@ -107,14 +107,15 @@ export class ApiClient {
       const menuItems = data.data?.menuItems || [];
       console.log('[API] Extracted menu items count:', menuItems.length);
       
-      // DEBUG: Check alwaysPriced field in API response
-      const testItems = menuItems.filter((item: any) => ['Burgiiiiir', 'Drink', 'Burgir'].includes(item.name));
-      console.log('[API] TEST ITEMS - Checking alwaysPriced field:');
-      testItems.forEach((item: any) => {
-        console.log(`  ${item.name}:`);
-        console.log(`    'alwaysPriced' in item:`, 'alwaysPriced' in item);
-        console.log(`    item.alwaysPriced:`, item.alwaysPriced);
-        console.log(`    typeof:`, typeof item.alwaysPriced);
+      // DEBUG: Check category fields in ALL items
+      console.log('[API] CHECKING ALL ITEMS FOR CATEGORY DATA:');
+      menuItems.forEach((item: any) => {
+        if (item.buffetCategories && item.buffetCategories.length > 0) {
+          console.log(`  ${item.name}:`);
+          console.log(`    categoryId:`, item.categoryId);
+          console.log(`    category:`, item.category?.name);
+          console.log(`    buffetCategories:`, item.buffetCategories.map((bc: any) => bc.buffetCategory?.name));
+        }
       });
       
       return menuItems;

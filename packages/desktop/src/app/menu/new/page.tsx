@@ -176,32 +176,22 @@ export default function NewMenuItemPage() {
     }
 
     try {
-      // Determine category assignments based on buffet selections
-      let primaryCategoryId = formData.categoryId;
-      let secondaryCategoryId = null;
+      // Determine buffet category assignments
+      const buffetCategoryIds: string[] = [];
       
-      // If adding to BOTH buffets, keep regular category as primary and lunch buffet as secondary
-      // Item will appear in both buffets through filtering logic
-      if (formData.addToLunchBuffet && formData.addToDinnerBuffet && launchBuffetCategory && dinnerBuffetCategory) {
-        primaryCategoryId = formData.categoryId; // Keep regular category
-        secondaryCategoryId = launchBuffetCategory.id; // Mark as in lunch buffet (will also show in dinner through logic)
+      // Add buffets to the array
+      if (formData.addToLunchBuffet && launchBuffetCategory) {
+        buffetCategoryIds.push(launchBuffetCategory.id);
       }
-      // If adding to lunch buffet only, make lunch buffet secondary and keep regular as primary
-      else if (formData.addToLunchBuffet && launchBuffetCategory) {
-        primaryCategoryId = formData.categoryId;
-        secondaryCategoryId = launchBuffetCategory.id;
-      }
-      // If adding to dinner buffet only, make dinner buffet secondary and keep regular as primary
-      else if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
-        primaryCategoryId = formData.categoryId;
-        secondaryCategoryId = dinnerBuffetCategory.id;
+      if (formData.addToDinnerBuffet && dinnerBuffetCategory) {
+        buffetCategoryIds.push(dinnerBuffetCategory.id);
       }
       
-      // Create the menu item with both categories assigned
+      // Create the menu item with categories assigned
       await createMenuItem({
         name: formData.name.trim(),
-        categoryId: primaryCategoryId,
-        secondaryCategoryId: secondaryCategoryId || undefined,
+        categoryId: formData.categoryId,
+        buffetCategoryIds: buffetCategoryIds.length > 0 ? buffetCategoryIds : undefined,
         price: parseFloat(formData.price),
         description: formData.description.trim() || undefined,
         imageUrl: formData.imageUrl.trim() || undefined,

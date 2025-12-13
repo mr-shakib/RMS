@@ -58,10 +58,12 @@ export default function TableOrderPage() {
     // Filter by category if selected and not buffet
     if (selectedCategoryId && !selectedCategory?.isBuffet) {
       items = items.filter((item) => {
-        // Include items where either primary or secondary category matches
+        // Include items where primary category matches
         const isPrimaryMatch = item.categoryId === selectedCategoryId;
-        const isSecondaryMatch = (item as any).secondaryCategoryId === selectedCategoryId;
-        return isPrimaryMatch || isSecondaryMatch;
+        // Or any buffet category matches (buffet items can also be in regular categories)
+        const buffetCats = (item as any).buffetCategories || [];
+        const isBuffetMatch = buffetCats.some((bc: any) => bc.buffetCategoryId === selectedCategoryId);
+        return isPrimaryMatch || isBuffetMatch;
       });
     }
     

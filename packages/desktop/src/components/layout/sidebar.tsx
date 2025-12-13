@@ -115,7 +115,7 @@ export function Sidebar() {
             <span className="text-[10px] mt-1 font-medium">Admin</span>
           </Link>
 
-          {/* Logout Button */}
+          {/* Logout Button
           <button
             onClick={handleLogout}
             title="Logout"
@@ -123,7 +123,7 @@ export function Sidebar() {
           >
             <LogOut className="h-6 w-6 mb-1" />
             <span className="text-[10px] font-medium">Logout</span>
-          </button>
+          </button> */}
 
           {/* Exit App Button */}
           <button

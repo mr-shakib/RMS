@@ -9,7 +9,11 @@ async function checkDuplicates() {
       },
       include: { 
         category: true,
-        secondaryCategory: true 
+        buffetCategories: {
+          include: {
+            buffetCategory: true
+          }
+        }
       }
     });
     
@@ -22,7 +26,10 @@ async function checkDuplicates() {
       console.log(`  Price: €${item.price.toFixed(2)}`);
       console.log(`  alwaysPriced: ${item.alwaysPriced}`);
       console.log(`  Category: ${item.category?.name}`);
-      console.log(`  Secondary Category: ${item.secondaryCategory?.name}`);
+      if (item.buffetCategories && item.buffetCategories.length > 0) {
+        const buffetNames = item.buffetCategories.map(bc => bc.buffetCategory.name).join(', ');
+        console.log(`  Buffet Categories: ${buffetNames}`);
+      }
       console.log('');
     });
     

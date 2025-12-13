@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
       orderBy: { sortOrder: 'asc' },
       include: {
         _count: {
-          select: { primaryMenuItems: true },
+          select: { menuItems: true },
         },
       },
     });
@@ -168,7 +168,7 @@ router.delete('/:id', authenticate, requireRole([Role.ADMIN]), async (req, res) 
       where: { id },
       include: {
         _count: {
-          select: { primaryMenuItems: true },
+          select: { menuItems: true },
         },
       },
     });

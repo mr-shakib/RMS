@@ -73,7 +73,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/menu - Create new menu item
 router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
+    const { name, categoryId, buffetCategoryIds, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
 
     // Validate required fields
     if (!name || !categoryId || price === undefined) {
@@ -89,10 +89,15 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
       throw new ValidationError('Item number must be a positive number');
     }
 
+    // Validate buffetCategoryIds if provided
+    if (buffetCategoryIds !== undefined && !Array.isArray(buffetCategoryIds)) {
+      throw new ValidationError('buffetCategoryIds must be an array');
+    }
+
     const menuItem = await menuService.createMenuItem({
       name: name.trim(),
       categoryId: categoryId.trim(),
-      secondaryCategoryId: secondaryCategoryId?.trim(),
+      buffetCategoryIds: buffetCategoryIds || [],
       price,
       description: description?.trim(),
       imageUrl: imageUrl?.trim(),
@@ -116,7 +121,7 @@ router.post('/', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Res
 router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, secondaryCategoryId, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
+    const { name, categoryId, buffetCategoryIds, price, description, imageUrl, available, itemNumber, alwaysPriced } = req.body;
 
     // Validate price if provided
     if (price !== undefined && (typeof price !== 'number' || price <= 0)) {
@@ -128,10 +133,15 @@ router.patch('/:id', requireRole(['ADMIN', 'WAITER']), async (req: Request, res:
       throw new ValidationError('Item number must be a positive number');
     }
 
+    // Validate buffetCategoryIds if provided
+    if (buffetCategoryIds !== undefined && !Array.isArray(buffetCategoryIds)) {
+      throw new ValidationError('buffetCategoryIds must be an array');
+    }
+
     const updateData: any = {};
     if (name !== undefined) updateData.name = name.trim();
     if (categoryId !== undefined) updateData.categoryId = categoryId.trim();
-    if (secondaryCategoryId !== undefined) updateData.secondaryCategoryId = secondaryCategoryId?.trim() || null;
+    if (buffetCategoryIds !== undefined) updateData.buffetCategoryIds = buffetCategoryIds;
     if (price !== undefined) updateData.price = price;
     if (description !== undefined) updateData.description = description?.trim();
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl?.trim();
