@@ -20,8 +20,8 @@ interface Printer {
   id: string;
   name: string;
   type: 'network' | 'usb' | 'serial';
-  address?: string;
-  port?: string;
+  ipAddress?: string;
+  port?: number;
   vendorId?: string;
   productId?: string;
   serialPath?: string;
@@ -60,8 +60,8 @@ export default function PrinterModal({
     if (printer) {
       setName(printer.name);
       setType(printer.type);
-      setAddress(printer.address || '');
-      setPort(printer.port || '9100');
+      setAddress(printer.ipAddress || '');
+      setPort(String(printer.port || 9100));
       setVendorId(printer.vendorId || '');
       setProductId(printer.productId || '');
       setSerialPath(printer.serialPath || '');
@@ -137,13 +137,8 @@ export default function PrinterModal({
     };
 
     if (type === 'network') {
-      data.address = address.trim();
-      data.port = port.trim();
-    } else if (type === 'usb') {
-      data.vendorId = vendorId.trim();
-      data.productId = productId.trim();
-    } else if (type === 'serial') {
-      data.serialPath = serialPath.trim();
+      data.ipAddress = address.trim();
+      data.port = parseInt(port) || 9100;
     }
 
     if (printer) {
