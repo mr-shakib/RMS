@@ -27,41 +27,39 @@ model Table {
 }
 
 model Category {
-  id                 String            @id @default(uuid())
-  name               String            @unique
-  isBuffet           Boolean           @default(false)
-  buffetPrice        Float?
-  sortOrder          Int               @default(0)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  secondaryMenuItems MenuItem[]        @relation("SecondaryCategory")
-  primaryMenuItems   MenuItem[]        @relation("PrimaryCategory")
-  orders             Order[]
-  printerMappings    PrinterCategory[]
+  id                     String                   @id @default(uuid())
+  name                   String                   @unique
+  isBuffet               Boolean                  @default(false)
+  buffetPrice            Float?
+  sortOrder              Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  menuItems              MenuItem[]               @relation("ItemCategory")
+  buffetMenuItems        MenuItemBuffetCategory[]
+  orders                 Order[]
+  printerMappings        PrinterCategory[]
 
   @@index([sortOrder])
 }
 
 model MenuItem {
-  id                  String      @id @default(uuid())
-  itemNumber          Int?        @unique
-  name                String
-  categoryId          String
-  secondaryCategoryId String?
-  price               Float
-  description         String?
-  imageUrl            String?
-  available           Boolean     @default(true)
-  alwaysPriced        Boolean     @default(false)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  secondaryCategory   Category?   @relation("SecondaryCategory", fields: [secondaryCategoryId], references: [id])
-  category            Category    @relation("PrimaryCategory", fields: [categoryId], references: [id])
-  orderItems          OrderItem[]
+  id                     String                   @id @default(uuid())
+  itemNumber             Int?                     @unique
+  name                   String
+  categoryId             String
+  price                  Float
+  description            String?
+  imageUrl               String?
+  available              Boolean                  @default(true)
+  alwaysPriced           Boolean                  @default(false)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  category               Category                 @relation("ItemCategory", fields: [categoryId], references: [id])
+  buffetCategories       MenuItemBuffetCategory[]
+  orderItems             OrderItem[]
 
   @@index([itemNumber])
   @@index([categoryId])
-  @@index([secondaryCategoryId])
   @@index([available])
 }
 
@@ -102,6 +100,7 @@ model OrderItem {
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([menuItemId])
 }
 
 model Payment {
@@ -123,22 +122,16 @@ model Setting {
 }
 
 model Printer {
-  id               String            @id @default(uuid())
-  name             String
-  type             String
-  address          String?
-  port             String?
-  vendorId         String?
-  productId        String?
-  serialPath       String?
-  isActive         Boolean           @default(true)
-  sortOrder        Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              String            @id @default(uuid())
+  name            String
+  ipAddress       String
+  port            Int               @default(9100)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   categoryMappings PrinterCategory[]
 
   @@index([isActive])
-  @@index([sortOrder])
 }
 
 model PrinterCategory {
@@ -146,10 +139,23 @@ model PrinterCategory {
   printerId  String
   categoryId String
   createdAt  DateTime @default(now())
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
   printer    Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
 
   @@unique([printerId, categoryId])
   @@index([printerId])
   @@index([categoryId])
+}
+
+model MenuItemBuffetCategory {
+  id               String   @id @default(uuid())
+  menuItemId       String
+  buffetCategoryId String
+  createdAt        DateTime @default(now())
+  menuItem         MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  buffetCategory   Category @relation(fields: [buffetCategoryId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, buffetCategoryId])
+  @@index([menuItemId])
+  @@index([buffetCategoryId])
 }

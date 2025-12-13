@@ -45,8 +45,11 @@ class InitializationService {
    */
   async isDatabaseInitialized(): Promise<boolean> {
     try {
-      // First check if tables exist by trying to query them
-      await prisma.$queryRaw`SELECT name FROM sqlite_master WHERE type='table' AND name='User' LIMIT 1`;
+      // First check if User table exists
+      const userTableExists = await prisma.$queryRaw`SELECT name FROM sqlite_master WHERE type='table' AND name='User' LIMIT 1`;
+      if (!userTableExists || (Array.isArray(userTableExists) && userTableExists.length === 0)) {
+        return false;
+      }
       
       // Check if admin user exists
       const adminUser = await prisma.user.findUnique({
@@ -56,14 +59,12 @@ class InitializationService {
       // Check if any tables exist
       const tableCount = await prisma.table.count();
 
-      // Check if any menu items exist
-      const menuItemCount = await prisma.menuItem.count();
-
       // Check if settings exist
       const settingsCount = await prisma.setting.count();
 
-      // Database is considered initialized if all these exist
-      return !!(adminUser && tableCount > 0 && menuItemCount > 0 && settingsCount > 0);
+      // Database is considered initialized if admin user, tables, and settings exist
+      // We don't check for menu items as they can be added later by the user
+      return !!(adminUser && tableCount > 0 && settingsCount > 0);
     } catch (error: any) {
       // If we get a "table does not exist" error, the database needs to be created
       if (error.code === 'P2021' || error.message?.includes('does not exist')) {
@@ -165,6 +166,41 @@ class InitializationService {
         console.log('  ✅ Printer tables created successfully');
       }
     }
+    
+    // Also ensure MenuItemBuffetCategory table exists
+    try {
+      await prisma.$queryRaw`SELECT COUNT(*) FROM MenuItemBuffetCategory LIMIT 1`;
+    } catch (error: any) {
+      if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+        console.log('  🔧 MenuItemBuffetCategory table not found, creating it...');
+        
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "MenuItemBuffetCategory" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "menuItemId" TEXT NOT NULL,
+            "buffetCategoryId" TEXT NOT NULL,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY ("buffetCategoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE UNIQUE INDEX IF NOT EXISTS "MenuItemBuffetCategory_menuItemId_buffetCategoryId_key" 
+          ON "MenuItemBuffetCategory"("menuItemId", "buffetCategoryId");
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "MenuItemBuffetCategory_menuItemId_idx" ON "MenuItemBuffetCategory"("menuItemId");
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "MenuItemBuffetCategory_buffetCategoryId_idx" ON "MenuItemBuffetCategory"("buffetCategoryId");
+        `);
+
+        console.log('  ✅ MenuItemBuffetCategory table created successfully');
+      }
+    }
   }
 
   /**
@@ -264,6 +300,32 @@ class InitializationService {
 
       await prisma.$executeRawUnsafe(`
         CREATE INDEX IF NOT EXISTS "MenuItem_available_idx" ON "MenuItem"("available");
+      `);
+
+      // Create MenuItemBuffetCategory junction table for buffet many-to-many relationship
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "MenuItemBuffetCategory" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "menuItemId" TEXT NOT NULL,
+          "buffetCategoryId" TEXT NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          FOREIGN KEY ("buffetCategoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `);
+      console.log('  ✓ Created MenuItemBuffetCategory table');
+
+      await prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "MenuItemBuffetCategory_menuItemId_buffetCategoryId_key" 
+        ON "MenuItemBuffetCategory"("menuItemId", "buffetCategoryId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItemBuffetCategory_menuItemId_idx" ON "MenuItemBuffetCategory"("menuItemId");
+      `);
+
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "MenuItemBuffetCategory_buffetCategoryId_idx" ON "MenuItemBuffetCategory"("buffetCategoryId");
       `);
 
       await prisma.$executeRawUnsafe(`

@@ -1,4 +1,0 @@
-owner: your-org
-repo: restaurant-management-system
-provider: github
-updaterCacheDirName: '@rmsdesktop-updater'

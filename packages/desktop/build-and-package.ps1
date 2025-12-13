@@ -106,7 +106,17 @@ try {
     Write-Host "Build structure verified" -ForegroundColor Green
     Write-Host ""
     
-    # Step 6: Package for Windows
+    # Step 6: Prepare server for packaging
+    Write-Section "Preparing Server for Packaging"
+    
+    Write-Host "Creating production server dependencies..." -ForegroundColor Cyan
+    node scripts/prepare-server.js
+    Test-LastCommand "Server preparation failed"
+    
+    Write-Host "Server preparation complete" -ForegroundColor Green
+    Write-Host ""
+    
+    # Step 7: Package for Windows
     Write-Section "Packaging for Windows"
     
     Write-Host "Creating Windows installer..." -ForegroundColor Cyan
@@ -119,7 +129,7 @@ try {
     Write-Host "Packaging complete" -ForegroundColor Green
     Write-Host ""
     
-    # Step 7: Check output
+    # Step 8: Check output
     Write-Section "Build Complete!"
     
     $releaseDir = Join-Path $desktopDir "release"

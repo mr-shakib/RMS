@@ -28,11 +28,14 @@ export class MenuPage {
     
     // Set cart mode
     if (this.isBuffetMode && this.buffetCategoryId) {
+      console.log('🍽️ SETTING CART TO BUFFET MODE:', { id: this.buffetCategoryId, name: this.buffetCategoryName, price: this.buffetPrice });
       cart.setBuffetMode(true, {
         id: this.buffetCategoryId,
         name: this.buffetCategoryName || '',
         buffetPrice: this.buffetPrice
       } as any);
+    } else {
+      console.log('❌ NOT setting buffet mode:', { isBuffetMode: this.isBuffetMode, buffetCategoryId: this.buffetCategoryId });
     }
     
     this.init();

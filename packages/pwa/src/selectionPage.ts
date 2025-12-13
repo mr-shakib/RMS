@@ -200,6 +200,7 @@ export class SelectionPage {
           sessionStorage.setItem('buffetCategoryId', category.id);
           sessionStorage.setItem('buffetCategoryName', category.name);
           sessionStorage.setItem('buffetPrice', String(category.buffetPrice || 0));
+          console.log('🎫 BUFFET SELECTED:', { id: category.id, name: category.name, price: category.buffetPrice });
           window.dispatchEvent(new CustomEvent('navigate', { detail: 'menu' }));
         }
       });

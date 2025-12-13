@@ -170,12 +170,20 @@ export default function NewMenuItemPage() {
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('🔵 Form submitted!');
+    console.log('📝 Form data:', formData);
 
     if (!validateForm()) {
+      console.log('❌ Form validation failed', errors);
+      toast.error('Please fill in all required fields', 'Validation Error');
       return;
     }
+    
+    console.log('✅ Form validation passed');
 
     try {
+      console.log('🚀 Creating menu item...');
       // Determine buffet category assignments
       const buffetCategoryIds: string[] = [];
       
@@ -187,8 +195,7 @@ export default function NewMenuItemPage() {
         buffetCategoryIds.push(dinnerBuffetCategory.id);
       }
       
-      // Create the menu item with categories assigned
-      await createMenuItem({
+      const menuItemData = {
         name: formData.name.trim(),
         categoryId: formData.categoryId,
         buffetCategoryIds: buffetCategoryIds.length > 0 ? buffetCategoryIds : undefined,
@@ -198,13 +205,21 @@ export default function NewMenuItemPage() {
         available: formData.available,
         itemNumber: formData.itemNumber ? parseInt(formData.itemNumber) : undefined,
         alwaysPriced: formData.alwaysPriced,
-      });
-
+      };
+      
+      console.log('📦 Sending menu item data:', menuItemData);
+      
+      // Create the menu item with categories assigned
+      const result = await createMenuItem(menuItemData);
+      
+      console.log('✅ Menu item created successfully:', result);
       toast.success('Menu item created successfully!', 'Success');
       setTimeout(() => {
+        console.log('↪️  Redirecting to menu page...');
         router.push('/menu');
       }, 1000);
     } catch (error: any) {
+      console.error('❌ Error creating menu item:', error);
       let errorMessage = error.message || 'Failed to create menu item';
       
       // Handle payload too large error

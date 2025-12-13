@@ -4,7 +4,7 @@
   "copyright": "Copyright © 2024 Restaurant Management System",
   "electronVersion": "32.2.7",
   "directories": {
-    "output": "release-new",
+    "output": "release",
     "buildResources": "build"
   },
   "files": [

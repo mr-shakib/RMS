@@ -105,6 +105,16 @@ checkDirectory(path.join(serverDir, 'dist'), 'Server dist directory');
 checkPath(path.join(serverDir, 'dist', 'server', 'src', 'index.js'), 'Server index.js');
 checkDirectory(path.join(serverDir, 'dist', 'server', 'public'), 'Server public directory (PWA)');
 
+// Check Prisma
+console.log('\n📁 Checking Prisma...\n');
+
+checkPath(path.join(serverDir, 'prisma', 'schema.prisma'), 'Prisma schema');
+
+// In workspace setup, Prisma Client is in root node_modules
+const rootNodeModules = path.join(desktopDir, '..', '..', 'node_modules');
+checkDirectory(path.join(rootNodeModules, '.prisma', 'client'), 'Prisma generated client');
+checkDirectory(path.join(rootNodeModules, '@prisma', 'client'), 'Prisma client package');
+
 // Check environment files
 console.log('\n📁 Checking environment configuration...\n');
 

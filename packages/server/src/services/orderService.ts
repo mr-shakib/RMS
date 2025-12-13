@@ -35,6 +35,14 @@ class OrderService {
   async createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
     const { tableId, items, isBuffet = false, buffetCategoryId, buffetQuantity = 1, discount = 0, serviceCharge = 0, tip = 0 } = input;
 
+    console.log('🍽️  ORDER DEBUG:', {
+      tableId,
+      isBuffet,
+      buffetCategoryId,
+      buffetQuantity,
+      itemCount: items.length
+    });
+
     // Validate table exists
     const table = await prisma.table.findUnique({ where: { id: tableId } });
     if (!table) {
@@ -110,6 +118,8 @@ class OrderService {
 
         // Charge buffet price multiplied by quantity (number of people)
         subtotal = (category.buffetPrice || 0) * buffetQuantity;
+        
+        console.log(`🎫 First buffet order - Buffet: ${category.name}, Price: $${category.buffetPrice}, Quantity: ${buffetQuantity}, Subtotal: $${subtotal}`);
 
         for (const item of items) {
           const menuItem = await prisma.menuItem.findUnique({

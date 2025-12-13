@@ -44,10 +44,13 @@ export function useMenu() {
   // Create menu item mutation
   const createMenuItemMutation = useMutation({
     mutationFn: async (data: CreateMenuItemDTO) => {
+      console.log('🔷 useMenu: createMenuItem mutation called with:', data);
       const response = await apiClient.post<{ status: string; data: { menuItem: MenuItem } }>('/menu', data);
+      console.log('🔷 useMenu: API response received:', response);
       return response.data.menuItem;
     },
     onSuccess: (newMenuItem) => {
+      console.log('🔷 useMenu: Mutation success, updating cache with:', newMenuItem);
       queryClient.setQueryData<MenuItem[]>(['menu'], (old) => {
         if (!old) return [newMenuItem];
         const exists = old.some((item) => item.id === newMenuItem.id);
@@ -56,6 +59,9 @@ export function useMenu() {
         }
         return [...old, newMenuItem];
       });
+    },
+    onError: (error) => {
+      console.error('🔷 useMenu: Mutation error:', error);
     },
   });
 

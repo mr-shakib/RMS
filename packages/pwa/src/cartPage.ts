@@ -314,6 +314,9 @@ export class CartPage {
         })),
       };
 
+      console.log('📤 SENDING ORDER:', orderData);
+      console.log('🎫 Buffet Mode:', buffetMode);
+
       let order;
       if (networkStatus.isOnline) {
         try {
