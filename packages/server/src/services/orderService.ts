@@ -88,11 +88,17 @@ class OrderService {
           }
 
           // Only charge for items that are always priced (beverages, desserts)
-          const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+          const isAlwaysPriced = menuItem.alwaysPriced === true;
+          const itemPrice = isAlwaysPriced ? menuItem.price : 0;
           const itemTotal = itemPrice * item.quantity;
           
-          if (menuItem.alwaysPriced) {
+          console.log(`  📦 ${menuItem.name}: alwaysPriced=${menuItem.alwaysPriced} (${typeof menuItem.alwaysPriced}), price=${itemPrice}`);
+          
+          if (isAlwaysPriced) {
             subtotal += itemTotal;
+            console.log(`    ✅ Added €${itemTotal} to subtotal`);
+          } else {
+            console.log(`    ✅ Included in buffet (no charge)`);
           }
 
           orderItemsData.push({
@@ -135,12 +141,18 @@ class OrderService {
             throw new Error(`Menu item ${menuItem.name} is not available`);
           }
 
-          // Check if item should always be priced
-          const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
+          // Check if item should always be priced (defensive: treat null/undefined as false)
+          const isAlwaysPriced = menuItem.alwaysPriced === true;
+          const itemPrice = isAlwaysPriced ? menuItem.price : 0;
           const itemTotal = itemPrice * item.quantity;
           
-          if (menuItem.alwaysPriced) {
+          console.log(`  📦 ${menuItem.name}: alwaysPriced=${menuItem.alwaysPriced} (${typeof menuItem.alwaysPriced}), price=${itemPrice}`);
+          
+          if (isAlwaysPriced) {
             subtotal += itemTotal;
+            console.log(`    ✅ Added €${itemTotal} to subtotal`);
+          } else {
+            console.log(`    ✅ Included in buffet (no charge)`);
           }
 
           orderItemsData.push({

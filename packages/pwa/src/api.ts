@@ -107,13 +107,23 @@ export class ApiClient {
       const menuItems = data.data?.menuItems || [];
       console.log('[API] Extracted menu items count:', menuItems.length);
       
-      // DEBUG: Check category fields in ALL items
+      // DEBUG: Check category fields and alwaysPriced in ALL items
       console.log('[API] CHECKING ALL ITEMS FOR CATEGORY DATA:');
       menuItems.forEach((item: any) => {
+        // Validate and fix alwaysPriced field
+        if (item.alwaysPriced == null) {
+          console.warn(`⚠️  Item "${item.name}" has null/undefined alwaysPriced, defaulting to false`);
+          item.alwaysPriced = false;
+        } else if (typeof item.alwaysPriced !== 'boolean') {
+          console.warn(`⚠️  Item "${item.name}" has non-boolean alwaysPriced: ${item.alwaysPriced} (${typeof item.alwaysPriced}), converting to boolean`);
+          item.alwaysPriced = Boolean(item.alwaysPriced);
+        }
+        
         if (item.buffetCategories && item.buffetCategories.length > 0) {
           console.log(`  ${item.name}:`);
           console.log(`    categoryId:`, item.categoryId);
           console.log(`    category:`, item.category?.name);
+          console.log(`    alwaysPriced:`, item.alwaysPriced);
           console.log(`    buffetCategories:`, item.buffetCategories.map((bc: any) => bc.buffetCategory?.name));
         }
       });

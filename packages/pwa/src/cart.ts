@@ -85,19 +85,24 @@ class Cart {
     Array.from(this.items.values()).forEach(item => {
       // In buffet mode, only add price for alwaysPriced items
       if (this.isBuffet) {
-        const isAlwaysPriced = item.menuItem.alwaysPriced === true;
-        console.log(`[Cart] Item: ${item.menuItem.name}`);
-        console.log(`  - alwaysPriced field: ${item.menuItem.alwaysPriced}`);
+        // Defensive check: ensure alwaysPriced is explicitly true, treat null/undefined/false as false
+        const alwaysPricedValue = item.menuItem.alwaysPriced;
+        const isAlwaysPriced = alwaysPricedValue === true;
+        
+        console.log(`[Cart] Item: ${item.menuItem.name} (ID: ${item.menuItem.id})`);
+        console.log(`  - alwaysPriced RAW value: ${alwaysPricedValue}`);
+        console.log(`  - alwaysPriced type: ${typeof alwaysPricedValue}`);
         console.log(`  - isAlwaysPriced (===true): ${isAlwaysPriced}`);
         console.log(`  - price: €${item.menuItem.price}`);
         console.log(`  - quantity: ${item.quantity}`);
         
+        // Strict check: only add price if explicitly true
         if (isAlwaysPriced) {
           const itemTotal = item.menuItem.price * item.quantity;
           subtotal += itemTotal;
-          console.log(`  - ADDING to subtotal: €${itemTotal}`);
+          console.log(`  - ✅ ADDING to subtotal: €${itemTotal}`);
         } else {
-          console.log(`  - NOT adding to subtotal (included in buffet)`);
+          console.log(`  - ✅ NOT adding to subtotal (included in buffet)`);
         }
       } else {
         // Regular mode: all items add to subtotal
@@ -210,14 +215,27 @@ class Cart {
           });
         } else if (data.items) {
           // New format - need to reconstruct from menu items if provided
-          this.isBuffet = data.isBuffet || false;
-          this.buffetCategory = data.buffetCategory || null;
+          // IMPORTANT: Only restore buffet state if cart is not already in buffet mode
+          // (buffet mode is set by MenuPage based on current selection, don't override it)
+          const currentBuffetMode = this.isBuffet;
+          const currentBuffetCategory = this.buffetCategory;
           
-          console.log('[Cart] Restored buffet state from storage:', { 
-            isBuffet: this.isBuffet, 
-            buffetCategory: this.buffetCategory?.name,
-            buffetPrice: this.buffetCategory?.buffetPrice
-          });
+          if (!currentBuffetMode) {
+            // Only restore if not already in buffet mode
+            this.isBuffet = data.isBuffet || false;
+            this.buffetCategory = data.buffetCategory || null;
+            console.log('[Cart] Restored buffet state from storage:', { 
+              isBuffet: this.isBuffet, 
+              buffetCategory: this.buffetCategory?.name,
+              buffetPrice: this.buffetCategory?.buffetPrice
+            });
+          } else {
+            console.log('[Cart] Keeping current buffet mode (not restoring from storage):', {
+              isBuffet: currentBuffetMode,
+              buffetCategory: currentBuffetCategory?.name,
+              buffetPrice: currentBuffetCategory?.buffetPrice
+            });
+          }
           
           if (menuItems && menuItems.length > 0) {
             // Reconstruct cart items from IDs
