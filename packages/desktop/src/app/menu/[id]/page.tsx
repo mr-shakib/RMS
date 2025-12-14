@@ -38,9 +38,9 @@ export default function EditMenuItemPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Get buffet and regular categories
-  const buffetCategories = categories.filter((cat) => cat.isBuffet);
-  const regularCategories = categories.filter((cat) => !cat.isBuffet);
-  const selectedCategory = categories.find((cat) => cat.id === formData.categoryId);
+  const buffetCategories = Array.isArray(categories) ? categories.filter((cat) => cat.isBuffet) : [];
+  const regularCategories = Array.isArray(categories) ? categories.filter((cat) => !cat.isBuffet) : [];
+  const selectedCategory = Array.isArray(categories) ? categories.find((cat) => cat.id === formData.categoryId) : undefined;
 
   // Get the buffet category based on main category selection
   const dinnerBuffetCategory = buffetCategories.find((cat) => cat.name.toLowerCase().includes('dinner'));

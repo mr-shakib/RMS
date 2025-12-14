@@ -48,11 +48,13 @@ export default function TableOrderPage() {
 
   // Get selected category
   const selectedCategory = useMemo(() => {
+    if (!Array.isArray(categories)) return null;
     return categories.find((cat) => cat.id === selectedCategoryId);
   }, [categories, selectedCategoryId]);
 
   // Filter menu items
   const filteredMenuItems = useMemo(() => {
+    if (!Array.isArray(menuItems)) return [];
     let items = menuItems.filter((item) => item.available);
     
     // Filter by category if selected and not buffet
@@ -271,7 +273,7 @@ export default function TableOrderPage() {
               </button>
               {categoriesLoading ? (
                 <div className="px-4 sm:px-6 py-2 sm:py-3 text-gray-500 dark:text-gray-400 text-sm sm:text-base">Loading categories...</div>
-              ) : (
+              ) : Array.isArray(categories) ? (
                 categories.map((category) => (
                   <button
                     key={category.id}
@@ -290,6 +292,8 @@ export default function TableOrderPage() {
                     )}
                   </button>
                 ))
+              ) : (
+                <div className="px-4 sm:px-6 py-2 sm:py-3 text-gray-500 dark:text-gray-400 text-sm sm:text-base">No categories available</div>
               )}
             </div>
           </div>

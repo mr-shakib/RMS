@@ -46,10 +46,12 @@ export default function MenuPage() {
 
   // Get buffet and regular categories
   const buffetCategories = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
     return categories.filter((cat) => cat.isBuffet);
   }, [categories]);
 
   const regularCategories = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
     return categories.filter((cat) => !cat.isBuffet);
   }, [categories]);
 
