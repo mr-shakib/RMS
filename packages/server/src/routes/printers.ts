@@ -19,11 +19,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
           include: {
             category: true,
           },
-          where: {
-            category: {
-              isNot: null,
-            },
-          },
         },
       },
       orderBy: {
@@ -114,35 +109,13 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
  */
 router.post('/', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, type, address, port, vendorId, productId, serialPath, isActive, categoryIds } = req.body;
+    const { name, type, ipAddress, port, isActive, categoryIds } = req.body;
 
     // Validate required fields
-    if (!name || !type) {
+    if (!name || !ipAddress) {
       return res.status(400).json({
         success: false,
-        error: 'Name and type are required',
-      });
-    }
-
-    // Type-specific validation
-    if (type === 'network' && !address) {
-      return res.status(400).json({
-        success: false,
-        error: 'IP address is required for network printers',
-      });
-    }
-
-    if (type === 'usb' && (!vendorId || !productId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Vendor ID and Product ID are required for USB printers',
-      });
-    }
-
-    if (type === 'serial' && !serialPath) {
-      return res.status(400).json({
-        success: false,
-        error: 'Serial path is required for serial printers',
+        error: 'Name and IP address are required',
       });
     }
 
@@ -157,12 +130,9 @@ router.post('/', requireRole(['ADMIN']), async (req: Request, res: Response, nex
     const printer = await (prisma as any).printer.create({
       data: {
         name,
-        type,
-        address,
-        port: port || '9100',
-        vendorId,
-        productId,
-        serialPath,
+        type: type || 'network',
+        ipAddress,
+        port: port ? parseInt(port) : 9100,
         isActive: isActive !== undefined ? isActive : true,
         sortOrder,
         categoryMappings: categoryIds?.length
@@ -198,7 +168,7 @@ router.post('/', requireRole(['ADMIN']), async (req: Request, res: Response, nex
 router.patch('/:id', requireRole(['ADMIN']), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { name, type, address, port, vendorId, productId, serialPath, isActive, categoryIds } = req.body;
+    const { name, type, ipAddress, port, isActive, categoryIds } = req.body;
 
     // Check if printer exists
     const existingPrinter = await (prisma as any).printer?.findUnique({
@@ -216,11 +186,8 @@ router.patch('/:id', requireRole(['ADMIN']), async (req: Request, res: Response,
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (type !== undefined) updateData.type = type;
-    if (address !== undefined) updateData.address = address;
-    if (port !== undefined) updateData.port = port;
-    if (vendorId !== undefined) updateData.vendorId = vendorId;
-    if (productId !== undefined) updateData.productId = productId;
-    if (serialPath !== undefined) updateData.serialPath = serialPath;
+    if (ipAddress !== undefined) updateData.ipAddress = ipAddress;
+    if (port !== undefined) updateData.port = parseInt(port);
     if (isActive !== undefined) updateData.isActive = isActive;
 
     // If categoryIds provided, update mappings

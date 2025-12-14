@@ -86,11 +86,11 @@ class MultiPrinterService {
 
       switch (printerConfig.type) {
         case 'network': {
-          if (!printerConfig.address) {
-            throw new PrinterError('Network printer requires address');
+          if (!printerConfig.ipAddress) {
+            throw new PrinterError('Network printer requires ipAddress');
           }
-          const [ip, portFromAddr] = String(printerConfig.address).split(':');
-          const port = parseInt(printerConfig.port || portFromAddr || '9100', 10);
+          const ip = String(printerConfig.ipAddress);
+          const port = parseInt(printerConfig.port || '9100', 10);
 
           printerInstanceConfig = {
             type: PrinterTypes.EPSON,

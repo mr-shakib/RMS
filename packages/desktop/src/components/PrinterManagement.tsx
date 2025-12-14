@@ -29,8 +29,8 @@ interface Printer {
   id: string;
   name: string;
   type: 'network' | 'usb' | 'serial';
-  address?: string;
-  port?: string;
+  ipAddress?: string;
+  port?: number;
   vendorId?: string;
   productId?: string;
   serialPath?: string;
@@ -195,7 +195,7 @@ export default function PrinterManagement({ onSuccess, onError }: PrinterManagem
   const getPrinterConnectionInfo = (printer: Printer) => {
     switch (printer.type) {
       case 'network':
-        return `${printer.address}:${printer.port || '9100'}`;
+        return `${printer.ipAddress}:${printer.port || 9100}`;
       case 'usb':
         return `VID: ${printer.vendorId}, PID: ${printer.productId}`;
       case 'serial':

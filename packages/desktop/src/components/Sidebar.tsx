@@ -197,7 +197,7 @@ export default function Sidebar() {
           </span>
         </button>
 
-        {/* Exit App - Enhanced Styling */}
+        {/* Exit App Button */}
         <button
           onClick={handleExitClick}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 mt-2 rounded-lg font-semibold text-sm text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
