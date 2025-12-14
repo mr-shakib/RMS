@@ -147,19 +147,41 @@ export class SelectionPage {
       const price = (category.buffetPrice || 0).toFixed(2).replace('.', ',');
       return `
         <div class="buffet-category-card" data-category-id="${category.id}">
-          <div class="buffet-category-info">
-            <h3 class="buffet-category-name">${displayName}</h3>
-            <p class="buffet-category-price">€${price} <span style="font-size: 0.9em; opacity: 0.8;">a persona</span></p>
-          </div>
-          <div class="buffet-quantity-selector">
-            <label for="quantity-${category.id}" style="display: block; margin-bottom: 8px; font-size: 0.9em;">Numero di persone:</label>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <button class="quantity-btn" data-action="decrease" data-category-id="${category.id}" type="button">-</button>
-              <input type="number" id="quantity-${category.id}" class="quantity-input" value="1" min="1" max="20" />
-              <button class="quantity-btn" data-action="increase" data-category-id="${category.id}" type="button">+</button>
+          <div class="buffet-card-header">
+            <div class="buffet-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M7 2v20M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
+              </svg>
+            </div>
+            <div class="buffet-category-info">
+              <h3 class="buffet-category-name">${displayName}</h3>
+              <p class="buffet-category-price">€${price} <span class="per-person">/ persona</span></p>
             </div>
           </div>
-          <button class="buffet-select-btn" data-category-id="${category.id}">Seleziona</button>
+          
+          <div class="buffet-quantity-section">
+            <label class="quantity-label">Numero di persone</label>
+            <div class="buffet-quantity-selector">
+              <button class="buffet-quantity-btn" data-action="decrease" data-category-id="${category.id}" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M5 12h14"/>
+                </svg>
+              </button>
+              <input type="number" id="quantity-${category.id}" class="buffet-quantity-input" value="1" min="1" max="20" />
+              <button class="buffet-quantity-btn" data-action="increase" data-category-id="${category.id}" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <button class="buffet-select-btn" data-category-id="${category.id}">
+            <span>Seleziona Buffet</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
         </div>
       `;
     }).join('');
@@ -197,7 +219,7 @@ export class SelectionPage {
 
   private setupBuffetCategoryListeners(): void {
     // Handle quantity buttons
-    const quantityBtns = this.container.querySelectorAll('.quantity-btn');
+    const quantityBtns = this.container.querySelectorAll('.buffet-quantity-btn');
     quantityBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -216,7 +238,7 @@ export class SelectionPage {
     });
 
     // Prevent card click from propagating to input
-    const quantityInputs = this.container.querySelectorAll('.quantity-input');
+    const quantityInputs = this.container.querySelectorAll('.buffet-quantity-input');
     quantityInputs.forEach(input => {
       input.addEventListener('click', (e) => e.stopPropagation());
       input.addEventListener('change', (e) => {
