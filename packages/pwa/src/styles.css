@@ -664,6 +664,18 @@ body {
   box-shadow: 0 2px 4px rgba(155, 89, 182, 0.2);
 }
 
+.buffet-tag.incluso-tag {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+}
+
+.buffet-tag.price-tag {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.2);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .menu-item-description {
   font-size: 0.875rem;
   color: var(--text-secondary);

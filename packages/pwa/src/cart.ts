@@ -73,25 +73,39 @@ class Cart {
   getSubtotal(): number {
     let subtotal = 0;
     
-    // If buffet mode, include buffet price once
+    // If buffet mode, include buffet price multiplied by number of people
     if (this.isBuffet && this.buffetCategory) {
-      subtotal += this.buffetCategory.buffetPrice || 0;
+      const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
+      const buffetTotal = (this.buffetCategory.buffetPrice || 0) * buffetQuantity;
+      subtotal += buffetTotal;
+      console.log(`[Cart] Buffet subtotal: €${buffetTotal} (${buffetQuantity} × €${this.buffetCategory.buffetPrice})`);
     }
     
     // Add prices for items
     Array.from(this.items.values()).forEach(item => {
       // In buffet mode, only add price for alwaysPriced items
       if (this.isBuffet) {
-        if (item.menuItem.alwaysPriced === true) {
-          subtotal += item.menuItem.price * item.quantity;
+        const isAlwaysPriced = item.menuItem.alwaysPriced === true;
+        console.log(`[Cart] Item: ${item.menuItem.name}`);
+        console.log(`  - alwaysPriced field: ${item.menuItem.alwaysPriced}`);
+        console.log(`  - isAlwaysPriced (===true): ${isAlwaysPriced}`);
+        console.log(`  - price: €${item.menuItem.price}`);
+        console.log(`  - quantity: ${item.quantity}`);
+        
+        if (isAlwaysPriced) {
+          const itemTotal = item.menuItem.price * item.quantity;
+          subtotal += itemTotal;
+          console.log(`  - ADDING to subtotal: €${itemTotal}`);
+        } else {
+          console.log(`  - NOT adding to subtotal (included in buffet)`);
         }
-        // Items without alwaysPriced or with false don't add to subtotal
       } else {
         // Regular mode: all items add to subtotal
         subtotal += item.menuItem.price * item.quantity;
       }
     });
     
+    console.log(`[Cart] Final subtotal: €${subtotal}`);
     return subtotal;
   }
 
@@ -107,6 +121,8 @@ class Cart {
     const wasBuffet = this.isBuffet;
     const wasSameCategory = this.buffetCategory?.id === category?.id;
     
+    console.log('[Cart] setBuffetMode called:', { isBuffet, categoryName: category?.name, categoryPrice: category?.buffetPrice });
+    
     this.isBuffet = isBuffet;
     this.buffetCategory = category;
     
@@ -116,6 +132,8 @@ class Cart {
       console.log('[Cart] Switching to buffet mode or different category, clearing cart');
       this.items.clear();
     }
+    
+    console.log('[Cart] Buffet mode is now:', this.isBuffet);
     
     this.saveToStorage();
     this.notifyListeners();
@@ -175,12 +193,16 @@ class Cart {
   loadFromStorage(menuItems?: MenuItem[]): void {
     try {
       const stored = localStorage.getItem('rms-cart');
+      console.log('[Cart] loadFromStorage called', { hasMenuItems: !!menuItems, menuItemCount: menuItems?.length });
+      
       if (stored) {
         const data = JSON.parse(stored);
+        console.log('[Cart] Loaded data from storage:', data);
         
         // Handle old format (array with full objects) or new format (IDs only)
         if (Array.isArray(data)) {
           // Old format - try to use it if it has full MenuItem objects
+          console.log('[Cart] Old format detected (array)');
           data.forEach((item: CartItem) => {
             if (item.menuItem && item.menuItem.id) {
               this.items.set(item.menuItem.id, item);
@@ -191,11 +213,19 @@ class Cart {
           this.isBuffet = data.isBuffet || false;
           this.buffetCategory = data.buffetCategory || null;
           
+          console.log('[Cart] Restored buffet state from storage:', { 
+            isBuffet: this.isBuffet, 
+            buffetCategory: this.buffetCategory?.name,
+            buffetPrice: this.buffetCategory?.buffetPrice
+          });
+          
           if (menuItems && menuItems.length > 0) {
             // Reconstruct cart items from IDs
+            console.log('[Cart] Reconstructing', data.items.length, 'items from menu');
             data.items.forEach((savedItem: any) => {
               const menuItem = menuItems.find(mi => mi.id === savedItem.menuItemId);
               if (menuItem) {
+                console.log(`[Cart] Restored item: ${menuItem.name}, alwaysPriced: ${menuItem.alwaysPriced}`);
                 this.items.set(menuItem.id, {
                   menuItem,
                   quantity: savedItem.quantity,
@@ -208,6 +238,8 @@ class Cart {
         }
         
         this.notifyListeners();
+      } else {
+        console.log('[Cart] No stored cart data found');
       }
     } catch (error) {
       console.error('[Cart] Failed to load from storage:', error);

@@ -118,11 +118,16 @@ export class CartPage {
 
     let buffetBanner = '';
     if (buffetMode.isBuffet && buffetMode.category) {
+      const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
+      const buffetTotal = (buffetMode.category.buffetPrice || 0) * buffetQuantity;
       buffetBanner = `
         <div class="buffet-banner" style="margin-bottom: 1rem;">
           <div class="buffet-banner-title">🎉 ${buffetMode.category.name}</div>
           <div class="buffet-banner-subtitle">
-            Tutto quello che puoi mangiare per €${(buffetMode.category.buffetPrice || 0).toFixed(2).replace('.', ',')}
+            ${buffetQuantity} ${buffetQuantity === 1 ? 'persona' : 'persone'} - €${buffetTotal.toFixed(2).replace('.', ',')} totale
+          </div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 4px;">
+            Tutto quello che puoi mangiare - €${(buffetMode.category.buffetPrice || 0).toFixed(2).replace('.', ',')} a persona
           </div>
         </div>
       `;
@@ -251,6 +256,8 @@ export class CartPage {
     const summaryContainer = document.querySelector('.cart-summary');
     if (summaryContainer && buffetMode.isBuffet && buffetMode.category) {
       const buffetPrice = buffetMode.category.buffetPrice || 0;
+      const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
+      const buffetTotal = buffetPrice * buffetQuantity;
       const additionalItems = this.cartItems.filter(item => item.menuItem.alwaysPriced === true);
       const additionalTotal = additionalItems.reduce((sum, item) => 
         sum + (item.menuItem.price * item.quantity), 0
@@ -267,8 +274,8 @@ export class CartPage {
       if (additionalTotal > 0) {
         breakdownEl.innerHTML = `
           <div class="breakdown-item">
-            <span>Buffet ${buffetMode.category.name}</span>
-            <span>€${buffetPrice.toFixed(2).replace('.', ',')}</span>
+            <span>Buffet ${buffetMode.category.name} (${buffetQuantity} ${buffetQuantity === 1 ? 'persona' : 'persone'})</span>
+            <span>€${buffetTotal.toFixed(2).replace('.', ',')}</span>
           </div>
           <div class="breakdown-item">
             <span>Articoli aggiuntivi</span>
@@ -302,8 +309,9 @@ export class CartPage {
 
     try {
       const buffetMode = cart.getBuffetMode();
+      const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
       
-      const orderData = {
+      const orderData: any = {
         tableId: parseInt(tableId),
         isBuffet: buffetMode.isBuffet,
         buffetCategoryId: buffetMode.category?.id,
@@ -314,8 +322,14 @@ export class CartPage {
         })),
       };
 
+      // Add buffet quantity if in buffet mode
+      if (buffetMode.isBuffet && buffetMode.category) {
+        orderData.buffetQuantity = buffetQuantity;
+      }
+
       console.log('📤 SENDING ORDER:', orderData);
       console.log('🎫 Buffet Mode:', buffetMode);
+      console.log('👥 Buffet Quantity:', buffetQuantity);
 
       let order;
       if (networkStatus.isOnline) {

@@ -246,21 +246,6 @@ export class MenuPage {
     }
   }
 
-  private getItemBuffetCategories(item: MenuItem): Category[] {
-    const buffetCategories: Category[] = [];
-    
-    // Get buffet categories from the junction table
-    if ((item as any).buffetCategories && Array.isArray((item as any).buffetCategories)) {
-      (item as any).buffetCategories.forEach((bc: any) => {
-        if (bc.buffetCategory && bc.buffetCategory.isBuffet) {
-          buffetCategories.push(bc.buffetCategory);
-        }
-      });
-    }
-    
-    return buffetCategories;
-  }
-
   private filterItems(): void {
     console.log('[MenuPage] ========== FILTER ITEMS START ==========');
     console.log('[MenuPage] isBuffetMode:', this.isBuffetMode);
@@ -514,11 +499,8 @@ export class MenuPage {
     const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
     const quantity = cartItem?.quantity || 0;
     
-    // Get buffet categories for this item (when showing All in buffet mode)
-    const buffetCategories = this.isBuffetMode && this.selectedCategory === 'Tutti' 
-      ? this.getItemBuffetCategories(item)
-      : [];
-    const showBuffetTags = buffetCategories.length > 0;
+    // In buffet mode, show if item is included or has a price
+    const showPriceTag = this.isBuffetMode;
     
     return `
       <div class="menu-item-card" data-item-id="${item.id}">
@@ -531,18 +513,18 @@ export class MenuPage {
         <div class="menu-item-content">
           <div class="menu-item-header">
             <h3 class="menu-item-name">${item.name}</h3>
-            ${showBuffetTags ? `
+            ${showPriceTag ? `
               <div class="buffet-tags">
-                ${buffetCategories.map(cat => {
-                  const displayName = this.getDisplayCategoryName(cat.name);
-                  return `<span class="buffet-tag">${displayName}</span>`;
-                }).join('')}
+                ${showIncluso 
+                  ? `<span class="buffet-tag incluso-tag">Incluso</span>`
+                  : `<span class="buffet-tag price-tag">€${priceValue}</span>`
+                }
               </div>
             ` : ''}
           </div>
           ${item.description ? `<p class="menu-item-description">${item.description}</p>` : ''}
           <div class="menu-item-footer">
-            ${!showIncluso ? `<div class="menu-item-price">${price}</div>` : ''}
+            ${(!this.isBuffetMode && !showIncluso) ? `<div class="menu-item-price">${price}</div>` : ''}
             ${quantity > 0 ? `
               <div class="menu-item-actions">
                 <div class="quantity-controls">

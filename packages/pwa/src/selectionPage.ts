@@ -149,8 +149,17 @@ export class SelectionPage {
         <div class="buffet-category-card" data-category-id="${category.id}">
           <div class="buffet-category-info">
             <h3 class="buffet-category-name">${displayName}</h3>
+            <p class="buffet-category-price">€${price} <span style="font-size: 0.9em; opacity: 0.8;">a persona</span></p>
           </div>
-          <div class="buffet-category-price">€${price}</div>
+          <div class="buffet-quantity-selector">
+            <label for="quantity-${category.id}" style="display: block; margin-bottom: 8px; font-size: 0.9em;">Numero di persone:</label>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button class="quantity-btn" data-action="decrease" data-category-id="${category.id}" type="button">-</button>
+              <input type="number" id="quantity-${category.id}" class="quantity-input" value="1" min="1" max="20" />
+              <button class="quantity-btn" data-action="increase" data-category-id="${category.id}" type="button">+</button>
+            </div>
+          </div>
+          <button class="buffet-select-btn" data-category-id="${category.id}">Seleziona</button>
         </div>
       `;
     }).join('');
@@ -187,12 +196,50 @@ export class SelectionPage {
   }
 
   private setupBuffetCategoryListeners(): void {
-    // Buffet category selection
-    const categoryCards = this.container.querySelectorAll('.buffet-category-card');
-    categoryCards.forEach(card => {
-      card.addEventListener('click', () => {
-        const categoryId = card.getAttribute('data-category-id');
+    // Handle quantity buttons
+    const quantityBtns = this.container.querySelectorAll('.quantity-btn');
+    quantityBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        const categoryId = btn.getAttribute('data-category-id');
+        const input = this.container.querySelector(`#quantity-${categoryId}`) as HTMLInputElement;
+        if (input) {
+          let value = parseInt(input.value);
+          if (action === 'increase' && value < 20) {
+            input.value = String(value + 1);
+          } else if (action === 'decrease' && value > 1) {
+            input.value = String(value - 1);
+          }
+        }
+      });
+    });
+
+    // Prevent card click from propagating to input
+    const quantityInputs = this.container.querySelectorAll('.quantity-input');
+    quantityInputs.forEach(input => {
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('change', (e) => {
+        const inputEl = e.target as HTMLInputElement;
+        let value = parseInt(inputEl.value);
+        if (isNaN(value) || value < 1) {
+          inputEl.value = '1';
+        } else if (value > 20) {
+          inputEl.value = '20';
+        }
+      });
+    });
+
+    // Buffet category selection via button
+    const selectBtns = this.container.querySelectorAll('.buffet-select-btn');
+    selectBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const categoryId = btn.getAttribute('data-category-id');
         const category = this.buffetCategories.find(c => c.id === categoryId);
+        const quantityInput = this.container.querySelector(`#quantity-${categoryId}`) as HTMLInputElement;
+        const quantity = quantityInput ? parseInt(quantityInput.value) : 1;
+        
         if (category) {
           // Reset body overflow before navigating
           document.body.style.overflow = '';
@@ -200,7 +247,8 @@ export class SelectionPage {
           sessionStorage.setItem('buffetCategoryId', category.id);
           sessionStorage.setItem('buffetCategoryName', category.name);
           sessionStorage.setItem('buffetPrice', String(category.buffetPrice || 0));
-          console.log('🎫 BUFFET SELECTED:', { id: category.id, name: category.name, price: category.buffetPrice });
+          sessionStorage.setItem('buffetQuantity', String(quantity));
+          console.log('🎫 BUFFET SELECTED:', { id: category.id, name: category.name, price: category.buffetPrice, quantity });
           window.dispatchEvent(new CustomEvent('navigate', { detail: 'menu' }));
         }
       });

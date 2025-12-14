@@ -1,5 +1,5 @@
-export const APP_VERSION = '1.0.1'; // Increment this on every deployment
-export const CACHE_VERSION = 'v1.0.1';
+export const APP_VERSION = '1.2.0'; // FORCE UPDATE - Incluso tags implementation
+export const CACHE_VERSION = 'v1.2.0';
 
 // Force reload if version mismatch
 export function checkVersion() {

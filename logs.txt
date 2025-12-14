@@ -1,0 +1,398 @@
+[PWA] Navigating to: menu Current page: selection
+index-CiiPyJ3V.js:464 [PWA] Cleaning up previous page instance
+index-CiiPyJ3V.js:464 [PWA] Route change detected, hash: menu
+index-CiiPyJ3V.js:464 [PWA] Navigating to: menu Current page: menu
+index-CiiPyJ3V.js:464 [PWA] Already on this page, skipping navigation
+index-CiiPyJ3V.js:464 [PWA] Clearing container
+index-CiiPyJ3V.js:464 [PWA] Creating new page instance: menu
+index-CiiPyJ3V.js:69 [Cart] Switching to buffet mode or different category, clearing cart
+index-CiiPyJ3V.js:74 [MenuPage] Starting to load menu...
+index-CiiPyJ3V.js:74 [MenuPage] isBuffetMode: true
+index-CiiPyJ3V.js:74 [MenuPage] buffetCategoryId: 53f7063b-dce4-4cf9-b71d-b08a829b1e01
+index-CiiPyJ3V.js:74 [MenuPage] buffetCategoryName: lunch
+index-CiiPyJ3V.js:74 [MenuPage] Calling apiClient.getMenu()...
+index-CiiPyJ3V.js:1 [API] Fetching menu from: http://192.168.0.102:5000/api/menu
+index-CiiPyJ3V.js:69 [MenuPage] Loading table info for tableId: null
+index-CiiPyJ3V.js:69 [MenuPage] No tableId found in URL
+index-CiiPyJ3V.js:464 [PWA] Page instance created
+index-CiiPyJ3V.js:69 [MenuPage] Enabled scrolling on menu-content
+index-CiiPyJ3V.js:1 [API] Menu response status: 200 OK
+index-CiiPyJ3V.js:1 [API] Menu data: {status: 'success', data: {…}}
+index-CiiPyJ3V.js:1 [API] Extracted menu items count: 39
+index-CiiPyJ3V.js:1 [API] CHECKING ALL ITEMS FOR CATEGORY DATA:
+index-CiiPyJ3V.js:1   Burger:
+index-CiiPyJ3V.js:1     categoryId: 836b0a6f-d1bc-46b9-8b51-0c10289fc019
+index-CiiPyJ3V.js:1     category: Just Drinks
+index-CiiPyJ3V.js:1     buffetCategories: ['lunch']
+index-CiiPyJ3V.js:1   Burgiiiiir:
+index-CiiPyJ3V.js:1     categoryId: b598944b-0a1b-4aa5-91b6-3a8a7ebc8977
+index-CiiPyJ3V.js:1     category: bb
+index-CiiPyJ3V.js:1     buffetCategories: ['Dinner']
+index-CiiPyJ3V.js:1   Burgir:
+index-CiiPyJ3V.js:1     categoryId: 836b0a6f-d1bc-46b9-8b51-0c10289fc019
+index-CiiPyJ3V.js:1     category: Just Drinks
+index-CiiPyJ3V.js:1     buffetCategories: ['Dinner']
+index-CiiPyJ3V.js:1   bubu:
+index-CiiPyJ3V.js:1     categoryId: b7e18874-73bd-4426-b217-d32dde24874b
+index-CiiPyJ3V.js:1     category: Main Course
+index-CiiPyJ3V.js:1     buffetCategories: ['lunch']
+index-CiiPyJ3V.js:1   piu piu:
+index-CiiPyJ3V.js:1     categoryId: b7e18874-73bd-4426-b217-d32dde24874b
+index-CiiPyJ3V.js:1     category: Main Course
+index-CiiPyJ3V.js:1     buffetCategories: (2) ['Dinner', 'lunch']
+index-CiiPyJ3V.js:1   bagafwafawfwafwaf:
+index-CiiPyJ3V.js:1     categoryId: 1a219da8-6cd4-4574-8a2d-a593bb83f312
+index-CiiPyJ3V.js:1     category: Sides
+index-CiiPyJ3V.js:1     buffetCategories: ['lunch']
+index-CiiPyJ3V.js:1   Caesar Salad:
+index-CiiPyJ3V.js:1     categoryId: 9893bbef-5033-4296-85be-9416098cdfec
+index-CiiPyJ3V.js:1     category: Appetizers
+index-CiiPyJ3V.js:1     buffetCategories: ['Dinner']
+index-CiiPyJ3V.js:74 [MenuPage] Menu items loaded: 39
+index-CiiPyJ3V.js:74 [MenuPage] Items with buffet categories:
+index-CiiPyJ3V.js:74   Burger: buffetCategoryIds = ['53f7063b-dce4-4cf9-b71d-b08a829b1e01']
+index-CiiPyJ3V.js:74   Burgiiiiir: buffetCategoryIds = ['52134341-247f-49d1-8913-1628e7040b3c']
+index-CiiPyJ3V.js:74   Burgir: buffetCategoryIds = ['52134341-247f-49d1-8913-1628e7040b3c']
+index-CiiPyJ3V.js:74   bubu: buffetCategoryIds = ['53f7063b-dce4-4cf9-b71d-b08a829b1e01']
+index-CiiPyJ3V.js:74   piu piu: buffetCategoryIds = (2) ['52134341-247f-49d1-8913-1628e7040b3c', '53f7063b-dce4-4cf9-b71d-b08a829b1e01']
+index-CiiPyJ3V.js:74   bagafwafawfwafwaf: buffetCategoryIds = ['53f7063b-dce4-4cf9-b71d-b08a829b1e01']
+index-CiiPyJ3V.js:74   Caesar Salad: buffetCategoryIds = ['52134341-247f-49d1-8913-1628e7040b3c']
+index-CiiPyJ3V.js:74 [MenuPage] Extracting categories...
+index-CiiPyJ3V.js:74 [MenuPage] Categories extracted: 9
+index-CiiPyJ3V.js:74 [MenuPage] Filtering items...
+index-CiiPyJ3V.js:74 [MenuPage] ========== FILTER ITEMS START ==========
+index-CiiPyJ3V.js:74 [MenuPage] isBuffetMode: true
+index-CiiPyJ3V.js:74 [MenuPage] buffetCategoryId: 53f7063b-dce4-4cf9-b71d-b08a829b1e01
+index-CiiPyJ3V.js:74 [MenuPage] buffetCategoryId type: string
+index-CiiPyJ3V.js:74 [MenuPage] Total menu items: 39
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Burger
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "9031905d-1f6b-4ab5-992a-eb51b31c78a1",
+    "menuItemId": "6f83e128-8916-43f0-a50b-7736fded99fe",
+    "buffetCategoryId": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+    "createdAt": "2025-12-13T17:00:21.194Z",
+    "buffetCategory": {
+      "id": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+      "name": "lunch",
+      "isBuffet": true,
+      "buffetPrice": 123,
+      "sortOrder": 0,
+      "createdAt": "2025-12-09T21:39:46.813Z",
+      "updatedAt": "2025-12-09T21:39:46.813Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = true
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Burgiiiiir
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "0bea13ac-c8e3-4a17-94c4-4668101b7f75",
+    "menuItemId": "589478af-fd4e-47bb-a639-d097104b7b6b",
+    "buffetCategoryId": "52134341-247f-49d1-8913-1628e7040b3c",
+    "createdAt": "2025-12-13T06:42:04.333Z",
+    "buffetCategory": {
+      "id": "52134341-247f-49d1-8913-1628e7040b3c",
+      "name": "Dinner",
+      "isBuffet": true,
+      "buffetPrice": 120,
+      "sortOrder": 7,
+      "createdAt": "2025-11-18T21:02:12.209Z",
+      "updatedAt": "2025-11-18T21:02:12.209Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (52134341-247f-49d1-8913-1628e7040b3c) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Burgir
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "2a3257a9-9ea8-4e7b-9126-634184055c49",
+    "menuItemId": "4d7b98d3-5883-441b-9ecf-d846bd89cc7f",
+    "buffetCategoryId": "52134341-247f-49d1-8913-1628e7040b3c",
+    "createdAt": "2025-12-13T08:49:59.255Z",
+    "buffetCategory": {
+      "id": "52134341-247f-49d1-8913-1628e7040b3c",
+      "name": "Dinner",
+      "isBuffet": true,
+      "buffetPrice": 120,
+      "sortOrder": 7,
+      "createdAt": "2025-11-18T21:02:12.209Z",
+      "updatedAt": "2025-11-18T21:02:12.209Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (52134341-247f-49d1-8913-1628e7040b3c) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Burgir
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Burgty
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Drink
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Pussy
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Puzzi
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Rosh Malai
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Testb Item
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: U Pozzi
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: cohee
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: cohee
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Fish and Chips
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Last Pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Margherita Pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Piuy Piuy
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Ribeye Steak
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Vegetable Stir Fry
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: bubu
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "f4b33991-8a32-413f-aca0-b144929f7fc2",
+    "menuItemId": "09afc02b-902c-44ee-94f9-a78f47ec7e87",
+    "buffetCategoryId": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+    "createdAt": "2025-12-13T14:08:17.854Z",
+    "buffetCategory": {
+      "id": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+      "name": "lunch",
+      "isBuffet": true,
+      "buffetPrice": 123,
+      "sortOrder": 0,
+      "createdAt": "2025-12-09T21:39:46.813Z",
+      "updatedAt": "2025-12-09T21:39:46.813Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = true
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: piop[uio
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: pipipi
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: piu piu
+index-CiiPyJ3V.js:74   - buffetCategories array length: 2
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "746f9fbf-0c52-41d9-ba5c-0aa3bf792b22",
+    "menuItemId": "665087ad-d48c-46bb-bdf6-57dcbba1c79c",
+    "buffetCategoryId": "52134341-247f-49d1-8913-1628e7040b3c",
+    "createdAt": "2025-12-13T06:41:03.898Z",
+    "buffetCategory": {
+      "id": "52134341-247f-49d1-8913-1628e7040b3c",
+      "name": "Dinner",
+      "isBuffet": true,
+      "buffetPrice": 120,
+      "sortOrder": 7,
+      "createdAt": "2025-11-18T21:02:12.209Z",
+      "updatedAt": "2025-11-18T21:02:12.209Z"
+    }
+  },
+  {
+    "id": "dbd28d21-df2b-4e4b-98ed-8e5437aab52b",
+    "menuItemId": "665087ad-d48c-46bb-bdf6-57dcbba1c79c",
+    "buffetCategoryId": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+    "createdAt": "2025-12-13T06:41:03.898Z",
+    "buffetCategory": {
+      "id": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+      "name": "lunch",
+      "isBuffet": true,
+      "buffetPrice": 123,
+      "sortOrder": 0,
+      "createdAt": "2025-12-09T21:39:46.813Z",
+      "updatedAt": "2025-12-09T21:39:46.813Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (52134341-247f-49d1-8913-1628e7040b3c) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = true
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: testttttttttttttt
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Cheesecake
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Chocolate Cake
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Ice Cream Sundae
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Tiramisu
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: French Fries test
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Onion Rings
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: bagafwafawfwafwaf
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "9964b3d2-9eda-4a9a-b91f-51e6ce5f1eed",
+    "menuItemId": "69e2ba3e-7842-4ee1-8d60-7b6f99c428f9",
+    "buffetCategoryId": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+    "createdAt": "2025-12-13T20:10:28.707Z",
+    "buffetCategory": {
+      "id": "53f7063b-dce4-4cf9-b71d-b08a829b1e01",
+      "name": "lunch",
+      "isBuffet": true,
+      "buffetPrice": 123,
+      "sortOrder": 0,
+      "createdAt": "2025-12-09T21:39:46.813Z",
+      "updatedAt": "2025-12-09T21:39:46.813Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = true
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Pizza
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Bruschetta
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Caesar Salad
+index-CiiPyJ3V.js:74   - buffetCategories array length: 1
+index-CiiPyJ3V.js:74   - buffetCategories full data: [
+  {
+    "id": "970b1194-75cc-40b5-9659-71a72dc154fc",
+    "menuItemId": "caesar-salad",
+    "buffetCategoryId": "52134341-247f-49d1-8913-1628e7040b3c",
+    "createdAt": "2025-12-13T06:27:51.665Z",
+    "buffetCategory": {
+      "id": "52134341-247f-49d1-8913-1628e7040b3c",
+      "name": "Dinner",
+      "isBuffet": true,
+      "buffetPrice": 120,
+      "sortOrder": 7,
+      "createdAt": "2025-11-18T21:02:12.209Z",
+      "updatedAt": "2025-11-18T21:02:12.209Z"
+    }
+  }
+]
+index-CiiPyJ3V.js:74     - Comparing bc.buffetCategoryId (52134341-247f-49d1-8913-1628e7040b3c) === this.buffetCategoryId (53f7063b-dce4-4cf9-b71d-b08a829b1e01)
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Chicken Wings
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Checking item: Mozzarella Sticks
+index-CiiPyJ3V.js:74   - buffetCategories array length: 0
+index-CiiPyJ3V.js:74   - buffetCategories full data: []
+index-CiiPyJ3V.js:74   - RESULT: isInThisBuffet = false
+index-CiiPyJ3V.js:74 [MenuPage] Filtered items: 4
+index-CiiPyJ3V.js:74 [MenuPage] Rendering menu...
+index-CiiPyJ3V.js:150 [MenuPage] Item: Burger
+index-CiiPyJ3V.js:150   alwaysPriced: false
+index-CiiPyJ3V.js:150   typeof alwaysPriced: boolean
+index-CiiPyJ3V.js:150   !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isBuffetMode && !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isAlwaysPriced: false - Will show: Incluso
+index-CiiPyJ3V.js:150 [MenuPage] Item: bubu
+index-CiiPyJ3V.js:150   alwaysPriced: false
+index-CiiPyJ3V.js:150   typeof alwaysPriced: boolean
+index-CiiPyJ3V.js:150   !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isBuffetMode && !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isAlwaysPriced: false - Will show: Incluso
+index-CiiPyJ3V.js:150 [MenuPage] Item: piu piu
+index-CiiPyJ3V.js:150   alwaysPriced: false
+index-CiiPyJ3V.js:150   typeof alwaysPriced: boolean
+index-CiiPyJ3V.js:150   !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isBuffetMode && !item.alwaysPriced: true
+index-CiiPyJ3V.js:150   isAlwaysPriced: false - Will show: Incluso
+index-CiiPyJ3V.js:150 [MenuPage] Item: bagafwafawfwafwaf
+index-CiiPyJ3V.js:150   alwaysPriced: true
+index-CiiPyJ3V.js:150   typeof alwaysPriced: boolean
+index-CiiPyJ3V.js:150   !item.alwaysPriced: false
+index-CiiPyJ3V.js:150   isBuffetMode && !item.alwaysPriced: false
+index-CiiPyJ3V.js:150   isAlwaysPriced: true - Will show: €234,00
+index-CiiPyJ3V.js:74 [MenuPage] Menu rendered successfully
+index-CiiPyJ3V.js:464 [PWA] Navigating to: cart Current page: menu
+index-CiiPyJ3V.js:464 [PWA] Cleaning up previous page instance
+index-CiiPyJ3V.js:464 [PWA] Route change detected, hash: cart
+index-CiiPyJ3V.js:464 [PWA] Navigating to: cart Current page: cart
+index-CiiPyJ3V.js:464 [PWA] Already on this page, skipping navigation
+index-CiiPyJ3V.js:464 [PWA] Clearing container
+index-CiiPyJ3V.js:464 [PWA] Creating new page instance: cart
+index-CiiPyJ3V.js:293 [CartPage] Item: bubu
+index-CiiPyJ3V.js:293   alwaysPriced: false
+index-CiiPyJ3V.js:293   !item.menuItem.alwaysPriced: true
+index-CiiPyJ3V.js:293   Will show Incluso: true
+index-CiiPyJ3V.js:464 [PWA] Page instance created
+index-CiiPyJ3V.js:310 [Violation] 'click' handler took 2877ms
