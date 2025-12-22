@@ -45,7 +45,7 @@ export default function TablesPage() {
   // Filter and sort tables by status and number
   const filteredTables = useMemo(() => {
     let filtered = statusFilter === 'ALL' ? tables : tables.filter((table) => table.status === statusFilter);
-    
+
     // Sort by table number (extracted from name)
     return filtered.sort((a, b) => {
       const numA = getTableNumber(a.name);
@@ -63,12 +63,8 @@ export default function TablesPage() {
 
     try {
       setError(null);
-      // Auto-prefix with "Table " if not already present
-      const tableName = newTableName.trim().toLowerCase().startsWith('table ')
-        ? newTableName.trim()
-        : `Table ${newTableName.trim()}`;
-      
-      await createTable({ name: tableName });
+      // Send the numeric value directly (backend will validate and set ID = Name)
+      await createTable({ name: newTableName.trim() });
       setNewTableName('');
       setShowAddModal(false);
     } catch (err: any) {
@@ -157,7 +153,7 @@ export default function TablesPage() {
   // Download QR code as image
   const downloadQRCode = () => {
     if (!selectedTable) return;
-    
+
     const link = document.createElement('a');
     link.href = selectedTable.qrCodeUrl;
     link.download = `${selectedTable.name}-QR.png`;
@@ -169,7 +165,7 @@ export default function TablesPage() {
   // Download QR code as PDF
   const downloadQRCodePDF = async () => {
     if (!selectedTable) return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/tables/${selectedTable.id}/qr/download`, {
@@ -297,10 +293,9 @@ export default function TablesPage() {
               key={filter.value}
               onClick={() => setStatusFilter(filter.value)}
               className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors
-                ${
-                  statusFilter === filter.value
-                    ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                ${statusFilter === filter.value
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               {filter.label}
@@ -371,14 +366,14 @@ export default function TablesPage() {
                 type="text"
                 value={newTableName}
                 onChange={(e) => setNewTableName(e.target.value)}
-                placeholder="e.g., 1, 2, 3"
+                placeholder="e.g., 1, 5, 25"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 onKeyDown={(e) => e.key === 'Enter' && handleAddTable()}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Will be created as "Table {newTableName || 'X'}"
+                Enter a numeric table number (e.g., "5" will create table with ID 5 and Name "5")
               </p>
             </div>
             <div className="flex gap-3 justify-end">
@@ -553,10 +548,9 @@ export default function TablesPage() {
                   <label
                     key={status}
                     className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors
-                      ${
-                        selectedStatus === status
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                      ${selectedStatus === status
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}
                   >
                     <input

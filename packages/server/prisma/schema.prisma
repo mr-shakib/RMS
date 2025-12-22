@@ -17,7 +17,7 @@ model User {
 }
 
 model Table {
-  id        Int      @id @default(autoincrement())
+  id        Int      @id
   name      String   @unique
   qrCodeUrl String
   status    String   @default("FREE")

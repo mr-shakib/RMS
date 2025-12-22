@@ -26,7 +26,7 @@ class TableService {
       const serverUrlSetting = await prisma.setting.findUnique({
         where: { key: 'server_url' },
       });
-      
+
       if (serverUrlSetting && serverUrlSetting.value && !serverUrlSetting.value.includes('localhost')) {
         return serverUrlSetting.value;
       }
@@ -37,25 +37,25 @@ class TableService {
     // Use LAN_IP from environment if available (set by Electron)
     const lanIp = process.env.LAN_IP;
     const port = config.port;
-    
+
     if (lanIp && lanIp !== 'localhost') {
       return `http://${lanIp}:${port}`;
     }
 
     // Try to detect LAN IP from network interfaces
     const networkInterfaces = os.networkInterfaces();
-    
+
     for (const name of Object.keys(networkInterfaces)) {
       const iface = networkInterfaces[name];
       if (!iface) continue;
-      
+
       for (const alias of iface) {
         if (alias.family === 'IPv4' && !alias.internal) {
           return `http://${alias.address}:${port}`;
         }
       }
     }
-    
+
     // Fallback to localhost with correct port
     return `http://localhost:${port}`;
   }
@@ -104,16 +104,32 @@ class TableService {
   async createTable(input: CreateTableInput): Promise<Table> {
     const { name } = input;
 
-    // Check if table name already exists
-    const existingTable = await prisma.table.findUnique({ where: { name } });
-    if (existingTable) {
-      throw new Error(`Table with name ${name} already exists`);
+    // Strict validation: Table Name MUST be a valid integer
+    const tableId = parseInt(name, 10);
+    if (isNaN(tableId) || tableId <= 0) {
+      throw new Error(`Table name must be a positive integer (e.g., "5", "12"). Received: "${name}"`);
     }
 
-    // Create table first to get the ID
+    // Normalize name to string representation of the number (removes leading zeros, spaces)
+    const normalizedName = tableId.toString();
+
+    // Check if table name already exists
+    const existingTable = await prisma.table.findUnique({ where: { name: normalizedName } });
+    if (existingTable) {
+      throw new Error(`Table with name ${normalizedName} already exists`);
+    }
+
+    // Check if table ID already exists (should be same as name check if DB is consistent, but good to be safe)
+    const existingTableById = await prisma.table.findUnique({ where: { id: tableId } });
+    if (existingTableById) {
+      throw new Error(`Table with ID ${tableId} already exists`);
+    }
+
+    // Create table with explicit ID matching the name
     const table = await prisma.table.create({
       data: {
-        name,
+        id: tableId,
+        name: normalizedName,
         qrCodeUrl: '', // Temporary empty value
         status: 'FREE',
       },
@@ -148,10 +164,32 @@ class TableService {
       throw new Error(`Table with id ${id} not found`);
     }
 
-    // If name is being updated, check for duplicates
+    // If name is being updated, check for duplicates and enforce numeric format
     if (input.name && input.name !== existingTable.name) {
+      const newTableId = parseInt(input.name, 10);
+      if (isNaN(newTableId) || newTableId <= 0) {
+        throw new Error(`Table name must be a positive integer (e.g., "5", "12"). Received: "${input.name}"`);
+      }
+
+      // Ensure the name matches the ID if we strictly enforce ID=Name even on update
+      // However, changing ID is complex in relational DBs. 
+      // Current requirement: "if user create new table, the table id and table naame should be the saame"
+      // It doesn't explicitly say we can't RENAME a table, but if we rename table 5 to "6", it would mismatch ID 5.
+      // So effectively, we should probably DISALLOW renaming, OR warn that it only changes the display name?
+      // "in the pwa we are showing the table name . in the current system the table name and table id is different so sometimes the table name get's missmathce if ordered from one taable it mark that in other table. we want to make sure that the 10 table that is automatically created is removed from the current system. also if user create new table, the table id and table naame should be the saame. so there is no chance for mismaatch."
+
+      // If we allow renaming "5" to "6", the ID remains 5. This causes the mismatch the user hates.
+      // So we should NOT allow changing the name to something that doesn't match the ID.
+      // Which means we effectively can't change the name of a table unless we change its ID too.
+      // Changing ID is hard because of FKs (Orders).
+      // So effectively, Table Name is immutable or must match ID.
+
+      if (newTableId !== id) {
+        throw new Error(`Cannot change Table Name to "${input.name}" because it does not match the Table ID (${id}). Table Name and ID must always match.`);
+      }
+
       const duplicateTable = await prisma.table.findUnique({ where: { name: input.name } });
-      if (duplicateTable) {
+      if (duplicateTable && duplicateTable.id !== id) { // allow updating to same name (noop)
         throw new Error(`Table with name ${input.name} already exists`);
       }
     }

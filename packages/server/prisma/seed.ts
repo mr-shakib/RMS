@@ -93,39 +93,8 @@ async function main() {
   const serverUrlSetting = await prisma.setting.findUnique({ where: { key: 'server_url' } });
   const serverUrl = serverUrlSetting?.value || 'http://localhost:5000';
 
-  // Create 10 default tables with QR codes (Table 1 through Table 10)
-  console.log('📋 Creating tables with QR codes...');
-  for (let i = 1; i <= 10; i++) {
-    const tableName = `Table ${i}`;
-    
-    // Check if table already exists
-    const existingTable = await prisma.table.findUnique({ where: { name: tableName } });
-    
-    if (!existingTable) {
-      // Create table first to get the ID
-      const table = await prisma.table.create({
-        data: {
-          name: tableName,
-          qrCodeUrl: '', // Temporary empty value
-          status: 'FREE',
-        },
-      });
-
-      // Generate QR code with the table ID
-      const qrCodeUrl = await generateTableQRCode(table.id, serverUrl);
-
-      // Update table with QR code URL
-      await prisma.table.update({
-        where: { id: table.id },
-        data: { qrCodeUrl },
-      });
-
-      console.log(`  ✓ Created ${tableName} with QR code`);
-    } else {
-      console.log(`  ℹ ${tableName} already exists, skipping`);
-    }
-  }
-  console.log('✅ Created 10 tables with QR codes');
+  // Tables creation removed to prevent mismatch IDs
+  console.log('ℹ️ Skipping automatic table creation (manual creation required for ID consistency)');
 
   // Create categories first
   const categories = [
