@@ -52,12 +52,12 @@ export class SelectionPage {
       'Lunch': 'PRANZO',
       'Buffet': 'ALL YOU CAN EAT'
     };
-    
+
     // Check for exact match first
     if (nameMap[categoryName]) {
       return nameMap[categoryName];
     }
-    
+
     // Check for partial match (case insensitive)
     const lowerName = categoryName.toLowerCase();
     for (const [key, value] of Object.entries(nameMap)) {
@@ -65,7 +65,7 @@ export class SelectionPage {
         return value;
       }
     }
-    
+
     // Return original if no match
     return categoryName;
   }
@@ -75,33 +75,33 @@ export class SelectionPage {
       <div class="selection-page">
         <div class="selection-hero">
           <div class="selection-hero-content">
-            <h1 class="selection-title">Benvenuti</h1>
-            <p class="selection-subtitle">Come vuoi cenare oggi?</p>
+            <h1 class="selection-title">Merry Christmas 🎄</h1>
+            <p class="selection-subtitle">Benvenuti! Come vuoi cenare oggi?</p>
           </div>
         </div>
 
         <div class="selection-container">
           <div class="selection-cards">
             <!-- Buffet Option -->
-            <div class="selection-card" data-type="buffet">
+            <div class="selection-card festive-border" data-type="buffet">
               <div class="selection-card-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M7 2v20M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
                 </svg>
               </div>
-              <h2 class="selection-card-title">ALL YOU CAN EAT</h2>
+              <h2 class="selection-card-title">ALL YOU CAN EAT 🎅</h2>
               <p class="selection-card-description">Tutto quello che puoi mangiare</p>
               <div class="selection-card-badge">Prezzo Fisso</div>
             </div>
 
             <!-- Regular Menu Option -->
-            <div class="selection-card" data-type="regular">
+            <div class="selection-card festive-border" data-type="regular">
               <div class="selection-card-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h2 class="selection-card-title">Alla Carta</h2>
+              <h2 class="selection-card-title">Alla Carta ❄️</h2>
               <p class="selection-card-description">Scegli i tuoi piatti preferiti dal menu</p>
               <div class="selection-card-badge">Per Articolo</div>
             </div>
@@ -261,7 +261,7 @@ export class SelectionPage {
         const category = this.buffetCategories.find(c => c.id === categoryId);
         const quantityInput = this.container.querySelector(`#quantity-${categoryId}`) as HTMLInputElement;
         const quantity = quantityInput ? parseInt(quantityInput.value) : 1;
-        
+
         if (category) {
           // Reset body overflow before navigating
           document.body.style.overflow = '';

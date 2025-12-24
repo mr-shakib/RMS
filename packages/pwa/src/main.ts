@@ -5,6 +5,7 @@ import { MenuPage } from './menuPage';
 import { CartPage } from './cartPage';
 import { StatusPage } from './statusPage';
 import { cart } from './cart';
+import { ChristmasTheme } from './christmasTheme';
 
 type Page = 'selection' | 'menu' | 'cart' | 'status';
 
@@ -26,10 +27,13 @@ class App {
     try {
       const APP_VERSION = '1.1.0'; // Updated with cart styles
       console.log(`[PWA] Starting initialization... Version: ${APP_VERSION}`);
-      
+
       // Load cart from storage
       console.log('[PWA] Loading cart from storage...');
       cart.loadFromStorage();
+
+      // Enable Christmas Theme
+      ChristmasTheme.getInstance().enable();
 
       // Set up global error handler
       window.addEventListener('error', (event) => {
@@ -77,7 +81,7 @@ class App {
 
   private navigateTo(page: Page): void {
     console.log('[PWA] Navigating to:', page, 'Current page:', this.currentPage);
-    
+
     if (this.currentPage === page && this.currentPageInstance) {
       console.log('[PWA] Already on this page, skipping navigation');
       return;

@@ -30,7 +30,7 @@ export class CartPage {
       <div class="header">
         <div class="header-content">
           <button class="back-button" id="back-button">← Indietro</button>
-          <div class="header-title">Il Tuo Carrello</div>
+          <div class="header-title">Il Tuo Carrello 🎁</div>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export class CartPage {
     if (this.cartItems.length === 0) {
       cartItemsContainer.innerHTML = `
         <div class="empty-cart">
-          <div class="empty-cart-icon">🛒</div>
+          <div class="empty-cart-icon">🎄</div>
           <div class="empty-cart-text">Il tuo carrello è vuoto</div>
           <button class="button button-primary" id="browse-menu-button">
             Sfoglia il Menu
@@ -122,7 +122,7 @@ export class CartPage {
       const buffetTotal = (buffetMode.category.buffetPrice || 0) * buffetQuantity;
       buffetBanner = `
         <div class="buffet-banner" style="margin-bottom: 1rem;">
-          <div class="buffet-banner-title">🎉 ${buffetMode.category.name}</div>
+          <div class="buffet-banner-title">🎁 ${buffetMode.category.name}</div>
           <div class="buffet-banner-subtitle">
             ${buffetQuantity} ${buffetQuantity === 1 ? 'persona' : 'persone'} - €${buffetTotal.toFixed(2).replace('.', ',')} totale
           </div>
@@ -146,10 +146,10 @@ export class CartPage {
   }
 
   private renderCartItem(item: CartItem, isBuffet: boolean = false): string {
-    const price = typeof item.menuItem.price === 'number' 
-      ? item.menuItem.price.toFixed(2).replace('.', ',') 
+    const price = typeof item.menuItem.price === 'number'
+      ? item.menuItem.price.toFixed(2).replace('.', ',')
       : '0,00';
-    
+
     // Debug logging for buffet mode
     if (isBuffet) {
       console.log('[CartPage] Item:', item.menuItem.name);
@@ -157,7 +157,7 @@ export class CartPage {
       console.log('  !item.menuItem.alwaysPriced:', !item.menuItem.alwaysPriced);
       console.log('  Will show Incluso:', isBuffet && !item.menuItem.alwaysPriced);
     }
-    
+
     // Show price if not buffet, OR if item is marked as alwaysPriced
     // Explicitly check if alwaysPriced is true (handle undefined/null as false)
     const isAlwaysPriced = item.menuItem.alwaysPriced === true;
@@ -246,12 +246,12 @@ export class CartPage {
   private updateTotals(): void {
     const buffetMode = cart.getBuffetMode();
     const subtotal = cart.getSubtotal();
-    
+
     const totalElement = document.getElementById('total');
     if (totalElement) {
       totalElement.textContent = `€${subtotal.toFixed(2).replace('.', ',')}`;
     }
-    
+
     // Show breakdown for buffet mode
     const summaryContainer = document.querySelector('.cart-summary');
     if (summaryContainer && buffetMode.isBuffet && buffetMode.category) {
@@ -259,10 +259,10 @@ export class CartPage {
       const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
       const buffetTotal = buffetPrice * buffetQuantity;
       const additionalItems = this.cartItems.filter(item => item.menuItem.alwaysPriced === true);
-      const additionalTotal = additionalItems.reduce((sum, item) => 
+      const additionalTotal = additionalItems.reduce((sum, item) =>
         sum + (item.menuItem.price * item.quantity), 0
       );
-      
+
       // Update or create breakdown
       let breakdownEl = summaryContainer.querySelector('.total-breakdown');
       if (!breakdownEl) {
@@ -270,7 +270,7 @@ export class CartPage {
         breakdownEl.className = 'total-breakdown';
         summaryContainer.insertBefore(breakdownEl, summaryContainer.querySelector('.cart-total'));
       }
-      
+
       if (additionalTotal > 0) {
         breakdownEl.innerHTML = `
           <div class="breakdown-item">
@@ -310,7 +310,7 @@ export class CartPage {
     try {
       const buffetMode = cart.getBuffetMode();
       const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
-      
+
       const orderData: any = {
         tableId: parseInt(tableId),
         isBuffet: buffetMode.isBuffet,
@@ -365,7 +365,7 @@ export class CartPage {
     const modalIcon = modal?.querySelector('.modal-icon');
     const modalTitle = modal?.querySelector('.modal-title');
     const modalText = modal?.querySelector('.modal-text');
-    
+
     if (modal && orderNumber && modalIcon && modalTitle && modalText) {
       // Reset to success state
       modalIcon.className = 'modal-icon success';
@@ -374,7 +374,7 @@ export class CartPage {
       modalText.textContent = 'Il tuo ordine è stato inviato in cucina e sarà preparato a breve.';
       orderNumber.textContent = `Ordine #${orderId.substring(0, 8)}`;
       modal.classList.remove('hidden');
-      
+
       // Close modal when clicking overlay
       const overlay = modal.querySelector('.modal-overlay');
       overlay?.addEventListener('click', () => this.hideModal());
@@ -387,7 +387,7 @@ export class CartPage {
     const modalTitle = modal?.querySelector('.modal-title');
     const modalText = modal?.querySelector('.modal-text');
     const orderNumber = document.getElementById('order-number');
-    
+
     if (modal && modalTitle && modalText && orderNumber && modalIcon) {
       modalIcon.className = 'modal-icon';
       modalIcon.textContent = '📡';
@@ -396,7 +396,7 @@ export class CartPage {
       modalText.textContent = 'Sei offline. Il tuo ordine sarà inviato automaticamente quando la connessione sarà ripristinata.';
       orderNumber.textContent = '';
       modal.classList.remove('hidden');
-      
+
       // Close modal when clicking overlay
       const overlay = modal.querySelector('.modal-overlay');
       overlay?.addEventListener('click', () => this.hideModal());

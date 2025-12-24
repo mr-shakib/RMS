@@ -25,7 +25,7 @@ export class MenuPage {
     this.buffetCategoryId = sessionStorage.getItem('buffetCategoryId');
     this.buffetCategoryName = sessionStorage.getItem('buffetCategoryName');
     this.buffetPrice = parseFloat(sessionStorage.getItem('buffetPrice') || '0');
-    
+
     // Set cart mode
     if (this.isBuffetMode && this.buffetCategoryId) {
       console.log('🍽️ SETTING CART TO BUFFET MODE:', { id: this.buffetCategoryId, name: this.buffetCategoryName, price: this.buffetPrice });
@@ -37,21 +37,21 @@ export class MenuPage {
     } else {
       console.log('❌ NOT setting buffet mode:', { isBuffetMode: this.isBuffetMode, buffetCategoryId: this.buffetCategoryId });
     }
-    
+
     this.init();
   }
 
   private async init(): Promise<void> {
     try {
       this.render();
-      
+
       // Ensure scrolling is enabled after DOM is rendered
       requestAnimationFrame(() => {
         document.body.style.overflow = '';
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
-        
+
         // Also ensure the menu-content can scroll
         const menuContent = document.getElementById('menu-content');
         if (menuContent) {
@@ -59,14 +59,18 @@ export class MenuPage {
           console.log('[MenuPage] Enabled scrolling on menu-content');
         }
       });
-      
+
       await Promise.all([
         this.loadMenu(),
         this.loadTableInfo(),
         this.checkActiveOrder()
       ]);
       this.setupEventListeners();
-      
+
+      // IMPORTANT: Update cart display after menu loads and cart is hydrated from storage
+      // This ensures the bottom summary bar appears even if cart was loaded from localStorage
+      this.updateCartDisplay();
+
       networkStatus.subscribe(() => {
         // Handle network status changes
       });
@@ -86,15 +90,15 @@ export class MenuPage {
     try {
       const tableId = this.getTableIdFromUrl();
       console.log('[MenuPage] Loading table info for tableId:', tableId);
-      
+
       if (tableId) {
         console.log('[MenuPage] Calling API getTable with ID:', parseInt(tableId));
         const table = await apiClient.getTable(parseInt(tableId));
         console.log('[MenuPage] Received table data:', table);
-        
+
         this.tableName = table.name;
         console.log('[MenuPage] Set tableName to:', this.tableName);
-        
+
         // Update header with table name
         this.updateHeader();
       } else {
@@ -116,7 +120,7 @@ export class MenuPage {
       if (!tableId) return;
 
       const order = await apiClient.getOrderStatus(parseInt(tableId));
-      
+
       // Check if there's an active order (not PAID or CANCELLED)
       if (order && order.status !== 'PAID' && order.status !== 'CANCELLED') {
         this.showTrackOrderButton();
@@ -142,7 +146,7 @@ export class MenuPage {
       trackButton.onclick = () => {
         window.dispatchEvent(new CustomEvent('navigate', { detail: 'status' }));
       };
-      
+
       const headerContent = headerLeft.querySelector('div');
       if (headerContent) {
         headerLeft.insertBefore(trackButton, headerContent);
@@ -154,7 +158,7 @@ export class MenuPage {
     console.log('[MenuPage] updateHeader called with tableName:', this.tableName);
     const headerTitle = document.querySelector('.header-title');
     console.log('[MenuPage] Found header element:', headerTitle);
-    
+
     if (headerTitle) {
       console.log('[MenuPage] Current header text:', headerTitle.textContent);
       headerTitle.textContent = this.tableName;
@@ -171,14 +175,14 @@ export class MenuPage {
       console.log('[MenuPage] buffetCategoryId:', this.buffetCategoryId);
       console.log('[MenuPage] buffetCategoryName:', this.buffetCategoryName);
       this.showLoading();
-      
+
       console.log('[MenuPage] Calling apiClient.getMenu()...');
       this.menuItems = await apiClient.getMenu();
       console.log('[MenuPage] Menu items loaded:', this.menuItems.length);
-      
+
       // Reload cart from storage with menu items (to reconstruct cart items from IDs)
       cart.loadFromStorage(this.menuItems);
-      
+
       // Log items with buffet categories
       console.log('[MenuPage] Items with buffet categories:');
       this.menuItems.forEach(item => {
@@ -187,15 +191,15 @@ export class MenuPage {
           console.log(`  ${item.name}: buffetCategoryIds =`, buffetCats.map((bc: any) => bc.buffetCategoryId));
         }
       });
-      
+
       console.log('[MenuPage] Extracting categories...');
       this.extractCategories();
       console.log('[MenuPage] Categories extracted:', this.categories.length);
-      
+
       console.log('[MenuPage] Filtering items...');
       this.filterItems();
       console.log('[MenuPage] Filtered items:', this.filteredItems.length);
-      
+
       console.log('[MenuPage] Rendering menu...');
       this.renderMenu();
       console.log('[MenuPage] Menu rendered successfully');
@@ -212,7 +216,7 @@ export class MenuPage {
 
   private extractCategories(): void {
     const categoryMap = new Map<string, Category>();
-    
+
     this.menuItems.forEach((item) => {
       // Add primary category
       if (item.category) {
@@ -227,16 +231,16 @@ export class MenuPage {
         });
       }
     });
-    
+
     this.categories = Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
-    
+
     // Set default category for à la carte mode
     if (!this.isBuffetMode && this.selectedCategory === 'Tutti') {
       // Find Beverages or Drinks category
-      const drinksCategory = this.categories.find(cat => 
+      const drinksCategory = this.categories.find(cat =>
         !cat.isBuffet && (cat.name === 'Drinks' || cat.name === 'Beverages')
       );
-      
+
       if (drinksCategory) {
         this.selectedCategory = drinksCategory.name;
         console.log('[MenuPage] Set default category to:', this.selectedCategory);
@@ -252,7 +256,7 @@ export class MenuPage {
     console.log('[MenuPage] buffetCategoryId:', this.buffetCategoryId);
     console.log('[MenuPage] buffetCategoryId type:', typeof this.buffetCategoryId);
     console.log('[MenuPage] Total menu items:', this.menuItems.length);
-    
+
     let items = this.menuItems.filter((item) => {
       // If buffet mode, only show items from selected buffet category
       if (this.isBuffetMode && this.buffetCategoryId) {
@@ -260,15 +264,15 @@ export class MenuPage {
         console.log(`[MenuPage] Checking item: ${item.name}`);
         console.log(`  - buffetCategories array length:`, buffetCategories.length);
         console.log(`  - buffetCategories full data:`, JSON.stringify(buffetCategories, null, 2));
-        
+
         // FIXED: Only check buffet junction table, not primary categoryId
         const isInThisBuffet = buffetCategories.some((bc: any) => {
           console.log(`    - Comparing bc.buffetCategoryId (${bc.buffetCategoryId}) === this.buffetCategoryId (${this.buffetCategoryId})`);
           return bc.buffetCategoryId === this.buffetCategoryId;
         });
-        
+
         console.log(`  - RESULT: isInThisBuffet = ${isInThisBuffet}`);
-        
+
         if (!isInThisBuffet) {
           return false;
         }
@@ -276,14 +280,14 @@ export class MenuPage {
 
       // Category filtering - check primary and buffet categories
       let matchesCategory = this.selectedCategory === 'Tutti' || item.category?.name === this.selectedCategory;
-      
+
       // Also check buffet categories
       if (!matchesCategory && (item as any).buffetCategories) {
-        matchesCategory = (item as any).buffetCategories.some((bc: any) => 
+        matchesCategory = (item as any).buffetCategories.some((bc: any) =>
           bc.buffetCategory?.name === this.selectedCategory
         );
       }
-      
+
       const matchesSearch =
         this.searchQuery === '' ||
         item.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
@@ -306,11 +310,11 @@ export class MenuPage {
     // Deduplicate items when showing "All" (Tutti)
     if (this.selectedCategory === 'Tutti') {
       const uniqueItems = new Map<string, MenuItem>();
-      
+
       // In buffet mode, also track items by name to merge duplicate buffet items
       if (this.isBuffetMode) {
         const itemsByName = new Map<string, MenuItem[]>();
-        
+
         // Group items by name
         items.forEach(item => {
           const normalizedName = item.name.toLowerCase().trim();
@@ -319,14 +323,14 @@ export class MenuPage {
           }
           itemsByName.get(normalizedName)!.push(item);
         });
-        
+
         // For each group, take the first item (this will be the one we show)
         itemsByName.forEach((itemGroup) => {
           if (itemGroup.length > 0) {
             // Use the first item as the representative
             const representativeItem = itemGroup[0];
             uniqueItems.set(representativeItem.id, representativeItem);
-            
+
             // Store all items in this group for tag display
             (representativeItem as any)._allBuffetInstances = itemGroup;
           }
@@ -339,7 +343,7 @@ export class MenuPage {
           }
         });
       }
-      
+
       items = Array.from(uniqueItems.values());
     }
 
@@ -351,7 +355,7 @@ export class MenuPage {
     const displayName = this.tableName || `Tavolo ${tableId || '?'}`;
     const displayBuffetName = this.getDisplayCategoryName(this.buffetCategoryName || '');
     const modeText = this.isBuffetMode ? displayBuffetName : 'Alla Carta';
-    
+
     this.container.innerHTML = `
       <div class="menu-page">
         <div class="header">
@@ -372,8 +376,8 @@ export class MenuPage {
 
         ${this.isBuffetMode ? `
           <div class="menu-banner">
-            <div class="menu-banner-title">${displayBuffetName}</div>
-            <div class="menu-banner-subtitle">Tutto quello che puoi mangiare per €${this.buffetPrice.toFixed(2).replace('.', ',')}</div>
+            <div class="menu-banner-title">🎄 ${displayBuffetName} 🎄</div>
+            <div class="menu-banner-subtitle">Tutto quello che puoi mangiare per €${this.buffetPrice.toFixed(2).replace('.', ',')} 🎅</div>
           </div>
         ` : ''}
 
@@ -431,18 +435,18 @@ export class MenuPage {
       'Lunch': 'PRANZO',
       'Buffet': 'ALL YOU CAN EAT'
     };
-    
+
     if (nameMap[categoryName]) {
       return nameMap[categoryName];
     }
-    
+
     const lowerName = categoryName.toLowerCase();
     for (const [key, value] of Object.entries(nameMap)) {
       if (lowerName.includes(key.toLowerCase())) {
         return value;
       }
     }
-    
+
     return categoryName;
   }
 
@@ -491,17 +495,17 @@ export class MenuPage {
     const showIncluso = (this.isBuffetMode && !isAlwaysPriced);
     const priceValue = (typeof item.price === 'number' ? item.price : 0).toFixed(2).replace('.', ',');
     const price = showIncluso ? 'Incluso' : `€${priceValue}`;
-    
+
     if (this.isBuffetMode) {
       console.log('  isAlwaysPriced:', isAlwaysPriced, '- Will show:', showIncluso ? 'Incluso' : `€${priceValue}`);
     }
-    
+
     const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
     const quantity = cartItem?.quantity || 0;
-    
+
     // In buffet mode, show if item is included or has a price
     const showPriceTag = this.isBuffetMode;
-    
+
     return `
       <div class="menu-item-card" data-item-id="${item.id}">
         <img
@@ -515,10 +519,10 @@ export class MenuPage {
             <h3 class="menu-item-name">${item.name}</h3>
             ${showPriceTag ? `
               <div class="buffet-tags">
-                ${showIncluso 
-                  ? `<span class="buffet-tag incluso-tag">Incluso</span>`
-                  : `<span class="buffet-tag price-tag">€${priceValue}</span>`
-                }
+                ${showIncluso
+          ? `<span class="buffet-tag incluso-tag">Incluso</span>`
+          : `<span class="buffet-tag price-tag">€${priceValue}</span>`
+        }
               </div>
             ` : ''}
           </div>
@@ -550,22 +554,22 @@ export class MenuPage {
       // In buffet mode, show secondary categories for filtering
       const container = document.getElementById('category-tabs-container');
       if (container) container.style.display = 'block';
-      
+
       // Get unique primary categories from buffet items
       const secondaryCategories = new Map<string, string>();
       this.menuItems.forEach(item => {
         const buffetCategories = (item as any).buffetCategories || [];
-        
+
         // FIXED: Check if item belongs to this buffet (only via junction table)
         const isInThisBuffet = buffetCategories.some((bc: any) => bc.buffetCategoryId === this.buffetCategoryId);
-        
+
         if (item.category && isInThisBuffet && !item.category.isBuffet) {
           secondaryCategories.set(item.category.id, item.category.name);
         }
       });
-      
+
       const categoryNames = ['Tutti', ...Array.from(secondaryCategories.values())];
-      
+
       tabsContainer.innerHTML = categoryNames
         .map(
           (category) => `
@@ -582,7 +586,7 @@ export class MenuPage {
     }
 
     const categoryNames = ['Tutti', ...this.categories.filter(c => !c.isBuffet).map(c => c.name)];
-    
+
     tabsContainer.innerHTML = categoryNames
       .map(
         (category) => `
@@ -622,7 +626,7 @@ export class MenuPage {
     decreaseBtn?.addEventListener('click', () => {
       const cartItem = cart.getItems().find(ci => ci.menuItem.id === item.id);
       const currentQty = cartItem?.quantity || 0;
-      
+
       if (currentQty > 0) {
         const newQty = currentQty - 1;
         if (newQty === 0) {
@@ -645,7 +649,7 @@ export class MenuPage {
 
   private updateQuantityDisplays(): void {
     const cartItems = cart.getItems();
-    
+
     this.filteredItems.forEach(item => {
       const qtyElement = document.getElementById(`qty-${item.id}`);
       if (qtyElement) {
@@ -670,7 +674,7 @@ export class MenuPage {
         this.filterItems();
         this.renderMenu();
       }
-      
+
       // Handle price filter buttons
       if (target.classList.contains('price-filter-btn')) {
         const filter = target.dataset.filter as 'all' | 'incluso' | 'priced';
@@ -725,10 +729,10 @@ export class MenuPage {
     const cartBar = document.getElementById('bottom-cart-bar');
     const itemsCount = document.getElementById('bottom-cart-items-count');
     const totalElement = document.getElementById('bottom-cart-total');
-    
+
     const count = cart.getItemCount();
     const total = cart.getSubtotal();
-    
+
     if (cartBar) {
       if (count > 0) {
         cartBar.style.display = 'block';

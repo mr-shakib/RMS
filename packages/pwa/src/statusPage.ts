@@ -43,7 +43,7 @@ export class StatusPage {
       <div class="header">
         <div class="header-content">
           <button class="back-button" id="back-button">← Back</button>
-          <div class="header-title">Order Status</div>
+          <div class="header-title">Stato Ordine ❄️</div>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ export class StatusPage {
             ${statusInfo.icon}
           </div>
           <div class="status-info">
-            <div class="status-title">${statusInfo.title}</div>
+            <div class="status-title">🎄 ${statusInfo.title}</div>
             <div class="status-subtitle">${statusInfo.subtitle}</div>
           </div>
         </div>
@@ -182,9 +182,9 @@ export class StatusPage {
         <div class="order-selector-title">Select Order to Track</div>
         <div class="order-selector-list">
           ${this.orders.map((order, index) => {
-            const statusInfo = this.getStatusInfo(order.status);
-            const isActive = this.order?.id === order.id;
-            return `
+      const statusInfo = this.getStatusInfo(order.status);
+      const isActive = this.order?.id === order.id;
+      return `
               <button 
                 class="order-selector-item ${isActive ? 'active' : ''}" 
                 id="order-select-${index}"
@@ -201,7 +201,7 @@ export class StatusPage {
                 </div>
               </button>
             `;
-          }).join('')}
+    }).join('')}
         </div>
       </div>
     `;
@@ -217,8 +217,8 @@ export class StatusPage {
         <div class="order-items-header">Order Items</div>
         <div class="order-items-list">
           ${this.order.items.map(item => {
-            const itemTotal = item.quantity * item.price;
-            return `
+      const itemTotal = item.quantity * item.price;
+      return `
               <div class="order-item">
                 <div class="order-item-details">
                   <div class="order-item-name">${item.menuItem?.name || 'Unknown Item'}</div>
@@ -228,7 +228,7 @@ export class StatusPage {
                 <div class="order-item-price">€${itemTotal.toFixed(2)}</div>
               </div>
             `;
-          }).join('')}
+    }).join('')}
         </div>
       </div>
     `;
@@ -276,17 +276,17 @@ export class StatusPage {
     return `
       <div class="progress-steps">
         ${steps
-          .map((step, index) => {
-            const isActive = index <= currentIndex;
-            const isCurrent = index === currentIndex;
-            return `
+        .map((step, index) => {
+          const isActive = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          return `
               <div class="progress-step ${isActive ? 'active' : ''} ${isCurrent ? 'current' : ''}">
                 <div class="progress-step-circle">${index + 1}</div>
                 <div class="progress-step-label">${step.label}</div>
               </div>
             `;
-          })
-          .join('<div class="progress-step-line"></div>')}
+        })
+        .join('<div class="progress-step-line"></div>')}
       </div>
     `;
   }
