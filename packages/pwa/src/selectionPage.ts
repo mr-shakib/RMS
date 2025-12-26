@@ -174,7 +174,9 @@ export class SelectionPage {
                 </svg>
               </button>
             </div>
-          </div>
+            </div>
+          
+          <div class="buffet-total-preview" id="total-${category.id}" style="margin: 10px 0; font-weight: bold; color: #4a5568; text-align: center;">Totale: €${price}</div>
           
           <button class="buffet-select-btn" data-category-id="${category.id}">
             <span>Seleziona Buffet</span>
@@ -218,6 +220,27 @@ export class SelectionPage {
   }
 
   private setupBuffetCategoryListeners(): void {
+    // Helper to update total price display
+    const updateTotalPrice = (categoryId: string, quantity: number) => {
+      // Ensure strict string comparison to avoid type issues
+      const category = this.buffetCategories.find(c => String(c.id) === String(categoryId));
+      const totalEl = this.container.querySelector(`#total-${categoryId}`);
+
+      if (category && totalEl) {
+        const basePrice = Number(category.buffetPrice) || 0;
+        let total = basePrice * quantity;
+
+        // Add service charge: (quantity - 1) * 1.00
+        if (quantity > 1) {
+          total += (quantity - 1) * 1.0;
+        }
+
+        totalEl.textContent = `Totale: €${total.toFixed(2).replace('.', ',')}`;
+      } else {
+        console.warn('Could not update total:', { categoryId, foundCategory: !!category, foundEl: !!totalEl });
+      }
+    };
+
     // Handle quantity buttons
     const quantityBtns = this.container.querySelectorAll('.buffet-quantity-btn');
     quantityBtns.forEach(btn => {
@@ -226,12 +249,20 @@ export class SelectionPage {
         const action = btn.getAttribute('data-action');
         const categoryId = btn.getAttribute('data-category-id');
         const input = this.container.querySelector(`#quantity-${categoryId}`) as HTMLInputElement;
-        if (input) {
+
+        if (input && categoryId) {
           let value = parseInt(input.value);
+          // Safety check for NaN
+          if (isNaN(value)) value = 1;
+
           if (action === 'increase' && value < 20) {
-            input.value = String(value + 1);
+            value += 1;
+            input.value = String(value);
+            updateTotalPrice(categoryId, value);
           } else if (action === 'decrease' && value > 1) {
-            input.value = String(value - 1);
+            value -= 1;
+            input.value = String(value);
+            updateTotalPrice(categoryId, value);
           }
         }
       });
@@ -245,9 +276,18 @@ export class SelectionPage {
         const inputEl = e.target as HTMLInputElement;
         let value = parseInt(inputEl.value);
         if (isNaN(value) || value < 1) {
+          value = 1;
           inputEl.value = '1';
         } else if (value > 20) {
+          value = 20;
           inputEl.value = '20';
+        }
+
+        // Update price
+        const card = inputEl.closest('.buffet-category-card');
+        const categoryId = card?.getAttribute('data-category-id');
+        if (categoryId) {
+          updateTotalPrice(categoryId, value);
         }
       });
     });

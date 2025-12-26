@@ -17,7 +17,7 @@ class Cart {
 
   addItem(menuItem: MenuItem, quantity: number = 1): void {
     const existingItem = this.items.get(menuItem.id);
-    
+
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
@@ -26,7 +26,7 @@ class Cart {
         quantity,
       });
     }
-    
+
     this.saveToStorage();
     this.notifyListeners();
   }
@@ -72,7 +72,7 @@ class Cart {
 
   getSubtotal(): number {
     let subtotal = 0;
-    
+
     // If buffet mode, include buffet price multiplied by number of people
     if (this.isBuffet && this.buffetCategory) {
       const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
@@ -80,7 +80,7 @@ class Cart {
       subtotal += buffetTotal;
       console.log(`[Cart] Buffet subtotal: €${buffetTotal} (${buffetQuantity} × €${this.buffetCategory.buffetPrice})`);
     }
-    
+
     // Add prices for items
     Array.from(this.items.values()).forEach(item => {
       // In buffet mode, only add price for alwaysPriced items
@@ -88,14 +88,14 @@ class Cart {
         // Defensive check: ensure alwaysPriced is explicitly true, treat null/undefined/false as false
         const alwaysPricedValue = item.menuItem.alwaysPriced;
         const isAlwaysPriced = alwaysPricedValue === true;
-        
+
         console.log(`[Cart] Item: ${item.menuItem.name} (ID: ${item.menuItem.id})`);
         console.log(`  - alwaysPriced RAW value: ${alwaysPricedValue}`);
         console.log(`  - alwaysPriced type: ${typeof alwaysPricedValue}`);
         console.log(`  - isAlwaysPriced (===true): ${isAlwaysPriced}`);
         console.log(`  - price: €${item.menuItem.price}`);
         console.log(`  - quantity: ${item.quantity}`);
-        
+
         // Strict check: only add price if explicitly true
         if (isAlwaysPriced) {
           const itemTotal = item.menuItem.price * item.quantity;
@@ -109,9 +109,23 @@ class Cart {
         subtotal += item.menuItem.price * item.quantity;
       }
     });
-    
+
     console.log(`[Cart] Final subtotal: €${subtotal}`);
     return subtotal;
+  }
+
+  getServiceCharge(): number {
+    if (this.isBuffet && this.buffetCategory) {
+      const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
+      if (buffetQuantity > 1) {
+        // Service charge is €1.00 for each additional person
+        // 1 person = €0
+        // 2 people = €1
+        // 3 people = €2
+        return (buffetQuantity - 1) * 1.0;
+      }
+    }
+    return 0;
   }
 
   clear(): void {
@@ -125,21 +139,21 @@ class Cart {
   setBuffetMode(isBuffet: boolean, category: Category | null): void {
     const wasBuffet = this.isBuffet;
     const wasSameCategory = this.buffetCategory?.id === category?.id;
-    
+
     console.log('[Cart] setBuffetMode called:', { isBuffet, categoryName: category?.name, categoryPrice: category?.buffetPrice });
-    
+
     this.isBuffet = isBuffet;
     this.buffetCategory = category;
-    
+
     // Only clear cart when switching FROM non-buffet TO buffet mode
     // or when switching between different buffet categories
     if (isBuffet && (!wasBuffet || !wasSameCategory)) {
       console.log('[Cart] Switching to buffet mode or different category, clearing cart');
       this.items.clear();
     }
-    
+
     console.log('[Cart] Buffet mode is now:', this.isBuffet);
-    
+
     this.saveToStorage();
     this.notifyListeners();
   }
@@ -168,7 +182,7 @@ class Cart {
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
     }
-    
+
     this.saveTimeout = window.setTimeout(() => {
       try {
         // Only save IDs and quantities, not full MenuItem objects (too large/circular refs)
@@ -199,11 +213,11 @@ class Cart {
     try {
       const stored = localStorage.getItem('rms-cart');
       console.log('[Cart] loadFromStorage called', { hasMenuItems: !!menuItems, menuItemCount: menuItems?.length });
-      
+
       if (stored) {
         const data = JSON.parse(stored);
         console.log('[Cart] Loaded data from storage:', data);
-        
+
         // Handle old format (array with full objects) or new format (IDs only)
         if (Array.isArray(data)) {
           // Old format - try to use it if it has full MenuItem objects
@@ -219,13 +233,13 @@ class Cart {
           // (buffet mode is set by MenuPage based on current selection, don't override it)
           const currentBuffetMode = this.isBuffet;
           const currentBuffetCategory = this.buffetCategory;
-          
+
           if (!currentBuffetMode) {
             // Only restore if not already in buffet mode
             this.isBuffet = data.isBuffet || false;
             this.buffetCategory = data.buffetCategory || null;
-            console.log('[Cart] Restored buffet state from storage:', { 
-              isBuffet: this.isBuffet, 
+            console.log('[Cart] Restored buffet state from storage:', {
+              isBuffet: this.isBuffet,
               buffetCategory: this.buffetCategory?.name,
               buffetPrice: this.buffetCategory?.buffetPrice
             });
@@ -236,7 +250,7 @@ class Cart {
               buffetPrice: currentBuffetCategory?.buffetPrice
             });
           }
-          
+
           if (menuItems && menuItems.length > 0) {
             // Reconstruct cart items from IDs
             console.log('[Cart] Reconstructing', data.items.length, 'items from menu');
@@ -254,7 +268,7 @@ class Cart {
           }
           // If no menuItems provided, cart will be empty until menu loads
         }
-        
+
         this.notifyListeners();
       } else {
         console.log('[Cart] No stored cart data found');

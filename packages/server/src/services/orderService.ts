@@ -33,7 +33,7 @@ class OrderService {
    * Formula: total = subtotal + tax - discount + serviceCharge + tip
    */
   async createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
-    const { tableId, items, isBuffet = false, buffetCategoryId, buffetQuantity = 1, discount = 0, serviceCharge = 0, tip = 0 } = input;
+    let { tableId, items, isBuffet = false, buffetCategoryId, buffetQuantity = 1, discount = 0, serviceCharge = 0, tip = 0 } = input;
 
     console.log('🍽️  ORDER DEBUG:', {
       tableId,
@@ -72,7 +72,7 @@ class OrderService {
       if (existingBuffetOrder) {
         // Buffet already charged - only charge for alwaysPriced items
         console.log(`ℹ️  Table ${tableId} already has an active buffet order. Only charging for additional priced items.`);
-        
+
         for (const item of items) {
           const menuItem = await prisma.menuItem.findUnique({
             where: { id: item.menuItemId },
@@ -91,9 +91,9 @@ class OrderService {
           const isAlwaysPriced = menuItem.alwaysPriced === true;
           const itemPrice = isAlwaysPriced ? menuItem.price : 0;
           const itemTotal = itemPrice * item.quantity;
-          
+
           console.log(`  📦 ${menuItem.name}: alwaysPriced=${menuItem.alwaysPriced} (${typeof menuItem.alwaysPriced}), price=${itemPrice}`);
-          
+
           if (isAlwaysPriced) {
             subtotal += itemTotal;
             console.log(`    ✅ Added €${itemTotal} to subtotal`);
@@ -124,8 +124,20 @@ class OrderService {
 
         // Charge buffet price multiplied by quantity (number of people)
         subtotal = (category.buffetPrice || 0) * buffetQuantity;
-        
-        console.log(`🎫 First buffet order - Buffet: ${category.name}, Price: $${category.buffetPrice}, Quantity: ${buffetQuantity}, Subtotal: $${subtotal}`);
+
+        // Calculate service charge: €1.00 for each additional person
+        // Logic: if persons > 1, charge = (persons - 1) * 1.00
+        let calculatedServiceCharge = 0;
+        if (buffetQuantity > 1) {
+          calculatedServiceCharge = (buffetQuantity - 1) * 1.0;
+        }
+
+        // Use calculated service charge if not provided or just override it to be safe
+        // (Use the calculated one ensures business logic integrity)
+        serviceCharge = calculatedServiceCharge;
+
+        console.log(`🎫 First buffet order - Buffet: ${category.name}, Price: ${category.buffetPrice}, Quantity: ${buffetQuantity}`);
+        console.log(`   Subtotal: ${subtotal}, Service Charge: ${serviceCharge}`);
 
         for (const item of items) {
           const menuItem = await prisma.menuItem.findUnique({
@@ -145,9 +157,9 @@ class OrderService {
           const isAlwaysPriced = menuItem.alwaysPriced === true;
           const itemPrice = isAlwaysPriced ? menuItem.price : 0;
           const itemTotal = itemPrice * item.quantity;
-          
+
           console.log(`  📦 ${menuItem.name}: alwaysPriced=${menuItem.alwaysPriced} (${typeof menuItem.alwaysPriced}), price=${itemPrice}`);
-          
+
           if (isAlwaysPriced) {
             subtotal += itemTotal;
             console.log(`    ✅ Added €${itemTotal} to subtotal`);
@@ -168,7 +180,7 @@ class OrderService {
       // If there's an active buffet, check if regular items should be free
       if (existingBuffetOrder) {
         console.log(`ℹ️  Table ${tableId} has active buffet. Regular items may be included in buffet.`);
-        
+
         for (const item of items) {
           const menuItem = await prisma.menuItem.findUnique({
             where: { id: item.menuItemId },
@@ -186,7 +198,7 @@ class OrderService {
           // Only charge for items that are always priced (beverages, desserts, etc.)
           const itemPrice = menuItem.alwaysPriced ? menuItem.price : 0;
           const itemTotal = itemPrice * item.quantity;
-          
+
           if (menuItem.alwaysPriced) {
             subtotal += itemTotal;
           }
@@ -412,7 +424,7 @@ class OrderService {
     // Emit WebSocket events AFTER transaction commits
     try {
       emitOrderUpdated(updatedOrder);
-      
+
       // Emit table update if table was freed
       if (updatedTable) {
         emitTableUpdated(updatedTable);

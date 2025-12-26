@@ -249,11 +249,13 @@ export class CartPage {
 
     const totalElement = document.getElementById('total');
     if (totalElement) {
-      totalElement.textContent = `€${subtotal.toFixed(2).replace('.', ',')}`;
+      const serviceCharge = cart.getServiceCharge();
+      const total = subtotal + serviceCharge;
+      totalElement.textContent = `€${total.toFixed(2).replace('.', ',')}`;
     }
 
     // Show breakdown for buffet mode
-    const summaryContainer = document.querySelector('.cart-summary');
+    const summaryContainer = document.querySelector('.cart-totals');
     if (summaryContainer && buffetMode.isBuffet && buffetMode.category) {
       const buffetPrice = buffetMode.category.buffetPrice || 0;
       const buffetQuantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
@@ -268,19 +270,31 @@ export class CartPage {
       if (!breakdownEl) {
         breakdownEl = document.createElement('div');
         breakdownEl.className = 'total-breakdown';
-        summaryContainer.insertBefore(breakdownEl, summaryContainer.querySelector('.cart-total'));
+        summaryContainer.insertBefore(breakdownEl, summaryContainer.querySelector('.cart-total-final'));
       }
 
-      if (additionalTotal > 0) {
+      const serviceCharge = cart.getServiceCharge();
+
+      // Show breakdown if there are additional items OR if there is a service charge
+      // OR if we just want to be explicit about the buffet total when multiple people
+      if (additionalTotal > 0 || serviceCharge > 0 || buffetQuantity > 1) {
         breakdownEl.innerHTML = `
           <div class="breakdown-item">
             <span>Buffet ${buffetMode.category.name} (${buffetQuantity} ${buffetQuantity === 1 ? 'persona' : 'persone'})</span>
             <span>€${buffetTotal.toFixed(2).replace('.', ',')}</span>
           </div>
-          <div class="breakdown-item">
-            <span>Articoli aggiuntivi</span>
-            <span>€${additionalTotal.toFixed(2).replace('.', ',')}</span>
-          </div>
+          ${serviceCharge > 0 ? `
+            <div class="breakdown-item ServiceChargeRow">
+              <span>Copperto servizio (${buffetQuantity - 1} ${buffetQuantity - 1 === 1 ? 'persona' : 'persone'} agg.)</span>
+              <span>€${serviceCharge.toFixed(2).replace('.', ',')}</span>
+            </div>
+          ` : ''}
+          ${additionalTotal > 0 ? `
+            <div class="breakdown-item">
+              <span>Articoli aggiuntivi</span>
+              <span>€${additionalTotal.toFixed(2).replace('.', ',')}</span>
+            </div>
+          ` : ''}
           <div class="breakdown-divider"></div>
         `;
       } else {
@@ -325,6 +339,10 @@ export class CartPage {
       // Add buffet quantity if in buffet mode
       if (buffetMode.isBuffet && buffetMode.category) {
         orderData.buffetQuantity = buffetQuantity;
+        const serviceCharge = cart.getServiceCharge();
+        if (serviceCharge > 0) {
+          orderData.serviceCharge = serviceCharge;
+        }
       }
 
       console.log('📤 SENDING ORDER:', orderData);

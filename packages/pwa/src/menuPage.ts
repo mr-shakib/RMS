@@ -374,12 +374,23 @@ export class MenuPage {
           </div>
         </div>
 
-        ${this.isBuffetMode ? `
-          <div class="menu-banner">
-            <div class="menu-banner-title">🎄 ${displayBuffetName} 🎄</div>
-            <div class="menu-banner-subtitle">Tutto quello che puoi mangiare per €${this.buffetPrice.toFixed(2).replace('.', ',')} 🎅</div>
-          </div>
-        ` : ''}
+        ${this.isBuffetMode ? (() => {
+        const quantity = parseInt(sessionStorage.getItem('buffetQuantity') || '1');
+        const totalBuffetPrice = (this.buffetPrice * quantity);
+        // Calculate service charge: (quantity - 1) * 1.00
+        const serviceCharge = quantity > 1 ? (quantity - 1) * 1.0 : 0;
+        const total = totalBuffetPrice + serviceCharge;
+
+        return `
+            <div class="menu-banner">
+              <div class="menu-banner-title">🎄 ${displayBuffetName} 🎄</div>
+              <div class="menu-banner-subtitle">
+                ${quantity} ${quantity === 1 ? 'persona' : 'persone'} - Totale: €${total.toFixed(2).replace('.', ',')} 
+                ${serviceCharge > 0 ? `<span style="font-size:0.8em; display:block; margin-top:4px">(incluso servizio)</span>` : ''}
+              </div>
+            </div>
+          `;
+      })() : ''}
 
         <div class="menu-search">
           <input

@@ -57,8 +57,13 @@
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .snow-canvas {
@@ -261,8 +266,13 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-overlay {
@@ -294,6 +304,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -673,7 +684,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-bottom: 80px; /* Space for fixed cart bar */
+  padding-bottom: 80px;
+  /* Space for fixed cart bar */
   height: 100vh;
   overflow: hidden;
 }
@@ -985,6 +997,7 @@ body {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -1113,7 +1126,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-state {
@@ -1169,6 +1184,7 @@ body {
     transform: translateX(400px);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -1828,10 +1844,13 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 4px 12px rgba(201, 169, 97, 0.4);
   }
+
   50% {
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(201, 169, 97, 0.6);
@@ -1860,7 +1879,7 @@ body {
   z-index: 0;
 }
 
-.progress-step.active + .progress-step-line {
+.progress-step.active+.progress-step-line {
   background: var(--accent);
 }
 
@@ -2117,6 +2136,7 @@ body {
 
 /* ===== RESPONSIVE (Cart & Status) ===== */
 @media (max-width: 768px) {
+
   .cart-container,
   .status-container {
     padding: 1rem;
@@ -2184,6 +2204,7 @@ body {
 }
 
 @media (max-width: 480px) {
+
   .cart-section,
   .cart-item {
     padding: 1rem;
@@ -2237,7 +2258,6 @@ body {
   .modal-icon {
     width: 64px;
     height: 64px;
-    font-size: 2.5rem;
   }
 
   .modal-title {
@@ -2247,4 +2267,21 @@ body {
   .modal-order-number {
     font-size: 1.125rem;
   }
+}
+
+.buffet-quantity-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.buffet-total-preview {
+  margin-top: 5px;
+  font-weight: bold;
+  color: #bfa15f;
+  /* Gold-ish that is readable */
+  font-size: 1.1em;
+  text-align: center;
 }
